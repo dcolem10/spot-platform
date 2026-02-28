@@ -33,6 +33,16 @@ const respond = (statusCode, body) => ({
 const sanitize = (s, max = 500) =>
   typeof s === 'string' ? s.trim().slice(0, max) : '';
 
+const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK']);
+const stripDdbKeys = (item) => {
+  const clean = {};
+  for (const [k, v] of Object.entries(item)) {
+    if (!DDB_KEYS.has(k)) clean[k] = v;
+  }
+  return clean;
+};
+const stripAll = (items) => items.map(stripDdbKeys);
+
 const isValidId = (id) =>
   typeof id === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(id);
 
@@ -91,11 +101,7 @@ async function listRestaurants(event) {
     );
   }
 
-  const response = { restaurants: items };
-  if (result.LastEvaluatedKey) {
-    response.lastEvaluatedKey = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64');
-  }
-  return respond(200, response);
+  return respond(200, stripAll(items));
 }
 
 async function getRestaurant(restaurantId) {
@@ -107,7 +113,7 @@ async function getRestaurant(restaurantId) {
     })
   );
   if (!result.Item) return respond(404, { error: 'Not found' });
-  return respond(200, result.Item);
+  return respond(200, stripDdbKeys(result.Item));
 }
 
 async function createRestaurant(event) {
@@ -214,11 +220,7 @@ async function listCampaigns(event) {
 
   const result = await ddb.send(new QueryCommand(queryParams));
 
-  const response = { campaigns: result.Items || [] };
-  if (result.LastEvaluatedKey) {
-    response.lastEvaluatedKey = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64');
-  }
-  return respond(200, response);
+  return respond(200, stripAll(result.Items || []));
 }
 
 async function createCampaign(event) {
@@ -455,7 +457,7 @@ async function listSaves(event) {
       },
     })
   );
-  return respond(200, { saves: result.Items || [] });
+  return respond(200, stripAll(result.Items || []));
 }
 
 // ─── SpotOps Pipeline ─────────────────────────────────────────────────────────
@@ -505,7 +507,7 @@ async function listOffers(event) {
     })
   );
 
-  return respond(200, { offers: result.Items || [] });
+  return respond(200, stripAll(result.Items || []));
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
@@ -523,7 +525,7 @@ async function listReports(event) {
     })
   );
 
-  return respond(200, { reports: result.Items || [] });
+  return respond(200, stripAll(result.Items || []));
 }
 
 // ─── Insider Deals ───────────────────────────────────────────────────────────
@@ -538,7 +540,7 @@ async function listDeals() {
     })
   );
 
-  return respond(200, result.Items || []);
+  return respond(200, stripAll(result.Items || []));
 }
 
 async function redeemDeal(dealId, event) {
