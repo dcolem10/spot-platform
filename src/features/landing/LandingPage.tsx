@@ -101,18 +101,36 @@ function MiniPipeline() {
     <div className="mini-pipeline">
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Lead</div>
-        <div className="mini-pipeline-item mini-pipeline-item--blue" style={{ '--item-idx': 0 } as React.CSSProperties} />
-        <div className="mini-pipeline-item mini-pipeline-item--blue" style={{ '--item-idx': 1 } as React.CSSProperties} />
+        <div className="mini-pipeline-item mini-pipeline-item--blue">
+          <span className="mini-pipeline-name">Rasika</span>
+          <span className="mini-pipeline-value">$1,200</span>
+        </div>
+        <div className="mini-pipeline-item mini-pipeline-item--blue">
+          <span className="mini-pipeline-name">Tail Up Goat</span>
+          <span className="mini-pipeline-value">$800</span>
+        </div>
       </div>
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Active</div>
-        <div className="mini-pipeline-item mini-pipeline-item--green" style={{ '--item-idx': 2 } as React.CSSProperties} />
-        <div className="mini-pipeline-item mini-pipeline-item--green" style={{ '--item-idx': 3 } as React.CSSProperties} />
-        <div className="mini-pipeline-item mini-pipeline-item--green" style={{ '--item-idx': 4 } as React.CSSProperties} />
+        <div className="mini-pipeline-item mini-pipeline-item--green">
+          <span className="mini-pipeline-name">Bad Saint</span>
+          <span className="mini-pipeline-value">$2,500</span>
+        </div>
+        <div className="mini-pipeline-item mini-pipeline-item--green">
+          <span className="mini-pipeline-name">Rose&rsquo;s Luxury</span>
+          <span className="mini-pipeline-value">$1,800</span>
+        </div>
+        <div className="mini-pipeline-item mini-pipeline-item--green">
+          <span className="mini-pipeline-name">Maydan</span>
+          <span className="mini-pipeline-value">$3,000</span>
+        </div>
       </div>
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Complete</div>
-        <div className="mini-pipeline-item mini-pipeline-item--orange" style={{ '--item-idx': 5 } as React.CSSProperties} />
+        <div className="mini-pipeline-item mini-pipeline-item--orange">
+          <span className="mini-pipeline-name">Le Dip</span>
+          <span className="mini-pipeline-value">$1,500</span>
+        </div>
       </div>
     </div>
   );
@@ -374,7 +392,7 @@ export default function LandingPage() {
         </div>
 
         <div className="landing-bento reveal-stagger">
-          {/* Partnership Pipeline — hero card with animated gradient border */}
+          {/* Partnership Pipeline — primary feature card */}
           <BentoCard className="bento-card--large bento-card--hero bento-card--glow-orange">
             <h3>Partnership Pipeline &amp; CRM</h3>
             <p>

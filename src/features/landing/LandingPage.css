@@ -104,9 +104,9 @@
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    500px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    color-mix(in srgb, var(--card-glow) 6%, transparent),
-    transparent 60%
+    400px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    color-mix(in srgb, var(--card-glow) 12%, transparent),
+    transparent 50%
   );
   border-radius: inherit;
   opacity: 0;
@@ -156,38 +156,14 @@
 .bento-card--glow-green  { --card-glow: var(--color-success); }
 .bento-card--glow-purple { --card-glow: #a855f7; }
 
-/* ─── Animated Gradient Border — Hero Card ────────────────────────────────── */
-
-@property --border-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
+/* ─── Hero Card — Accent border, not animated rainbow ─────────────────────── */
 
 .bento-card--hero {
-  border: 2px solid transparent;
-  background:
-    linear-gradient(var(--color-bgSecondary), var(--color-bgSecondary)) padding-box,
-    conic-gradient(
-      from var(--border-angle),
-      var(--color-accent),
-      var(--color-info),
-      #a855f7,
-      var(--color-accent)
-    ) border-box;
-  animation: borderRotate 6s linear infinite;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
 }
 
-.bento-card--hero h3 {
-  background: linear-gradient(135deg, var(--color-textPrimary) 0%, var(--color-accent) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-size: var(--font-xl);
-}
-
-@keyframes borderRotate {
-  to { --border-angle: 360deg; }
+.bento-card--hero:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
 }
 
 /* Grid placement */
@@ -221,46 +197,30 @@
 }
 
 .mini-pipeline-item {
-  height: 32px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--color-bgElevated);
   border-left: 3px solid var(--color-accent);
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.mini-pipeline-name {
+  font-size: var(--font-xs);
+  color: var(--color-textPrimary);
+  font-weight: 500;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Text placeholder bar inside card */
-.mini-pipeline-item::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 10px;
-  transform: translateY(-50%);
-  width: 55%;
-  height: 6px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--color-textMuted) 20%, transparent);
-}
-
-/* Shimmer sweep animation */
-.mini-pipeline-item::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--color-textPrimary) 5%, transparent) 50%,
-    transparent 100%
-  );
-  transform: translateX(-100%);
-  animation: shimmer 3s ease-in-out infinite;
-  animation-delay: calc(var(--item-idx, 0) * 0.4s);
-}
-
-@keyframes shimmer {
-  0%, 100% { transform: translateX(-100%); }
-  50% { transform: translateX(100%); }
+.mini-pipeline-value {
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .mini-pipeline-item--green  { border-left-color: var(--color-success); }
