@@ -398,7 +398,7 @@ export function DealsHub() {
                 Unlock all Insider deals
               </p>
               <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                Members save an average of $40/month with exclusive restaurant offers.
+                Get access to members-only discounts at partner restaurants.
               </p>
             </div>
           </div>

@@ -1,5 +1,5 @@
-import { Suspense } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Suspense, useState } from 'react';
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { isDemoMode } from '../data/demoData';
@@ -60,7 +60,18 @@ const partnerNav: { group: string; items: NavItem[] }[] = [
   },
 ];
 
-const mobileNavItems: NavItem[] = [
+const audienceNav: { group: string; items: NavItem[] }[] = [
+  {
+    group: 'Explore',
+    items: [
+      { to: '/app/discover', label: 'Restaurants', icon: '\uD83D\uDD0D' },
+      { to: '/app/deals', label: 'Deals', icon: '\u2B50' },
+      { to: '/app/saved', label: 'Saved', icon: '\uD83D\uDD16' },
+    ],
+  },
+];
+
+const creatorMobileNavItems: NavItem[] = [
   { to: '/app/dashboard', label: 'Home', icon: '\u2302' },
   { to: '/app/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
   { to: '/app/discover', label: 'Discover', icon: '\uD83D\uDD0D' },
@@ -68,12 +79,24 @@ const mobileNavItems: NavItem[] = [
   { to: '/app/offers', label: 'Offers', icon: '\uD83C\uDF9F' },
 ];
 
+const audienceMobileNavItems: NavItem[] = [
+  { to: '/app/discover', label: 'Discover', icon: '\uD83D\uDD0D' },
+  { to: '/app/deals', label: 'Deals', icon: '\u2B50' },
+  { to: '/app/saved', label: 'Saved', icon: '\uD83D\uDD16' },
+];
+
+const CONSUMER_PATHS = ['/app/discover', '/app/deals', '/app/saved'];
+
 export default function DashboardShell() {
   const { name, role, email } = useAuth();
   const location = useLocation();
-  const nav = role === 'partner' ? partnerNav : creatorNav;
-  const displayName = name || (isDemoMode ? 'DC Spot' : null);
-  const displayRole = role || (isDemoMode ? 'creator' : 'viewer');
+  const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
+
+  const isConsumerPath = CONSUMER_PATHS.some((p) => location.pathname.startsWith(p));
+  const effectiveRole = isConsumerPath ? 'audience' : (role || (isDemoMode ? 'creator' : 'viewer'));
+  const nav = effectiveRole === 'partner' ? partnerNav : effectiveRole === 'audience' ? audienceNav : creatorNav;
+  const displayName = name || (isDemoMode ? (isConsumerPath ? 'Foodie' : 'DC Spot') : null);
+  const displayRole = effectiveRole;
   const initials = displayName ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
 
   return (
@@ -104,6 +127,19 @@ export default function DashboardShell() {
           ))}
         </nav>
 
+        {isDemoMode && (
+          <div style={{ padding: '0 var(--space-3) var(--space-3)' }}>
+            <NavLink
+              to={isConsumerPath ? '/app/dashboard' : '/app/discover'}
+              className="sidebar-link"
+              style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}
+            >
+              <span className="sidebar-link-icon">{isConsumerPath ? '\u{1F4BC}' : '\uD83D\uDD0D'}</span>
+              {isConsumerPath ? 'Switch to Creator' : 'Switch to Foodie'}
+            </NavLink>
+          </div>
+        )}
+
         <div className="sidebar-user">
           <div className="sidebar-user-avatar">{initials}</div>
           <div className="sidebar-user-info">
@@ -114,6 +150,37 @@ export default function DashboardShell() {
       </aside>
 
       <main className="dashboard-main">
+        {isDemoMode && !demoBannerDismissed && (
+          <div className="demo-banner">
+            <span>
+              <strong>Demo Mode</strong> &mdash; You&rsquo;re viewing example data.{' '}
+              {isConsumerPath ? (
+                <Link to="/app/dashboard" style={{ color: 'inherit', fontWeight: 600 }}>
+                  Switch to Creator View &rarr;
+                </Link>
+              ) : (
+                <Link to="/app/discover" style={{ color: 'inherit', fontWeight: 600 }}>
+                  Switch to Foodie View &rarr;
+                </Link>
+              )}
+            </span>
+            <button
+              onClick={() => setDemoBannerDismissed(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'inherit',
+                fontSize: 'var(--font-base)',
+                cursor: 'pointer',
+                padding: 'var(--space-1)',
+                opacity: 0.7,
+              }}
+              aria-label="Dismiss demo banner"
+            >
+              &times;
+            </button>
+          </div>
+        )}
         <Suspense
           fallback={
             <div style={{ padding: 'var(--space-6)' }}>
@@ -130,7 +197,7 @@ export default function DashboardShell() {
 
       <nav className="mobile-nav">
         <div className="mobile-nav-items">
-          {mobileNavItems.map((item) => (
+          {(isConsumerPath ? audienceMobileNavItems : creatorMobileNavItems).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

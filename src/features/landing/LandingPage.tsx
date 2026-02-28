@@ -93,7 +93,7 @@ export default function LandingPage() {
           className="btn btn-primary"
           style={{ fontSize: 'var(--font-sm)', padding: '8px 24px' }}
         >
-          Try the Demo
+          Creator Demo
         </Link>
       </header>
 
@@ -137,19 +137,19 @@ export default function LandingPage() {
             className="btn btn-primary"
             style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
           >
-            Try the Demo
+            I&rsquo;m a Creator
           </Link>
-          <a
-            href="#pricing"
+          <Link
+            to="/app/discover"
             className="btn btn-secondary"
             style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
           >
-            View Pricing
-          </a>
+            Explore Restaurants
+          </Link>
         </div>
       </section>
 
-      {/* Social Proof Row */}
+      {/* Value Props Row */}
       <section
         style={{
           background: 'var(--color-bgSecondary)',
@@ -169,29 +169,27 @@ export default function LandingPage() {
           }}
         >
           {[
-            { value: '393K+', label: 'Followers managed' },
-            { value: '18', label: 'Restaurant partners' },
-            { value: '$31.5K', label: 'Campaign pipeline' },
-            { value: '10', label: 'Active partnerships' },
-          ].map((stat) => (
-            <div key={stat.label}>
+            { icon: '\u{1F4BC}', label: 'Partnership pipeline & CRM' },
+            { icon: '\u{1F4CA}', label: 'Auto-generated ROI reports' },
+            { icon: '\u{1F4F1}', label: 'QR codes & offer tracking' },
+            { icon: '\u{1F37D}', label: 'Audience discovery app' },
+          ].map((item) => (
+            <div key={item.label}>
               <div
                 style={{
-                  fontSize: 'var(--font-3xl)',
-                  fontWeight: 700,
-                  color: 'var(--color-accent)',
+                  fontSize: 'var(--font-2xl)',
+                  marginBottom: 'var(--space-2)',
                 }}
               >
-                {stat.value}
+                {item.icon}
               </div>
               <div
                 style={{
                   fontSize: 'var(--font-sm)',
                   color: 'var(--color-textSecondary)',
-                  marginTop: 'var(--space-1)',
                 }}
               >
-                {stat.label}
+                {item.label}
               </div>
             </div>
           ))}
@@ -271,6 +269,89 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* For Foodies */}
+      <section
+        style={{
+          background: 'var(--color-bgSecondary)',
+          borderTop: '1px solid var(--color-border)',
+          padding: 'var(--space-12) var(--space-6)',
+        }}
+      >
+        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
+          <h2
+            style={{
+              fontSize: 'var(--font-2xl)',
+              fontWeight: 700,
+              marginBottom: 'var(--space-3)',
+            }}
+          >
+            Follow your favorite food creators? This is for you.
+          </h2>
+          <p
+            style={{
+              color: 'var(--color-textSecondary)',
+              fontSize: 'var(--font-base)',
+              marginBottom: 'var(--space-8)',
+              maxWidth: 500,
+              margin: '0 auto var(--space-8)',
+              lineHeight: 1.7,
+            }}
+          >
+            Discover curated restaurant picks, save your favorites, and unlock exclusive deals
+            &mdash; all powered by the creators you trust.
+          </p>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 'var(--space-5)',
+              marginBottom: 'var(--space-8)',
+            }}
+          >
+            {[
+              { icon: '\u{1F50D}', title: 'Discover', desc: 'Browse curated restaurants with filters for cuisine, vibe, and neighborhood' },
+              { icon: '\u{2B50}', title: 'Deals', desc: 'Exclusive discounts and offers from partner restaurants' },
+              { icon: '\u{1F516}', title: 'Save Lists', desc: 'Organize your favorites by occasion &mdash; date night, brunch, group dinners' },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="card"
+                style={{ padding: 'var(--space-5)', textAlign: 'left' }}
+              >
+                <span style={{ fontSize: 'var(--font-2xl)' }}>{item.icon}</span>
+                <h3
+                  style={{
+                    fontSize: 'var(--font-base)',
+                    fontWeight: 600,
+                    color: 'var(--color-textPrimary)',
+                    margin: 'var(--space-3) 0 var(--space-2)',
+                  }}
+                >
+                  {item.title}
+                </h3>
+                <p
+                  style={{
+                    fontSize: 'var(--font-sm)',
+                    color: 'var(--color-textSecondary)',
+                    lineHeight: 1.6,
+                  }}
+                  dangerouslySetInnerHTML={{ __html: item.desc }}
+                />
+              </div>
+            ))}
+          </div>
+
+          <Link
+            to="/app/discover"
+            className="btn btn-primary"
+            style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
+          >
+            Explore Restaurants
+          </Link>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section
         id="pricing"
@@ -332,7 +413,7 @@ export default function LandingPage() {
                     transform: 'translateX(-50%)',
                   }}
                 >
-                  Most Popular
+                  Recommended
                 </span>
               )}
               <h3
@@ -402,7 +483,7 @@ export default function LandingPage() {
                 className={`btn ${tier.highlighted ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ width: '100%', textAlign: 'center', display: 'block' }}
               >
-                Try the Demo
+                Try Creator Demo
               </Link>
             </div>
           ))}
