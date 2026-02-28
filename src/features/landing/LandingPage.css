@@ -1,0 +1,599 @@
+/* ─── Landing Page ─────────────────────────────────────────────────────────── */
+
+/* ─── Scroll Reveal ───────────────────────────────────────────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-stagger.visible > *:nth-child(1) { transition-delay: 0ms; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(2) { transition-delay: 100ms; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(3) { transition-delay: 200ms; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(4) { transition-delay: 300ms; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(5) { transition-delay: 400ms; opacity: 1; transform: translateY(0); }
+
+/* ─── Hero ─────────────────────────────────────────────────────────────────── */
+
+.landing-hero {
+  position: relative;
+  text-align: center;
+  padding: var(--space-12) var(--space-6) var(--space-10);
+  max-width: 850px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--color-accentMuted) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Bento Grid ──────────────────────────────────────────────────────────── */
+
+.landing-bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-5);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ─── Bento Card — Premium Surface ────────────────────────────────────────── */
+
+.bento-card {
+  --card-glow: var(--color-accent);
+  position: relative;
+  background: var(--color-bgSecondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  overflow: hidden;
+  transition: border-color 0.2s ease,
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Atmospheric radial glow per card */
+.bento-card::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  right: -30%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--card-glow) 8%, transparent) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.4s ease;
+  opacity: 0.5;
+}
+
+/* Mouse-tracking spotlight overlay */
+.bento-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    500px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    color-mix(in srgb, var(--card-glow) 6%, transparent),
+    transparent 60%
+  );
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bento-card:hover::before {
+  opacity: 1;
+}
+
+.bento-card:hover::after {
+  opacity: 1;
+}
+
+.bento-card:hover {
+  border-color: color-mix(in srgb, var(--card-glow) 35%, var(--color-border));
+  transform: translateY(-4px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Content above pseudo layers */
+.bento-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.bento-card h3 {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--color-textPrimary);
+  margin-bottom: var(--space-2);
+}
+
+.bento-card p {
+  font-size: var(--font-sm);
+  color: var(--color-textSecondary);
+  line-height: 1.6;
+}
+
+/* Glow color variants */
+.bento-card--glow-orange { --card-glow: var(--color-accent); }
+.bento-card--glow-blue   { --card-glow: var(--color-info); }
+.bento-card--glow-green  { --card-glow: var(--color-success); }
+.bento-card--glow-purple { --card-glow: #a855f7; }
+
+/* ─── Animated Gradient Border — Hero Card ────────────────────────────────── */
+
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.bento-card--hero {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--color-bgSecondary), var(--color-bgSecondary)) padding-box,
+    conic-gradient(
+      from var(--border-angle),
+      var(--color-accent),
+      var(--color-info),
+      #a855f7,
+      var(--color-accent)
+    ) border-box;
+  animation: borderRotate 6s linear infinite;
+}
+
+.bento-card--hero h3 {
+  background: linear-gradient(135deg, var(--color-textPrimary) 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: var(--font-xl);
+}
+
+@keyframes borderRotate {
+  to { --border-angle: 360deg; }
+}
+
+/* Grid placement */
+.bento-card--large  { grid-column: span 7; }
+.bento-card--medium { grid-column: span 5; }
+.bento-card--third  { grid-column: span 4; }
+
+/* ─── Mini Pipeline ───────────────────────────────────────────────────────── */
+
+.mini-pipeline {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  position: relative;
+}
+
+.mini-pipeline-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mini-pipeline-label {
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-1);
+}
+
+.mini-pipeline-item {
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bgElevated);
+  border-left: 3px solid var(--color-accent);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Text placeholder bar inside card */
+.mini-pipeline-item::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  width: 55%;
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-textMuted) 20%, transparent);
+}
+
+/* Shimmer sweep animation */
+.mini-pipeline-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--color-textPrimary) 5%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 3s ease-in-out infinite;
+  animation-delay: calc(var(--item-idx, 0) * 0.4s);
+}
+
+@keyframes shimmer {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+.mini-pipeline-item--green  { border-left-color: var(--color-success); }
+.mini-pipeline-item--blue   { border-left-color: var(--color-info); }
+.mini-pipeline-item--orange { border-left-color: var(--color-accent); }
+
+/* ─── Mini SVG Chart ──────────────────────────────────────────────────────── */
+
+.mini-chart-svg {
+  width: 100%;
+  height: 90px;
+  margin-top: var(--space-5);
+  display: block;
+}
+
+.mini-chart-svg rect {
+  transform-origin: bottom;
+  transform: scaleY(0);
+}
+
+.reveal-stagger.visible .mini-chart-svg rect {
+  animation: barGrow 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--bar-i) * 70ms);
+}
+
+@keyframes barGrow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* ─── Mini Calendar ───────────────────────────────────────────────────────── */
+
+.mini-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin-top: var(--space-5);
+}
+
+.mini-cal-day {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--color-bgElevated);
+  font-size: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-textMuted);
+  transition: transform 0.2s ease;
+}
+
+.mini-cal-day--filled {
+  background: var(--color-accentMuted);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.mini-cal-day--active {
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+/* ─── Mini Photos ─────────────────────────────────────────────────────────── */
+
+.mini-photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: var(--space-5);
+}
+
+.mini-photo {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.mini-photo-badge {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  font-size: 7px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ─── Mini QR + Stats ─────────────────────────────────────────────────────── */
+
+.mini-qr-offer-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  margin-top: var(--space-5);
+}
+
+.mini-qr {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.mini-qr-dot {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--color-textMuted);
+  transition: background 0.3s ease;
+}
+.mini-qr-dot--empty   { background: transparent; }
+.mini-qr-dot--accent  { background: var(--color-accent); }
+.mini-qr-dot--bright  { background: var(--color-textPrimary); }
+
+.mini-offer-stats {
+  display: flex;
+  gap: var(--space-5);
+}
+
+.mini-offer-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mini-offer-stat-value {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-offer-stat-label {
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+}
+
+/* ─── Foodie Bento ────────────────────────────────────────────────────────── */
+
+.mini-restaurant-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.mini-restaurant-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bgElevated);
+  transition: background 0.2s ease;
+}
+
+.bento-card:hover .mini-restaurant-row {
+  background: var(--color-bgHover);
+}
+
+.mini-restaurant-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.mini-restaurant-name {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--color-textPrimary);
+}
+
+.mini-restaurant-meta {
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+  margin-left: auto;
+}
+
+.mini-deal-card {
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-bgElevated);
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 40%, transparent);
+  margin-top: var(--space-4);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Accent glow on deal card */
+.mini-deal-card::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.mini-deal-pct {
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  color: var(--color-accent);
+  line-height: 1;
+  position: relative;
+}
+
+.mini-deal-name {
+  font-size: var(--font-sm);
+  color: var(--color-textSecondary);
+  margin-top: var(--space-1);
+  position: relative;
+}
+
+.mini-deal-code {
+  display: inline-block;
+  margin-top: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-accentMuted);
+  color: var(--color-accent);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  position: relative;
+}
+
+/* ─── Save List Tags ──────────────────────────────────────────────────────── */
+
+.save-tags {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ─── Pricing ──────────────────────────────────────────────────────────────── */
+
+.pricing-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-6);
+}
+
+.pricing-card {
+  padding: var(--space-8);
+  position: relative;
+}
+
+.pricing-card--highlighted {
+  border: 2px solid var(--color-accent);
+}
+
+/* ─── Section Layout ──────────────────────────────────────────────────────── */
+
+.landing-section {
+  padding: var(--space-12) var(--space-6);
+}
+
+.landing-section--alt {
+  background: var(--color-bgSecondary);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.landing-section-header {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto var(--space-10);
+}
+
+.landing-section-header h2 {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.landing-section-header p {
+  color: var(--color-textSecondary);
+  font-size: var(--font-base);
+  line-height: 1.7;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .landing-bento {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .bento-card--large,
+  .bento-card--medium {
+    grid-column: 1 / -1;
+  }
+  .bento-card--third {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-bento {
+    grid-template-columns: 1fr;
+  }
+  .bento-card--large,
+  .bento-card--medium,
+  .bento-card--third {
+    grid-column: 1 / -1;
+  }
+  .landing-hero {
+    padding: var(--space-8) var(--space-4) var(--space-6);
+  }
+  .landing-hero::before {
+    width: 400px;
+    height: 400px;
+  }
+  .mini-pipeline {
+    gap: var(--space-2);
+  }
+  .mini-qr-offer-wrap {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}
