@@ -519,24 +519,16 @@ export default function LandingPage() {
               key={tier.name}
               className={`card pricing-card${tier.highlighted ? ' pricing-card--highlighted' : ''}`}
             >
-              {tier.highlighted && (
-                <span
-                  className="badge badge--accent"
-                  style={{
-                    position: 'absolute',
-                    top: '-14px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1,
-                    boxShadow: '0 0 0 4px var(--color-bgPrimary)',
-                  }}
-                >
-                  Recommended
-                </span>
-              )}
-              <h3 style={{ fontSize: 'var(--font-xl)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-                {tier.name}
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+                <h3 style={{ fontSize: 'var(--font-xl)', fontWeight: 700 }}>
+                  {tier.name}
+                </h3>
+                {tier.highlighted && (
+                  <span className="badge badge--accent">
+                    Recommended
+                  </span>
+                )}
+              </div>
               <div style={{ marginBottom: 'var(--space-3)' }}>
                 <span style={{ fontSize: 'var(--font-3xl)', fontWeight: 700, color: 'var(--color-accent)' }}>
                   {tier.price}
