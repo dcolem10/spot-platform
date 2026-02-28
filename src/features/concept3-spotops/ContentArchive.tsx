@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ContentItem } from '../../types';
 import { api } from '../../services/ApiService';
+import { isDemoMode, DEMO_CONTENT } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -212,11 +213,13 @@ export default function ContentArchive() {
     setLoading(true);
     setError(null);
     const res = await api.get<ContentItem[]>('/api/spotops/content');
-    if (res.error) {
+    if (res.error && !isDemoMode) {
       setError(res.error);
     }
-    if (res.data) {
+    if (res.data && res.data.length > 0) {
       setItems(res.data);
+    } else if (isDemoMode) {
+      setItems(DEMO_CONTENT);
     }
     setLoading(false);
   }, []);

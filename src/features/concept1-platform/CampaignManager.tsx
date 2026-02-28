@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
 import type { Campaign, CampaignStatus, Deliverable } from '../../types';
 import './CampaignManager.css';
 
@@ -85,7 +86,7 @@ export default function CampaignManager() {
     },
   });
 
-  const campaigns = data ?? [];
+  const campaigns = data?.length ? data : (isDemoMode ? DEMO_CAMPAIGNS : []);
 
   const grouped = useMemo(() => {
     const map: Record<CampaignStatus, Campaign[]> = {

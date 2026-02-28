@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
 import type { CampaignReport as CampaignReportType, PostMetrics } from '../../types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -40,7 +41,7 @@ interface MetricDef {
 export default function CampaignReport() {
   const { campaignId } = useParams<{ campaignId: string }>();
 
-  const { data: report, isLoading, isError, error, refetch } = useQuery({
+  const { data: fetchedReport, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['campaign-report', campaignId],
     queryFn: async () => {
       const res = await api.get<CampaignReportType>(`/api/campaigns/${campaignId}/report`);
@@ -50,6 +51,8 @@ export default function CampaignReport() {
     },
     enabled: Boolean(campaignId),
   });
+
+  const report = fetchedReport ?? (isDemoMode ? DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null : null);
 
   const metricCards: MetricDef[] = useMemo(() => {
     if (!report) return [];

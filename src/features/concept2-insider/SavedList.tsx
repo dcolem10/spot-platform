@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { SavedRestaurant, Restaurant } from '../../types';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_SAVED, DEMO_RESTAURANTS } from '../../data/demoData';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -289,10 +290,17 @@ export function SavedList() {
 
       if (cancelled) return;
 
-      if (result.status === 'success' && result.data) {
+      if (result.status === 'success' && result.data && result.data.length > 0) {
         setSavedItems(result.data);
-      } else {
-        setError(result.error ?? 'Failed to load saved restaurants');
+      } else if (isDemoMode) {
+        // Enrich saved items with restaurant details from demo data
+        const enriched = DEMO_SAVED.map((saved) => ({
+          ...saved,
+          restaurant: DEMO_RESTAURANTS.find((r) => r.restaurantId === saved.restaurantId),
+        }));
+        setSavedItems(enriched);
+      } else if (result.error) {
+        setError(result.error);
       }
       setIsLoading(false);
     }

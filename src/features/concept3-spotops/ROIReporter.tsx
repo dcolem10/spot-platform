@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Campaign, CampaignReport, PostMetrics } from '../../types';
 import { api } from '../../services/ApiService';
+import { isDemoMode, DEMO_CAMPAIGNS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -266,17 +267,21 @@ export default function ROIReporter() {
       api.get<Campaign[]>('/api/spotops/campaigns'),
       api.get<CampaignReport[]>('/api/spotops/reports'),
     ]);
-    if (campaignRes.error) {
+    if (campaignRes.error && !isDemoMode) {
       setError(campaignRes.error);
     }
-    if (campaignRes.data) {
+    if (campaignRes.data && campaignRes.data.length > 0) {
       const completedOrActive = campaignRes.data.filter(
         (c) => c.status === 'active' || c.status === 'completed'
       );
       setCampaigns(completedOrActive);
+    } else if (isDemoMode) {
+      setCampaigns(DEMO_CAMPAIGNS.filter((c) => c.status === 'active' || c.status === 'completed'));
     }
-    if (reportsRes.data) {
+    if (reportsRes.data && reportsRes.data.length > 0) {
       setAllReports(reportsRes.data);
+    } else if (isDemoMode) {
+      setAllReports(DEMO_CAMPAIGN_REPORTS);
     }
     setLoading(false);
   }, []);
@@ -291,6 +296,9 @@ export default function ROIReporter() {
     const res = await api.get<CampaignReport>(`/api/spotops/reports/${campaignId}`);
     if (res.data) {
       setReport(res.data);
+    } else if (isDemoMode) {
+      const demoReport = DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null;
+      setReport(demoReport);
     } else {
       setError(res.error || 'Failed to load report');
     }

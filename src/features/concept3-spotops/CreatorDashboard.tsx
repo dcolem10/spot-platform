@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type {
   Campaign,
   CampaignStatus,
   PartnershipPipeline,
 } from '../../types';
 import { api } from '../../services/ApiService';
+import { isDemoMode, DEMO_PIPELINE, DEMO_CAMPAIGNS } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -200,10 +202,22 @@ const styles = {
 /* ─── Component ────────────────────────────────────────────────────────────── */
 
 export default function CreatorDashboard() {
+  const navigate = useNavigate();
   const [pipeline, setPipeline] = useState<PartnershipPipeline | null>(null);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const deriveActivity = (campaigns: Campaign[]): ActivityEvent[] =>
+    campaigns
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 5)
+      .map((c) => ({
+        id: c.campaignId,
+        message: `${c.restaurantName} - ${c.status === 'active' ? 'campaign started' : c.status === 'completed' ? 'campaign completed' : c.status === 'negotiation' ? 'entered negotiation' : 'new inquiry'}`,
+        timestamp: c.updatedAt,
+        type: 'campaign' as const,
+      }));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -215,26 +229,25 @@ export default function CreatorDashboard() {
     ]);
 
     if (pipelineRes.error || campaignsRes.error) {
+      if (isDemoMode) {
+        setPipeline(DEMO_PIPELINE);
+        setActivity(deriveActivity([...DEMO_CAMPAIGNS]));
+        setLoading(false);
+        return;
+      }
       setError(pipelineRes.error || campaignsRes.error || 'Failed to load dashboard data');
     }
 
     if (pipelineRes.data) {
       setPipeline(pipelineRes.data);
+    } else if (isDemoMode) {
+      setPipeline(DEMO_PIPELINE);
     }
 
-    if (campaignsRes.data) {
-      // Derive activity from recent campaign events
-      const campaigns = campaignsRes.data;
-      const events: ActivityEvent[] = campaigns
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, 5)
-        .map((c) => ({
-          id: c.campaignId,
-          message: `${c.restaurantName} - ${c.status === 'active' ? 'campaign started' : c.status === 'completed' ? 'campaign completed' : c.status === 'negotiation' ? 'entered negotiation' : 'new inquiry'}`,
-          timestamp: c.updatedAt,
-          type: 'campaign' as const,
-        }));
-      setActivity(events);
+    if (campaignsRes.data && campaignsRes.data.length > 0) {
+      setActivity(deriveActivity(campaignsRes.data));
+    } else if (isDemoMode) {
+      setActivity(deriveActivity([...DEMO_CAMPAIGNS]));
     }
 
     setLoading(false);
@@ -267,33 +280,25 @@ export default function CreatorDashboard() {
       label: 'New Campaign',
       icon: '+',
       description: 'Start a new partnership',
-      onClick: () => {
-        /* navigate to new campaign */
-      },
+      onClick: () => navigate('/app/campaigns'),
     },
     {
       label: 'Generate Report',
       icon: '\u{1F4CA}',
       description: 'Create performance report',
-      onClick: () => {
-        /* navigate to reports */
-      },
+      onClick: () => navigate('/app/reports'),
     },
     {
       label: 'View Calendar',
       icon: '\u{1F4C5}',
       description: 'Check content schedule',
-      onClick: () => {
-        /* navigate to calendar */
-      },
+      onClick: () => navigate('/app/calendar'),
     },
     {
       label: 'Manage Offers',
       icon: '\u{1F3AB}',
       description: 'QR codes & promo links',
-      onClick: () => {
-        /* navigate to offers */
-      },
+      onClick: () => navigate('/app/offers'),
     },
   ];
 

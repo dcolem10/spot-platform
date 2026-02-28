@@ -12,19 +12,19 @@ const DashboardShell = lazy(() => import('./layouts/DashboardShell'));
 // Landing
 const LandingPage = lazy(() => import('./features/landing/LandingPage'));
 
-// Concept 1: Platform
+// Partnerships & Restaurants
 const RestaurantDirectory = lazy(() => import('./features/concept1-platform/RestaurantDirectory'));
 const CampaignManager = lazy(() => import('./features/concept1-platform/CampaignManager'));
 const PartnerPortal = lazy(() => import('./features/concept1-platform/PartnerPortal'));
 const OfferManager = lazy(() => import('./features/concept1-platform/OfferManager'));
 const CampaignReport = lazy(() => import('./features/concept1-platform/CampaignReport'));
 
-// Concept 2: Insider
+// Audience & Discovery
 const DiscoverApp = lazy(() => import('./features/concept2-insider/DiscoverApp'));
 const SavedList = lazy(() => import('./features/concept2-insider/SavedList'));
 const DealsHub = lazy(() => import('./features/concept2-insider/DealsHub'));
 
-// Concept 3: SpotOps
+// Creator Tools
 const CreatorDashboard = lazy(() => import('./features/concept3-spotops/CreatorDashboard'));
 const PartnershipCRM = lazy(() => import('./features/concept3-spotops/PartnershipCRM'));
 const ContentArchive = lazy(() => import('./features/concept3-spotops/ContentArchive'));
@@ -64,32 +64,32 @@ export default function App() {
 
               {/* Dashboard routes */}
               <Route path="/app" element={<RequireAuth><DashboardShell /></RequireAuth>}>
-                {/* Concept 3: SpotOps — Creator Dashboard (default) */}
+                {/* Dashboard */}
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<CreatorDashboard />} />
 
-                {/* Concept 1: Platform — Restaurant Discovery + Partnerships */}
+                {/* Partnerships & Restaurants */}
                 <Route path="restaurants" element={<RestaurantDirectory />} />
                 <Route path="restaurants/:id" element={<RestaurantDirectory />} />
                 <Route path="campaigns" element={<CampaignManager />} />
                 <Route path="offers" element={<OfferManager />} />
                 <Route path="reports" element={<ROIReporter />} />
                 <Route path="reports/:campaignId" element={<CampaignReport />} />
+                <Route path="crm" element={<PartnershipCRM />} />
 
-                {/* Concept 1: Partner Portal */}
+                {/* Partner Portal */}
                 <Route path="partner" element={<PartnerPortal />} />
                 <Route path="partner/campaigns" element={<CampaignManager />} />
                 <Route path="partner/offers" element={<OfferManager />} />
 
-                {/* Concept 2: Insider — Audience Discovery */}
+                {/* Content */}
+                <Route path="archive" element={<ContentArchive />} />
+                <Route path="calendar" element={<EditorialCalendar />} />
+
+                {/* Audience & Discovery */}
                 <Route path="discover" element={<DiscoverApp />} />
                 <Route path="saved" element={<SavedList />} />
                 <Route path="deals" element={<DealsHub />} />
-
-                {/* Concept 3: SpotOps — Creator Tools */}
-                <Route path="crm" element={<PartnershipCRM />} />
-                <Route path="archive" element={<ContentArchive />} />
-                <Route path="calendar" element={<EditorialCalendar />} />
               </Route>
 
               {/* Catch-all */}

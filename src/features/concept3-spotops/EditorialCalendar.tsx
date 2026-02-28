@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { EditorialSlot } from '../../types';
 import { api } from '../../services/ApiService';
+import { isDemoMode, DEMO_EDITORIAL_SLOTS } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -309,11 +310,13 @@ export default function EditorialCalendar() {
     setLoading(true);
     setError(null);
     const res = await api.get<EditorialSlot[]>('/api/spotops/calendar');
-    if (res.error) {
+    if (res.error && !isDemoMode) {
       setError(res.error);
     }
-    if (res.data) {
+    if (res.data && res.data.length > 0) {
       setSlots(res.data);
+    } else if (isDemoMode) {
+      setSlots(DEMO_EDITORIAL_SLOTS);
     }
     setLoading(false);
   }, []);

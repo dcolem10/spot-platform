@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Campaign, CampaignStatus, Deliverable } from '../../types';
 import { api } from '../../services/ApiService';
+import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -248,11 +249,13 @@ export default function PartnershipCRM() {
     setLoading(true);
     setError(null);
     const res = await api.get<Campaign[]>('/api/spotops/campaigns');
-    if (res.error) {
+    if (res.error && !isDemoMode) {
       setError(res.error);
     }
-    if (res.data) {
+    if (res.data && res.data.length > 0) {
       setCampaigns(res.data);
+    } else if (isDemoMode) {
+      setCampaigns(DEMO_CAMPAIGNS);
     }
     setLoading(false);
   }, []);

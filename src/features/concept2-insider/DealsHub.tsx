@@ -4,6 +4,7 @@ import type { DealOffer, MembershipTier } from '../../types';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_DEALS } from '../../data/demoData';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -289,10 +290,12 @@ export function DealsHub() {
 
       if (cancelled) return;
 
-      if (result.status === 'success' && result.data) {
+      if (result.status === 'success' && result.data && result.data.length > 0) {
         setDeals(result.data);
-      } else {
-        setError(result.error ?? 'Failed to load deals');
+      } else if (isDemoMode) {
+        setDeals(DEMO_DEALS);
+      } else if (result.error) {
+        setError(result.error);
       }
       setIsLoading(false);
     }

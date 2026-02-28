@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_OFFERS } from '../../data/demoData';
 import type { Offer } from '../../types';
 
 function escapeHtml(str: string): string {
@@ -148,7 +149,7 @@ export default function OfferManager() {
     },
   });
 
-  const offers = data ?? [];
+  const offers = data?.length ? data : (isDemoMode ? DEMO_OFFERS : []);
   const activeOffers = offers.filter((o) => o.isActive);
   const inactiveOffers = offers.filter((o) => !o.isActive);
 

@@ -4,6 +4,7 @@ import type { Restaurant, MembershipTier } from '../../types';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_RESTAURANTS } from '../../data/demoData';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -365,10 +366,12 @@ export function DiscoverApp() {
 
       if (cancelled) return;
 
-      if (result.status === 'success' && result.data) {
+      if (result.status === 'success' && result.data && result.data.length > 0) {
         setRestaurants(result.data);
-      } else {
-        setError(result.error ?? 'Failed to load restaurants');
+      } else if (isDemoMode) {
+        setRestaurants(DEMO_RESTAURANTS);
+      } else if (result.error) {
+        setError(result.error);
       }
       setIsLoading(false);
     }

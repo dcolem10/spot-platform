@@ -1,107 +1,111 @@
 import { Link } from 'react-router-dom';
 
-const concepts = [
+const features = [
   {
-    id: 'platform',
-    title: 'Spot Platform',
-    subtitle: 'Creator-Led Restaurant Discovery + Partnership Hub',
-    who: 'Restaurants pay',
-    price: '$299–$499/mo',
-    color: '#f97316',
-    description:
-      'Turn your restaurant recommendations into a searchable, trackable platform. Restaurants get credible ROI reports, QR attribution, and a partner portal. Your audience gets a discovery app. You get a CRM that scales.',
-    features: [
-      'Searchable restaurant directory with your ratings',
-      'Campaign management & partnership CRM',
-      'QR/NFC attribution kits for partner restaurants',
-      'Auto-generated post-campaign ROI reports',
-      'Restaurant partner portal with live metrics',
-      'Audience email/SMS capture',
-    ],
-    cta: 'Explore Platform',
-    link: '/app/restaurants',
+    icon: '\u{1F91D}',
+    title: 'Partnership CRM',
+    description: 'Track every restaurant partnership from inquiry to completion. Pipeline view, deliverable tracking, budget management.',
   },
   {
-    id: 'insider',
-    title: 'Spot Insider',
-    subtitle: 'Digital Membership + Discovery App',
-    who: 'Audience pays',
-    price: '$4.99/mo',
-    color: '#8b5cf6',
-    description:
-      'Your audience wants fast answers to "where should I eat tonight?" Give them a filterable, saveable, shareable discovery app — with exclusive deals for paying members. Build an owned audience off-platform.',
-    features: [
-      'Searchable discovery with cuisine/vibe/occasion filters',
-      'Personal "want to try" lists with sharing',
-      'Exclusive deals for Insider members',
-      'AI-powered "mood match" recommendations',
-      'One-tap reserve/directions/call actions',
-      'Ad-free, algorithm-free experience',
-    ],
-    cta: 'Explore Insider',
-    link: '/app/discover',
+    icon: '\u{1F4F7}',
+    title: 'Content Archive',
+    description: 'All your posts in one place with engagement metrics. Filter by platform, performance tier, or restaurant.',
   },
   {
-    id: 'spotops',
-    title: 'SpotOps',
-    subtitle: 'SaaS for Local Food Creators',
-    who: 'Creators pay',
-    price: '$49–$149/mo',
-    color: '#06b6d4',
-    description:
-      'Every food creator with 50K+ followers has the same problem: too many inbound requests, no way to track deliverables, and restaurants asking "what was my ROI?" SpotOps solves all three.',
-    features: [
-      'Partnership CRM with pipeline tracking',
-      'Inbound request intake form (embed anywhere)',
-      'Content archive with performance metrics',
-      'Editorial calendar for content planning',
-      'Auto-generated ROI reports per campaign',
-      'Cross-platform analytics (IG + TikTok)',
-    ],
-    cta: 'Explore SpotOps',
-    link: '/app/dashboard',
+    icon: '\u{1F4C5}',
+    title: 'Editorial Calendar',
+    description: 'Plan your content schedule with a visual calendar. Sponsored, organic, and reshoot slots at a glance.',
+  },
+  {
+    icon: '\u{1F4CA}',
+    title: 'ROI Reports',
+    description: 'Auto-generated campaign reports with reach, engagement, QR attribution, and benchmark comparisons.',
+  },
+  {
+    icon: '\u{1F37D}',
+    title: 'Restaurant Directory',
+    description: 'Your curated restaurant database with ratings, neighborhoods, and partner status. Searchable by your audience.',
+  },
+  {
+    icon: '\u{1F50D}',
+    title: 'Audience Discovery',
+    description: 'Let your followers explore your picks with filters, save lists, and exclusive Insider deals.',
+  },
+];
+
+const pricingTiers = [
+  {
+    name: 'Starter',
+    price: '$49',
+    description: 'For creators just starting to monetize',
+    features: ['Up to 5 active campaigns', 'Content archive', 'Basic ROI reports', 'Restaurant directory'],
+  },
+  {
+    name: 'Pro',
+    price: '$99',
+    description: 'For creators with consistent partnerships',
+    features: ['Unlimited campaigns', 'Editorial calendar', 'Advanced ROI + benchmarks', 'QR & offer attribution', 'Audience discovery app'],
+    highlighted: true,
+  },
+  {
+    name: 'Scale',
+    price: '$149',
+    description: 'For creators building a team',
+    features: ['Everything in Pro', 'Team member access', 'White-label reports', 'API access', 'Priority support'],
   },
 ];
 
 export default function LandingPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bgPrimary)' }}>
-      {/* Hero */}
+      {/* Header */}
       <header
         style={{
-          textAlign: 'center',
-          padding: 'var(--space-12) var(--space-6)',
-          maxWidth: 800,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 'var(--space-4) var(--space-6)',
+          maxWidth: 1200,
           margin: '0 auto',
         }}
       >
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            marginBottom: 'var(--space-6)',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <div
             style={{
-              width: 48,
-              height: 48,
+              width: 36,
+              height: 36,
               borderRadius: 'var(--radius-full)',
               background: 'var(--color-accent)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
-              fontSize: 'var(--font-lg)',
+              fontSize: 'var(--font-base)',
               color: '#fff',
             }}
           >
-            SP
+            S
           </div>
-          <span style={{ fontWeight: 700, fontSize: 'var(--font-2xl)' }}>Spot Platform</span>
+          <span style={{ fontWeight: 700, fontSize: 'var(--font-lg)' }}>Spot</span>
         </div>
+        <Link
+          to="/app/dashboard"
+          className="btn btn-primary"
+          style={{ fontSize: 'var(--font-sm)', padding: '8px 24px' }}
+        >
+          Try the Demo
+        </Link>
+      </header>
 
+      {/* Hero */}
+      <section
+        style={{
+          textAlign: 'center',
+          padding: 'var(--space-12) var(--space-6) var(--space-10)',
+          maxWidth: 800,
+          margin: '0 auto',
+        }}
+      >
         <h1
           style={{
             fontSize: 'clamp(2rem, 5vw, 3.5rem)',
@@ -110,9 +114,8 @@ export default function LandingPage() {
             marginBottom: 'var(--space-5)',
           }}
         >
-          Technology for{' '}
-          <span style={{ color: 'var(--color-accent)' }}>food creators</span> who are
-          ready to scale
+          You&rsquo;re running a business on{' '}
+          <span style={{ color: 'var(--color-accent)' }}>spreadsheets and DMs</span>
         </h1>
 
         <p
@@ -124,22 +127,29 @@ export default function LandingPage() {
             lineHeight: 1.7,
           }}
         >
-          Three products. One platform. Turn your restaurant recommendations into a
-          searchable directory, your partnerships into measurable campaigns, and your audience
-          into an owned community.
+          Spot is the business OS for food creators. Track partnerships, manage content,
+          generate ROI reports, and give your audience a discovery app &mdash; all in one place.
         </p>
 
         <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/app/dashboard" className="btn btn-primary" style={{ padding: '12px 32px', fontSize: 'var(--font-base)' }}>
-            Open Dashboard
+          <Link
+            to="/app/dashboard"
+            className="btn btn-primary"
+            style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
+          >
+            Try the Demo
           </Link>
-          <a href="#concepts" className="btn btn-secondary" style={{ padding: '12px 32px', fontSize: 'var(--font-base)' }}>
-            See All Concepts
+          <a
+            href="#pricing"
+            className="btn btn-secondary"
+            style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
+          >
+            View Pricing
           </a>
         </div>
-      </header>
+      </section>
 
-      {/* Cost Summary Banner */}
+      {/* Social Proof Row */}
       <section
         style={{
           background: 'var(--color-bgSecondary)',
@@ -150,110 +160,250 @@ export default function LandingPage() {
       >
         <div
           style={{
-            maxWidth: 1000,
+            maxWidth: 900,
             margin: '0 auto',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
             gap: 'var(--space-5)',
             textAlign: 'center',
           }}
         >
           {[
-            { label: 'Infrastructure Floor', value: '~$1.50/mo', sub: 'at zero users' },
-            { label: 'With 25 Partners', value: '~$450/mo', sub: '93% gross margin' },
-            { label: 'Reuse from Networth', value: '~60%', sub: 'of infrastructure' },
-            { label: 'Time to MVP', value: '30 days', sub: 'for all 3 concepts' },
+            { value: '393K+', label: 'Followers managed' },
+            { value: '18', label: 'Restaurant partners' },
+            { value: '$31.5K', label: 'Campaign pipeline' },
+            { value: '10', label: 'Active partnerships' },
           ].map((stat) => (
             <div key={stat.label}>
-              <div style={{ fontSize: 'var(--font-3xl)', fontWeight: 700, color: 'var(--color-accent)' }}>
+              <div
+                style={{
+                  fontSize: 'var(--font-3xl)',
+                  fontWeight: 700,
+                  color: 'var(--color-accent)',
+                }}
+              >
                 {stat.value}
               </div>
-              <div style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
+              <div
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  color: 'var(--color-textSecondary)',
+                  marginTop: 'var(--space-1)',
+                }}
+              >
                 {stat.label}
-              </div>
-              <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
-                {stat.sub}
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Concepts */}
+      {/* Feature Grid */}
       <section
-        id="concepts"
-        style={{ maxWidth: 1200, margin: '0 auto', padding: 'var(--space-12) var(--space-6)' }}
+        style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: 'var(--space-12) var(--space-6)',
+        }}
       >
         <h2
           style={{
             fontSize: 'var(--font-2xl)',
             fontWeight: 700,
             textAlign: 'center',
+            marginBottom: 'var(--space-3)',
+          }}
+        >
+          Everything you need to run your creator business
+        </h2>
+        <p
+          style={{
+            textAlign: 'center',
+            color: 'var(--color-textSecondary)',
+            fontSize: 'var(--font-base)',
+            marginBottom: 'var(--space-10)',
+            maxWidth: 500,
+            margin: '0 auto var(--space-10)',
+          }}
+        >
+          No more juggling spreadsheets, DMs, and screenshots. One platform for partnerships, content, and audience.
+        </p>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: 'var(--space-6)',
+          }}
+        >
+          {features.map((feature) => (
+            <div
+              key={feature.title}
+              className="card"
+              style={{
+                padding: 'var(--space-6)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-3)',
+              }}
+            >
+              <span style={{ fontSize: 'var(--font-2xl)' }}>{feature.icon}</span>
+              <h3
+                style={{
+                  fontSize: 'var(--font-lg)',
+                  fontWeight: 600,
+                  color: 'var(--color-textPrimary)',
+                }}
+              >
+                {feature.title}
+              </h3>
+              <p
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  color: 'var(--color-textSecondary)',
+                  lineHeight: 1.6,
+                }}
+              >
+                {feature.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section
+        id="pricing"
+        style={{
+          background: 'var(--color-bgSecondary)',
+          borderTop: '1px solid var(--color-border)',
+          padding: 'var(--space-12) var(--space-6)',
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 'var(--font-2xl)',
+            fontWeight: 700,
+            textAlign: 'center',
+            marginBottom: 'var(--space-3)',
+          }}
+        >
+          Simple, transparent pricing
+        </h2>
+        <p
+          style={{
+            textAlign: 'center',
+            color: 'var(--color-textSecondary)',
+            fontSize: 'var(--font-base)',
             marginBottom: 'var(--space-10)',
           }}
         >
-          Three Products, One Shared Platform
-        </h2>
+          Start free with the demo. Upgrade when you&rsquo;re ready.
+        </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-          {concepts.map((concept, i) => (
+        <div
+          style={{
+            maxWidth: 1100,
+            margin: '0 auto',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 'var(--space-6)',
+          }}
+        >
+          {pricingTiers.map((tier) => (
             <div
-              key={concept.id}
+              key={tier.name}
               className="card"
               style={{
-                display: 'grid',
-                gridTemplateColumns: i % 2 === 0 ? '1fr 1fr' : '1fr 1fr',
-                gap: 'var(--space-6)',
                 padding: 'var(--space-8)',
-                borderLeft: `4px solid ${concept.color}`,
+                border: tier.highlighted
+                  ? '2px solid var(--color-accent)'
+                  : '1px solid var(--color-border)',
+                position: 'relative',
               }}
             >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
-                  <h3 style={{ fontSize: 'var(--font-xl)', fontWeight: 700 }}>
-                    {concept.title}
-                  </h3>
-                  <span
-                    className="badge"
-                    style={{ background: `${concept.color}22`, color: concept.color }}
+              {tier.highlighted && (
+                <span
+                  className="badge badge--accent"
+                  style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                  }}
+                >
+                  Most Popular
+                </span>
+              )}
+              <h3
+                style={{
+                  fontSize: 'var(--font-xl)',
+                  fontWeight: 700,
+                  marginBottom: 'var(--space-2)',
+                }}
+              >
+                {tier.name}
+              </h3>
+              <div style={{ marginBottom: 'var(--space-3)' }}>
+                <span
+                  style={{
+                    fontSize: 'var(--font-3xl)',
+                    fontWeight: 700,
+                    color: 'var(--color-accent)',
+                  }}
+                >
+                  {tier.price}
+                </span>
+                <span
+                  style={{
+                    fontSize: 'var(--font-sm)',
+                    color: 'var(--color-textMuted)',
+                  }}
+                >
+                  /mo
+                </span>
+              </div>
+              <p
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  color: 'var(--color-textSecondary)',
+                  marginBottom: 'var(--space-6)',
+                }}
+              >
+                {tier.description}
+              </p>
+              <ul
+                style={{
+                  listStyle: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-3)',
+                  marginBottom: 'var(--space-6)',
+                }}
+              >
+                {tier.features.map((f) => (
+                  <li
+                    key={f}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-2)',
+                      fontSize: 'var(--font-sm)',
+                      color: 'var(--color-textSecondary)',
+                    }}
                   >
-                    {concept.who}
-                  </span>
-                </div>
-                <p style={{ color: 'var(--color-textSecondary)', marginBottom: 'var(--space-2)', fontWeight: 500 }}>
-                  {concept.subtitle}
-                </p>
-                <p style={{ color: 'var(--color-textSecondary)', fontSize: 'var(--font-sm)', lineHeight: 1.7, marginBottom: 'var(--space-5)' }}>
-                  {concept.description}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <Link to={concept.link} className="btn btn-primary">
-                    {concept.cta}
-                  </Link>
-                  <span style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: concept.color }}>
-                    {concept.price}
-                  </span>
-                </div>
-              </div>
-              <div>
-                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  {concept.features.map((f) => (
-                    <li
-                      key={f}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 'var(--space-3)',
-                        fontSize: 'var(--font-sm)',
-                        color: 'var(--color-textSecondary)',
-                      }}
-                    >
-                      <span style={{ color: concept.color, flexShrink: 0 }}>&#x2713;</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                    <span style={{ color: 'var(--color-success)' }}>&#x2713;</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                to="/app/dashboard"
+                className={`btn ${tier.highlighted ? 'btn-primary' : 'btn-secondary'}`}
+                style={{ width: '100%', textAlign: 'center', display: 'block' }}
+              >
+                Try the Demo
+              </Link>
             </div>
           ))}
         </div>
@@ -269,8 +419,7 @@ export default function LandingPage() {
           fontSize: 'var(--font-sm)',
         }}
       >
-        Spot Platform &mdash; Built on production-grade infrastructure.
-        Powered by AWS Serverless.
+        Spot &mdash; Creator tools for food influencers.
       </footer>
     </div>
   );

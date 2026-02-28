@@ -20,7 +20,7 @@ export interface Organization {
   logoUrl?: string;
 }
 
-// ─── Concept 1: Platform (Restaurant Discovery + Partnerships) ──────────────
+// ─── Partnerships & Restaurants ──────────────────────────────────────────────
 
 export interface Restaurant {
   restaurantId: string;
@@ -124,7 +124,7 @@ export interface PostMetrics {
   likes: number;
 }
 
-// ─── Concept 2: Insider (Membership + Discovery) ────────────────────────────
+// ─── Audience & Discovery ────────────────────────────────────────────────────
 
 export type MembershipTier = 'free' | 'insider';
 
@@ -156,7 +156,7 @@ export interface RecommendationRequest {
   };
 }
 
-// ─── Concept 3: SpotOps (Creator SaaS) ──────────────────────────────────────
+// ─── Creator Tools ──────────────────────────────────────────────────────────
 
 export interface CreatorProfile {
   creatorId: string;

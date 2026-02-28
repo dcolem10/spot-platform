@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_RESTAURANTS } from '../../data/demoData';
 import type { Restaurant, RestaurantFilters } from '../../types';
 
 const CUISINE_OPTIONS = [
@@ -63,7 +64,7 @@ export default function RestaurantDirectory() {
     },
   });
 
-  const restaurants = data ?? [];
+  const restaurants = data?.length ? data : (isDemoMode ? DEMO_RESTAURANTS : []);
 
   // Derive unique neighborhoods from data
   const neighborhoods = useMemo(() => {

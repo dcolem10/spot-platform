@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { isDemoMode } from '../data/demoData';
 import './Sidebar.css';
 
 interface NavItem {
@@ -21,6 +22,7 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
   {
     group: 'Partnerships',
     items: [
+      { to: '/app/crm', label: 'CRM', icon: '\uD83D\uDC65' },
       { to: '/app/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
       { to: '/app/offers', label: 'Offers & QR', icon: '\uD83C\uDF9F' },
       { to: '/app/reports', label: 'Reports', icon: '\uD83D\uDCCA' },
@@ -29,15 +31,15 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
   {
     group: 'Content',
     items: [
-      { to: '/app/archive', label: 'Content Archive', icon: '\uD83D\uDCF7' },
+      { to: '/app/archive', label: 'Archive', icon: '\uD83D\uDCF7' },
       { to: '/app/calendar', label: 'Calendar', icon: '\uD83D\uDCC5' },
     ],
   },
   {
     group: 'Audience',
     items: [
-      { to: '/app/discover', label: 'Discovery App', icon: '\uD83D\uDD0D' },
-      { to: '/app/deals', label: 'Deals Hub', icon: '\u2B50' },
+      { to: '/app/discover', label: 'Discovery', icon: '\uD83D\uDD0D' },
+      { to: '/app/deals', label: 'Deals', icon: '\u2B50' },
     ],
   },
 ];
@@ -70,14 +72,16 @@ export default function DashboardShell() {
   const { name, role, email } = useAuth();
   const location = useLocation();
   const nav = role === 'partner' ? partnerNav : creatorNav;
-  const initials = name ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
+  const displayName = name || (isDemoMode ? 'DC Spot' : null);
+  const displayRole = role || (isDemoMode ? 'creator' : 'viewer');
+  const initials = displayName ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
 
   return (
     <>
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-circle">SP</div>
-          <span className="sidebar-logo-text">Spot Platform</span>
+          <div className="sidebar-logo-circle">S</div>
+          <span className="sidebar-logo-text">Spot</span>
         </div>
 
         <nav className="sidebar-nav">
@@ -103,8 +107,8 @@ export default function DashboardShell() {
         <div className="sidebar-user">
           <div className="sidebar-user-avatar">{initials}</div>
           <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{name || email || 'User'}</div>
-            <div className="sidebar-user-role">{role || 'viewer'}</div>
+            <div className="sidebar-user-name">{displayName || email || 'User'}</div>
+            <div className="sidebar-user-role">{displayRole}</div>
           </div>
         </div>
       </aside>

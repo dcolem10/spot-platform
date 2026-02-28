@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { isDemoMode, DEMO_CAMPAIGNS, DEMO_OFFERS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
 import type { Campaign, Offer, CampaignReport } from '../../types';
 
 interface PartnerDashboardData {
@@ -53,7 +54,9 @@ export default function PartnerPortal() {
     },
   });
 
-  const dashboard = data ?? { campaigns: [], offers: [], reports: [] };
+  const dashboard = data ?? (isDemoMode
+    ? { campaigns: DEMO_CAMPAIGNS, offers: DEMO_OFFERS, reports: DEMO_CAMPAIGN_REPORTS }
+    : { campaigns: [], offers: [], reports: [] });
 
   // Aggregate metrics from all reports
   const metrics = useMemo(() => {
