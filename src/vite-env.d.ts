@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_AI_API_ENDPOINT: string;
   readonly VITE_APP_VERSION: string;
   readonly VITE_PLATFORM_NAME: string;
+  readonly VITE_DEMO_MODE: string;
+  readonly VITE_ENABLE_RESTAURANT_PORTAL: string;
+  readonly VITE_ENABLE_MEMBERSHIP: string;
+  readonly VITE_ENABLE_MULTI_CREATOR: string;
 }
 
 interface ImportMeta {

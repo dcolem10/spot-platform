@@ -5,117 +5,65 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const TABLE = process.env.TABLE_NAME;
 const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY;
-const YELP_KEY = process.env.YELP_FUSION_API_KEY;
 
-// ─── Google Places Refresh ────────────────────────────────────────────────────
+// ─── Google Places Validation ────────────────────────────────────────────────
+// Only validates that the place_id is still valid. Does NOT store Google content
+// (hours, rating, photos, etc.) — that data is fetched JIT via the API Lambda
+// with a 24hr DynamoDB cache to comply with Google Places ToS.
 
-async function refreshFromGoogle(restaurant) {
-  if (!GOOGLE_KEY || !restaurant.googlePlaceId) return null;
+async function validateGooglePlaceId(restaurant) {
+  if (!GOOGLE_KEY || !restaurant.googlePlaceId) return false;
 
   try {
-    const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos';
     const res = await fetch(
-      `https://places.googleapis.com/v1/places/${restaurant.googlePlaceId}?fields=${fields}`,
+      `https://places.googleapis.com/v1/places/${restaurant.googlePlaceId}?fields=displayName`,
       {
         headers: {
           'X-Goog-Api-Key': GOOGLE_KEY,
-          'X-Goog-FieldMask': fields,
+          'X-Goog-FieldMask': 'displayName',
         },
       }
     );
 
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    return {
-      hours: data.regularOpeningHours || null,
-      googleRating: data.rating || null,
-      googlePriceLevel: data.priceLevel || null,
-    };
+    return res.ok;
   } catch (err) {
-    console.error(`Google refresh failed for ${restaurant.restaurantId}:`, err.message);
-    return null;
+    console.error(`Google validation failed for ${restaurant.restaurantId}:`, err.message);
+    return false;
   }
 }
 
-// ─── Yelp Refresh ─────────────────────────────────────────────────────────────
-
-async function refreshFromYelp(restaurant) {
-  if (!YELP_KEY || !restaurant.yelpId) return null;
-
-  try {
-    const res = await fetch(
-      `https://api.yelp.com/v3/businesses/${restaurant.yelpId}`,
-      { headers: { Authorization: `Bearer ${YELP_KEY}` } }
-    );
-
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    return {
-      yelpRating: data.rating || null,
-      yelpReviewCount: data.review_count || null,
-      yelpPrice: data.price || null,
-      yelpCategories: data.categories?.map((c) => c.title) || [],
-      yelpPhone: data.display_phone || null,
-    };
-  } catch (err) {
-    console.error(`Yelp refresh failed for ${restaurant.restaurantId}:`, err.message);
-    return null;
-  }
-}
-
-// ─── Merge and Update ─────────────────────────────────────────────────────────
+// ─── Refresh (validate + update timestamp) ───────────────────────────────────
 
 async function refreshRestaurant(restaurant) {
-  const [google, yelp] = await Promise.all([
-    refreshFromGoogle(restaurant),
-    refreshFromYelp(restaurant),
-  ]);
-
-  if (!google && !yelp) return;
-
-  // H6: Use UpdateCommand with SET expressions for only the synced fields,
-  // instead of PutCommand which could overwrite concurrent changes.
-  const syncedFields = {
-    ...(google || {}),
-    ...(yelp || {}),
-    lastSynced: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const names = {};
-  const values = {};
-  const parts = [];
-
-  Object.entries(syncedFields).forEach(([field, value]) => {
-    if (value !== undefined) {
-      names[`#${field}`] = field;
-      values[`:${field}`] = value;
-      parts.push(`#${field} = :${field}`);
-    }
-  });
-
-  if (parts.length === 0) return;
+  const isValid = await validateGooglePlaceId(restaurant);
 
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE,
       Key: { PK: restaurant.PK, SK: restaurant.SK },
-      UpdateExpression: `SET ${parts.join(', ')}`,
-      ExpressionAttributeNames: names,
-      ExpressionAttributeValues: values,
+      UpdateExpression: 'SET #lastSynced = :lastSynced, #googleValid = :googleValid, #updatedAt = :updatedAt',
+      ExpressionAttributeNames: {
+        '#lastSynced': 'lastSynced',
+        '#googleValid': 'googleValid',
+        '#updatedAt': 'updatedAt',
+      },
+      ExpressionAttributeValues: {
+        ':lastSynced': new Date().toISOString(),
+        ':googleValid': isValid,
+        ':updatedAt': new Date().toISOString(),
+      },
     })
   );
-  console.log(`Refreshed: ${restaurant.name} (${restaurant.restaurantId})`);
+
+  console.log(`Validated: ${restaurant.name} (${restaurant.restaurantId}) — Google valid: ${isValid}`);
 }
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 
 export const handler = async () => {
-  console.log('Starting daily restaurant data sync...');
+  console.log('Starting daily restaurant validation sync...');
 
-  // H5: Paginate through all restaurants to handle large datasets
+  // Paginate through all restaurants
   const restaurants = [];
   let exclusiveStartKey = undefined;
 
@@ -135,11 +83,11 @@ export const handler = async () => {
     exclusiveStartKey = result.LastEvaluatedKey;
   } while (exclusiveStartKey);
 
-  console.log(`Found ${restaurants.length} restaurants to refresh`);
+  console.log(`Found ${restaurants.length} restaurants to validate`);
 
   // Process in batches of 5 to respect API rate limits
   const BATCH_SIZE = 5;
-  let refreshed = 0;
+  let validated = 0;
   let failed = 0;
 
   for (let i = 0; i < restaurants.length; i += BATCH_SIZE) {
@@ -149,7 +97,7 @@ export const handler = async () => {
     );
 
     results.forEach((r) => {
-      if (r.status === 'fulfilled') refreshed++;
+      if (r.status === 'fulfilled') validated++;
       else failed++;
     });
 
@@ -161,7 +109,7 @@ export const handler = async () => {
 
   const summary = {
     total: restaurants.length,
-    refreshed,
+    validated,
     failed,
     timestamp: new Date().toISOString(),
   };

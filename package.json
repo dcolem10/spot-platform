@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "deploy:backend": "cd backend && sam build && sam deploy --guided"
+    "deploy:backend": "cd backend && sam build && sam deploy --guided",
+    "seed": "cd backend/scripts && npm install && node seed.mjs"
   },
   "dependencies": {
     "@aws-amplify/auth": "^6.12.0",

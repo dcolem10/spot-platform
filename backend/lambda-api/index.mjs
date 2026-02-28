@@ -130,7 +130,6 @@ async function createRestaurant(event) {
     website: sanitize(body.website, 300),
     hours: body.hours || null,
     googlePlaceId: sanitize(body.googlePlaceId, 100),
-    yelpId: sanitize(body.yelpId, 100),
     spotRating: body.spotRating ? Math.min(5, Math.max(0, Number(body.spotRating))) : null,
     spotVideoUrl: sanitize(body.spotVideoUrl, 500),
     spotReview: sanitize(body.spotReview, 2000),
@@ -459,6 +458,223 @@ async function listSaves(event) {
   return respond(200, { saves: result.Items || [] });
 }
 
+// ─── SpotOps Pipeline ─────────────────────────────────────────────────────────
+
+async function getSpotOpsPipeline(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': 'CAMPAIGNS' },
+    })
+  );
+
+  const campaigns = result.Items || [];
+  const byStatus = { inquiry: 0, negotiation: 0, active: 0, completed: 0, cancelled: 0 };
+  let totalRevenue = 0;
+
+  campaigns.forEach((c) => {
+    if (byStatus[c.status] !== undefined) byStatus[c.status]++;
+    totalRevenue += c.budget || 0;
+  });
+
+  return respond(200, {
+    total: campaigns.length,
+    byStatus,
+    totalRevenue,
+    avgDealSize: campaigns.length > 0 ? Math.round(totalRevenue / campaigns.length) : 0,
+  });
+}
+
+// ─── Offers (List) ───────────────────────────────────────────────────────────
+
+async function listOffers(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': 'OFFERS' },
+    })
+  );
+
+  return respond(200, { offers: result.Items || [] });
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+async function listReports(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': 'REPORTS' },
+    })
+  );
+
+  return respond(200, { reports: result.Items || [] });
+}
+
+// ─── Insider Deals ───────────────────────────────────────────────────────────
+
+async function listDeals() {
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': 'DEALS' },
+    })
+  );
+
+  return respond(200, result.Items || []);
+}
+
+async function redeemDeal(dealId, event) {
+  if (!isValidId(dealId)) return respond(400, { error: 'Invalid deal ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `AUDIENCE#${userId}`,
+        SK: `REDEMPTION#${dealId}`,
+        dealId,
+        redeemedAt: new Date().toISOString(),
+      },
+    })
+  );
+
+  return respond(200, { message: 'Redeemed', dealId });
+}
+
+// ─── Insider Membership ──────────────────────────────────────────────────────
+
+async function getMembership(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `AUDIENCE#${userId}`, SK: 'MEMBERSHIP' },
+    })
+  );
+
+  return respond(200, { tier: result.Item?.tier || 'free' });
+}
+
+// ─── Save Management ─────────────────────────────────────────────────────────
+
+async function removeSave(restaurantId, event) {
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  await ddb.send(
+    new DeleteCommand({
+      TableName: TABLE,
+      Key: { PK: `AUDIENCE#${userId}`, SK: `SAVE#${restaurantId}` },
+    })
+  );
+
+  return respond(200, { message: 'Removed' });
+}
+
+async function updateSaveNotes(restaurantId, event) {
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  const body = JSON.parse(event.body || '{}');
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `AUDIENCE#${userId}`, SK: `SAVE#${restaurantId}` },
+      UpdateExpression: 'SET #notes = :notes, #occasion = :occasion',
+      ExpressionAttributeNames: { '#notes': 'notes', '#occasion': 'occasion' },
+      ExpressionAttributeValues: {
+        ':notes': sanitize(body.notes, 500),
+        ':occasion': sanitize(body.occasion, 100),
+      },
+    })
+  );
+
+  return respond(200, { message: 'Updated' });
+}
+
+// ─── Google Places JIT ───────────────────────────────────────────────────────
+
+async function getGoogleDetails(restaurantId) {
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
+
+  // Get restaurant to find googlePlaceId
+  const restaurant = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
+    })
+  );
+
+  if (!restaurant.Item) return respond(404, { error: 'Restaurant not found' });
+  const placeId = restaurant.Item.googlePlaceId;
+  if (!placeId) return respond(404, { error: 'No Google Place ID' });
+
+  // Check DynamoDB cache (24hr TTL)
+  const cacheKey = { PK: `GOOGLE_CACHE#${placeId}`, SK: 'DETAILS' };
+  const cached = await ddb.send(new GetCommand({ TableName: TABLE, Key: cacheKey }));
+
+  if (cached.Item && cached.Item.ttl > Math.floor(Date.now() / 1000)) {
+    return respond(200, cached.Item.data);
+  }
+
+  // Fetch fresh from Google Places API
+  const googleKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!googleKey) return respond(503, { error: 'Google Places not configured' });
+
+  const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos,websiteUri,nationalPhoneNumber';
+  const res = await fetch(
+    `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}`,
+    {
+      headers: {
+        'X-Goog-Api-Key': googleKey,
+        'X-Goog-FieldMask': fields,
+      },
+    }
+  );
+
+  if (!res.ok) return respond(502, { error: 'Google Places API error' });
+  const data = await res.json();
+
+  // Cache for 24 hours
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        ...cacheKey,
+        data,
+        ttl: Math.floor(Date.now() / 1000) + 86400,
+        cachedAt: new Date().toISOString(),
+      },
+    })
+  );
+
+  return respond(200, data);
+}
+
 // ─── Email Subscribe ──────────────────────────────────────────────────────────
 
 async function subscribe(event) {
@@ -522,11 +738,45 @@ export const handler = async (event) => {
     if (path.match(/\/api\/offers\/[^/]+\/redeem$/) && method === 'POST')
       return redeemOffer(pathParts[pathParts.length - 2]);
 
+    // SpotOps
+    if (path.match(/\/api\/spotops\/pipeline$/) && method === 'GET')
+      return getSpotOpsPipeline(event);
+    if (path.match(/\/api\/spotops\/campaigns$/) && method === 'GET')
+      return listCampaigns(event);
+
+    // Partner portal
+    if (path.match(/\/api\/partner\/campaigns$/) && method === 'GET')
+      return listCampaigns(event);
+    if (path.match(/\/api\/partner\/offers$/) && method === 'GET')
+      return listOffers(event);
+    if (path.match(/\/api\/partner\/reports$/) && method === 'GET')
+      return listReports(event);
+
+    // Insider deals (public)
+    if (path.match(/\/api\/insider\/deals$/) && method === 'GET')
+      return listDeals();
+    if (path.match(/\/api\/insider\/deals\/[^/]+\/redeem$/) && method === 'POST')
+      return redeemDeal(pathParts[pathParts.length - 2], event);
+
+    // Insider membership
+    if (path.match(/\/api\/insider\/membership$/) && method === 'GET')
+      return getMembership(event);
+
     // Saves
     if (path.match(/\/api\/saves\/[^/]+$/) && method === 'POST')
       return saveRestaurant(event, pathParts[pathParts.length - 1]);
     if (path.match(/\/api\/saves$/) && method === 'GET')
       return listSaves(event);
+    if (path.match(/\/api\/insider\/saved$/) && method === 'GET')
+      return listSaves(event);
+    if (path.match(/\/api\/insider\/saved\/[^/]+$/) && method === 'DELETE')
+      return removeSave(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/insider\/saved\/[^/]+$/) && method === 'PUT')
+      return updateSaveNotes(pathParts[pathParts.length - 1], event);
+
+    // Google Places JIT
+    if (path.match(/\/api\/restaurants\/[^/]+\/google-details$/) && method === 'GET')
+      return getGoogleDetails(pathParts[pathParts.length - 2]);
 
     // Subscribe
     if (path.match(/\/api\/subscribe$/) && method === 'POST')

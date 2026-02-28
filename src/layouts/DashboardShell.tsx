@@ -95,7 +95,7 @@ export default function DashboardShell() {
   const isConsumerPath = CONSUMER_PATHS.some((p) => location.pathname.startsWith(p));
   const effectiveRole = isConsumerPath ? 'audience' : (role || (isDemoMode ? 'creator' : 'viewer'));
   const nav = effectiveRole === 'partner' ? partnerNav : effectiveRole === 'audience' ? audienceNav : creatorNav;
-  const displayName = name || (isDemoMode ? (isConsumerPath ? 'Foodie' : 'DC Spot') : null);
+  const displayName = name || (isDemoMode ? (isConsumerPath ? 'Foodie' : 'Demo Creator') : null);
   const displayRole = effectiveRole;
   const initials = displayName ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
 

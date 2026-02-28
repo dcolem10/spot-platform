@@ -5,6 +5,8 @@ import { queryClient } from './lib/queryClient';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { useAuth } from './hooks/useAuth';
+import { FeatureGate } from './components/FeatureGate';
+import { useAuthInit } from './hooks/useAuthInit';
 
 // Layouts
 const DashboardShell = lazy(() => import('./layouts/DashboardShell'));
@@ -53,6 +55,8 @@ function AppFallback() {
 }
 
 export default function App() {
+  useAuthInit();
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -69,18 +73,18 @@ export default function App() {
                 <Route path="dashboard" element={<CreatorDashboard />} />
 
                 {/* Partnerships & Restaurants */}
-                <Route path="restaurants" element={<RestaurantDirectory />} />
-                <Route path="restaurants/:id" element={<RestaurantDirectory />} />
-                <Route path="campaigns" element={<CampaignManager />} />
-                <Route path="offers" element={<OfferManager />} />
-                <Route path="reports" element={<ROIReporter />} />
-                <Route path="reports/:campaignId" element={<CampaignReport />} />
-                <Route path="crm" element={<PartnershipCRM />} />
+                <Route path="restaurants" element={<FeatureGate flag="restaurantPortal"><RestaurantDirectory /></FeatureGate>} />
+                <Route path="restaurants/:id" element={<FeatureGate flag="restaurantPortal"><RestaurantDirectory /></FeatureGate>} />
+                <Route path="campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
+                <Route path="offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
+                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><ROIReporter /></FeatureGate>} />
+                <Route path="reports/:campaignId" element={<FeatureGate flag="restaurantPortal"><CampaignReport /></FeatureGate>} />
+                <Route path="crm" element={<FeatureGate flag="restaurantPortal"><PartnershipCRM /></FeatureGate>} />
 
                 {/* Partner Portal */}
-                <Route path="partner" element={<PartnerPortal />} />
-                <Route path="partner/campaigns" element={<CampaignManager />} />
-                <Route path="partner/offers" element={<OfferManager />} />
+                <Route path="partner" element={<FeatureGate flag="restaurantPortal"><PartnerPortal /></FeatureGate>} />
+                <Route path="partner/campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
+                <Route path="partner/offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
 
                 {/* Content */}
                 <Route path="archive" element={<ContentArchive />} />
@@ -88,8 +92,8 @@ export default function App() {
 
                 {/* Audience & Discovery */}
                 <Route path="discover" element={<DiscoverApp />} />
-                <Route path="saved" element={<SavedList />} />
-                <Route path="deals" element={<DealsHub />} />
+                <Route path="saved" element={<FeatureGate flag="membership"><SavedList /></FeatureGate>} />
+                <Route path="deals" element={<FeatureGate flag="membership"><DealsHub /></FeatureGate>} />
               </Route>
 
               {/* Catch-all */}

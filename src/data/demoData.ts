@@ -1,6 +1,6 @@
 /**
  * Centralized demo data used by all components when VITE_DEMO_MODE=true and API returns empty.
- * All IDs cross-reference correctly. Metrics are realistic for a ~393K-follower DC food creator.
+ * All IDs cross-reference correctly. Metrics are example data for demonstration purposes.
  */
 import type {
   Restaurant,
@@ -34,11 +34,11 @@ function demoISO(daysFromNow: number): string {
 /* ─── Creator Profile ──────────────────────────────────────────────────────── */
 
 export const DEMO_CREATOR_PROFILE: CreatorProfile = {
-  creatorId: 'creator-dcspot',
-  brandName: 'DC Spot',
+  creatorId: 'creator-demo',
+  brandName: 'Demo Creator',
   platforms: {
-    instagram: { handle: '@dcspot', followers: 393000 },
-    tiktok: { handle: '@dcspot', followers: 187000 },
+    instagram: { handle: '@democreator', followers: 393000 },
+    tiktok: { handle: '@democreator', followers: 187000 },
   },
   city: 'Washington, DC',
   niche: 'Food & Restaurants',
@@ -47,6 +47,7 @@ export const DEMO_CREATOR_PROFILE: CreatorProfile = {
 
 /* ─── Restaurants ──────────────────────────────────────────────────────────── */
 
+// Example restaurant data for demonstration — real data loaded from API when backend is deployed.
 export const DEMO_RESTAURANTS: Restaurant[] = [
   { restaurantId: 'r1', name: 'Rasika', address: '633 D St NW', neighborhood: 'Penn Quarter', coords: { lat: 38.8949, lng: -77.0218 }, cuisine: ['Indian', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 3, spotRating: 4.8, isPartner: true, photos: [], reservationUrl: 'https://rasika.com', createdAt: demoISO(-90), updatedAt: demoISO(-5) },
   { restaurantId: 'r2', name: 'Bad Saint', address: '3226 11th St NW', neighborhood: 'Columbia Heights', coords: { lat: 38.9314, lng: -77.0257 }, cuisine: ['Filipino'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-80), updatedAt: demoISO(-10) },
@@ -178,11 +179,11 @@ export const DEMO_CAMPAIGN_REPORTS: CampaignReport[] = [
 /* ─── Offers ───────────────────────────────────────────────────────────────── */
 
 export const DEMO_OFFERS: Offer[] = [
-  { offerId: 'o1', restaurantId: 'r1', code: 'DCSPOT-RASIKA', type: 'qr', description: '15% off when you show this QR to your server', landingPageUrl: '#', scans: 342, redemptions: 48, isActive: true, createdAt: demoISO(-30), expiresAt: demoDate(30) },
-  { offerId: 'o2', restaurantId: 'r6', code: 'SPOT20ROSES', type: 'promo', description: '$20 off your first visit — mention DC Spot', landingPageUrl: '#', scans: 0, redemptions: 186, isActive: true, createdAt: demoISO(-60) },
+  { offerId: 'o1', restaurantId: 'r1', code: 'SPOT-RASIKA', type: 'qr', description: '15% off when you show this QR to your server', landingPageUrl: '#', scans: 342, redemptions: 48, isActive: true, createdAt: demoISO(-30), expiresAt: demoDate(30) },
+  { offerId: 'o2', restaurantId: 'r6', code: 'SPOT20ROSES', type: 'promo', description: '$20 off your first visit — mention Demo Creator', landingPageUrl: '#', scans: 0, redemptions: 186, isActive: true, createdAt: demoISO(-60) },
   { offerId: 'o3', restaurantId: 'r3', code: 'spot-dabney-spring', type: 'link', description: 'Track visits from The Dabney spring campaign', landingPageUrl: '#', scans: 215, redemptions: 32, isActive: true, createdAt: demoISO(-14), expiresAt: demoDate(45) },
-  { offerId: 'o4', restaurantId: 'r2', code: 'DCSPOT-BS', type: 'qr', description: 'Complimentary dessert with entree purchase', landingPageUrl: '#', scans: 520, redemptions: 123, isActive: false, createdAt: demoISO(-45), expiresAt: demoDate(-5) },
-  { offerId: 'o5', restaurantId: 'r12', code: 'BRUNCH-DIPLO', type: 'promo', description: 'Free mimosa with brunch — mention DC Spot', landingPageUrl: '#', scans: 0, redemptions: 67, isActive: true, createdAt: demoISO(-5), expiresAt: demoDate(20) },
+  { offerId: 'o4', restaurantId: 'r2', code: 'SPOT-BS', type: 'qr', description: 'Complimentary dessert with entree purchase', landingPageUrl: '#', scans: 520, redemptions: 123, isActive: false, createdAt: demoISO(-45), expiresAt: demoDate(-5) },
+  { offerId: 'o5', restaurantId: 'r12', code: 'BRUNCH-DIPLO', type: 'promo', description: 'Free mimosa with brunch — mention Demo Creator', landingPageUrl: '#', scans: 0, redemptions: 67, isActive: true, createdAt: demoISO(-5), expiresAt: demoDate(20) },
 ];
 
 /* ─── Deals (Insider) ──────────────────────────────────────────────────────── */

@@ -38,14 +38,6 @@ Parameters:
     Description: >-
       Google Places API key for restaurant data sync.
       NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
-  YelpFusionApiKey:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: >-
-      Yelp Fusion API key for restaurant data sync.
-      NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
-
 Resources:
   # ─── DynamoDB ─────────────────────────────────────────────────────────────
   DataTable:
@@ -125,6 +117,9 @@ Resources:
       CodeUri: lambda-api/
       Handler: index.handler
       Timeout: 15
+      Environment:
+        Variables:
+          GOOGLE_PLACES_API_KEY: !Ref GooglePlacesApiKey
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
@@ -159,6 +154,38 @@ Resources:
             RestApiId: !Ref SpotApi
             Path: /api/subscribe
             Method: POST
+            Auth:
+              Authorizer: NONE
+        InsiderDeals:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/insider/deals
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        RestaurantsList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/restaurants
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        RestaurantDetail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/restaurants/{restaurantId}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        GoogleDetails:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/restaurants/{restaurantId}/google-details
+            Method: GET
             Auth:
               Authorizer: NONE
         Health:
@@ -208,7 +235,6 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           GOOGLE_PLACES_API_KEY: !Ref GooglePlacesApiKey
-          YELP_FUSION_API_KEY: !Ref YelpFusionApiKey
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
