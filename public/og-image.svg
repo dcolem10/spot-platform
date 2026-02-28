@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1117"/>
+      <stop offset="100%" stop-color="#1a1d2e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="80" y="200" width="80" height="80" rx="20" fill="#f97316"/>
+  <text x="120" y="258" text-anchor="middle" fill="white" font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="44">S</text>
+  <text x="180" y="258" fill="white" font-family="Inter, -apple-system, sans-serif" font-weight="700" font-size="52">Spot</text>
+  <text x="80" y="340" fill="#94a3b8" font-family="Inter, -apple-system, sans-serif" font-weight="500" font-size="30">Creator-powered restaurant partnerships</text>
+  <text x="80" y="390" fill="#64748b" font-family="Inter, -apple-system, sans-serif" font-weight="400" font-size="24">Discovery · Campaigns · Analytics · Deals</text>
+</svg>

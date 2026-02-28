@@ -7,6 +7,7 @@ import type {
 } from '../../types';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_PIPELINE, DEMO_CAMPAIGNS } from '../../data/demoData';
+import { CollapsibleSection } from '../../components/CollapsibleSection';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -350,111 +351,108 @@ export default function CreatorDashboard() {
       </div>
 
       {/* Pipeline Summary */}
-      <div className="section-card" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="section-card-header">
-          <h2 className="section-card-title">Partnership Pipeline</h2>
-        </div>
-
-        <div style={styles.pipelineBar}>
-          {pipelineTotal > 0 &&
-            PIPELINE_STAGES.map((stage) => {
-              const count = pipeline?.byStatus[stage.key] ?? 0;
-              const pct = (count / pipelineTotal) * 100;
-              if (pct === 0) return null;
-              return (
-                <div
-                  key={stage.key}
-                  title={`${stage.label}: ${count}`}
-                  style={{
-                    width: `${pct}%`,
-                    background: stage.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 'var(--font-xs)',
-                    fontWeight: 600,
-                    color: '#fff',
-                    minWidth: '28px',
-                    transition: 'width var(--transition-slow)',
-                  }}
-                >
-                  {count}
-                </div>
-              );
-            })}
-          {pipelineTotal === 0 && (
-            <div
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 'var(--font-xs)',
-                color: 'var(--color-textMuted)',
-              }}
-            >
-              No partnerships yet
-            </div>
-          )}
-        </div>
-
-        <div style={styles.pipelineLegend}>
-          {PIPELINE_STAGES.map((stage) => (
-            <div key={stage.key} style={styles.legendItem}>
-              <div style={styles.legendDot(stage.color)} />
-              <span>
-                {stage.label} ({pipeline?.byStatus[stage.key] ?? 0})
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Two-column: Activity + Quick Actions */}
-      <div className="bento-grid" style={styles.twoCol}>
-        {/* Recent Activity */}
-        <div className="section-card bento-wide">
-          <div className="section-card-header">
-            <h2 className="section-card-title">Recent Activity</h2>
-          </div>
-          {activity.length === 0 ? (
-            <div className="empty-state" style={{ padding: 'var(--space-6)' }}>
-              <h3>No recent activity</h3>
-              <p>Start a campaign to see updates here</p>
-            </div>
-          ) : (
-            <div style={styles.activityList}>
-              {activity.map((event) => (
-                <div key={event.id} style={styles.activityItem}>
-                  <span style={{ color: 'var(--color-textPrimary)' }}>{event.message}</span>
-                  <span style={styles.activityTime}>{timeAgo(event.timestamp)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="section-card bento-narrow">
-          <div className="section-card-header">
-            <h2 className="section-card-title">Quick Actions</h2>
-          </div>
-          <div style={styles.actionsGrid}>
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                className="card"
-                style={styles.actionCard}
-                onClick={action.onClick}
+      <CollapsibleSection title="Partnership Pipeline">
+        <div className="section-card">
+          <div style={styles.pipelineBar}>
+            {pipelineTotal > 0 &&
+              PIPELINE_STAGES.map((stage) => {
+                const count = pipeline?.byStatus[stage.key] ?? 0;
+                const pct = (count / pipelineTotal) * 100;
+                if (pct === 0) return null;
+                return (
+                  <div
+                    key={stage.key}
+                    title={`${stage.label}: ${count}`}
+                    style={{
+                      width: `${pct}%`,
+                      background: stage.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 'var(--font-xs)',
+                      fontWeight: 600,
+                      color: '#fff',
+                      minWidth: '28px',
+                      transition: 'width var(--transition-slow)',
+                    }}
+                  >
+                    {count}
+                  </div>
+                );
+              })}
+            {pipelineTotal === 0 && (
+              <div
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--color-textMuted)',
+                }}
               >
-                <span style={styles.actionIcon}>{action.icon}</span>
-                <span style={styles.actionLabel}>{action.label}</span>
-                <span style={styles.actionDesc}>{action.description}</span>
-              </button>
+                No partnerships yet
+              </div>
+            )}
+          </div>
+
+          <div style={styles.pipelineLegend}>
+            {PIPELINE_STAGES.map((stage) => (
+              <div key={stage.key} style={styles.legendItem}>
+                <div style={styles.legendDot(stage.color)} />
+                <span>
+                  {stage.label} ({pipeline?.byStatus[stage.key] ?? 0})
+                </span>
+              </div>
             ))}
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
+
+      {/* Two-column: Activity + Quick Actions */}
+      <CollapsibleSection title="Recent Activity">
+        <div className="bento-grid" style={styles.twoCol}>
+          {/* Activity */}
+          <div className="section-card bento-wide">
+            {activity.length === 0 ? (
+              <div className="empty-state" style={{ padding: 'var(--space-6)' }}>
+                <h3>No recent activity</h3>
+                <p>Start a campaign to see updates here</p>
+              </div>
+            ) : (
+              <div style={styles.activityList}>
+                {activity.map((event) => (
+                  <div key={event.id} style={styles.activityItem}>
+                    <span style={{ color: 'var(--color-textPrimary)' }}>{event.message}</span>
+                    <span style={styles.activityTime}>{timeAgo(event.timestamp)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions */}
+          <div className="section-card bento-narrow">
+            <div className="section-card-header">
+              <h2 className="section-card-title">Quick Actions</h2>
+            </div>
+            <div style={styles.actionsGrid}>
+              {quickActions.map((action) => (
+                <button
+                  key={action.label}
+                  className="card"
+                  style={styles.actionCard}
+                  onClick={action.onClick}
+                >
+                  <span style={styles.actionIcon}>{action.icon}</span>
+                  <span style={styles.actionLabel}>{action.label}</span>
+                  <span style={styles.actionDesc}>{action.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CollapsibleSection>
     </div>
   );
 }

@@ -1,7 +1,8 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Outlet, NavLink, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { ScrollToTop } from '../components/ScrollToTop';
 import { isDemoMode } from '../data/demoData';
 import './Sidebar.css';
 
@@ -96,6 +97,11 @@ export default function DashboardShell() {
   // Explicit view mode — only switches via the toggle link, not on navigation
   const initialMode = CONSUMER_PATHS.some((p) => location.pathname.startsWith(p)) ? 'audience' : 'creator';
   const [viewMode, setViewMode] = useState<'creator' | 'audience'>(initialMode);
+
+  // Scroll to top on page navigation
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const effectiveRole = viewMode === 'audience' ? 'audience' : (role || (isDemoMode ? 'creator' : 'viewer'));
   const nav = effectiveRole === 'partner' ? partnerNav : effectiveRole === 'audience' ? audienceNav : creatorNav;
@@ -216,6 +222,8 @@ export default function DashboardShell() {
           ))}
         </div>
       </nav>
+
+      <ScrollToTop />
     </>
   );
 }
