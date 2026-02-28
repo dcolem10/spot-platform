@@ -112,10 +112,17 @@ export default function DashboardShell() {
   return (
     <>
       <aside className="sidebar">
-        <div className="sidebar-logo">
+        <Link
+          to={isDemoMode ? '/' : '/app/dashboard'}
+          className="sidebar-logo"
+          style={{ textDecoration: 'none' }}
+          onClick={() => {
+            if (!isDemoMode) window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        >
           <div className="sidebar-logo-circle">S</div>
           <span className="sidebar-logo-text">Spot</span>
-        </div>
+        </Link>
 
         <nav className="sidebar-nav">
           {nav.map((group) => (

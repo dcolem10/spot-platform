@@ -20,6 +20,13 @@
   gap: var(--space-3);
   padding: var(--space-5) var(--space-5);
   border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.sidebar-logo:hover {
+  opacity: 0.8;
+  text-decoration: none;
 }
 
 .sidebar-logo-circle {
