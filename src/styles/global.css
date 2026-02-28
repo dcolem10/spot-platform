@@ -1,0 +1,192 @@
+@import './theme.css';
+
+/* ─── Reset ────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--color-bgPrimary);
+  color: var(--color-textPrimary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+
+img { max-width: 100%; display: block; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: var(--font-base);
+}
+
+/* ─── Utility Classes ──────────────────────────────────────────────────────── */
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.page-header {
+  margin-bottom: var(--space-8);
+}
+
+.page-title {
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+  margin-bottom: var(--space-2);
+}
+
+.page-subtitle {
+  font-size: var(--font-base);
+  color: var(--color-textSecondary);
+}
+
+.card {
+  background: var(--color-bgSecondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--color-borderHover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-5);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge--accent { background: var(--color-accentMuted); color: var(--color-accent); }
+.badge--success { background: var(--color-successMuted); color: var(--color-success); }
+.badge--warning { background: var(--color-warningMuted); color: var(--color-warning); }
+.badge--error { background: var(--color-errorMuted); color: var(--color-error); }
+.badge--info { background: var(--color-infoMuted); color: var(--color-info); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--color-accentHover);
+  text-decoration: none;
+}
+
+.btn-secondary {
+  background: var(--color-bgElevated);
+  color: var(--color-textPrimary);
+  border: 1px solid var(--color-border);
+}
+.btn-secondary:hover {
+  background: var(--color-bgHover);
+  border-color: var(--color-borderHover);
+  text-decoration: none;
+}
+
+.btn-ghost {
+  color: var(--color-textSecondary);
+}
+.btn-ghost:hover {
+  color: var(--color-textPrimary);
+  background: var(--color-bgHover);
+  text-decoration: none;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+  color: var(--color-textMuted);
+}
+
+.empty-state h3 {
+  font-size: var(--font-lg);
+  color: var(--color-textSecondary);
+  margin-bottom: var(--space-2);
+}
+
+.skeleton {
+  background: var(--color-bgElevated);
+  border-radius: var(--radius-md);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.stagger-children > * {
+  animation: fadeSlideIn 0.3s ease both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+
+/* ─── Responsive ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .page-container {
+    padding: var(--space-4);
+  }
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  .page-title {
+    font-size: var(--font-2xl);
+  }
+}

@@ -1,0 +1,221 @@
+// ─── Core Entities ───────────────────────────────────────────────────────────
+
+export type UserRole = 'creator' | 'partner' | 'audience' | 'admin';
+
+export interface UserProfile {
+  userId: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  orgId?: string;
+  avatarUrl?: string;
+  createdAt: string;
+}
+
+export interface Organization {
+  orgId: string;
+  name: string;
+  type: 'creator_team' | 'restaurant';
+  slug: string;
+  logoUrl?: string;
+}
+
+// ─── Concept 1: Platform (Restaurant Discovery + Partnerships) ──────────────
+
+export interface Restaurant {
+  restaurantId: string;
+  name: string;
+  address: string;
+  neighborhood: string;
+  coords: { lat: number; lng: number };
+  cuisine: string[];
+  vibes: string[];
+  priceLevel: 1 | 2 | 3 | 4;
+  phone?: string;
+  website?: string;
+  hours?: WeeklyHours;
+  googlePlaceId?: string;
+  yelpId?: string;
+  spotRating?: number;
+  spotVideoUrl?: string;
+  spotReview?: string;
+  lastVisited?: string;
+  isPartner: boolean;
+  photos: string[];
+  reservationUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WeeklyHours {
+  [day: string]: { open: string; close: string }[];
+}
+
+export type CampaignStatus = 'inquiry' | 'negotiation' | 'active' | 'completed' | 'cancelled';
+
+export interface Campaign {
+  campaignId: string;
+  restaurantId: string;
+  restaurantName: string;
+  status: CampaignStatus;
+  package: string;
+  budget: number;
+  startDate?: string;
+  endDate?: string;
+  deliverables: Deliverable[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Deliverable {
+  id: string;
+  type: 'reel' | 'story' | 'post' | 'tiktok' | 'mention';
+  description: string;
+  completed: boolean;
+  completedAt?: string;
+  postUrl?: string;
+}
+
+export interface Offer {
+  offerId: string;
+  restaurantId: string;
+  code: string;
+  type: 'qr' | 'promo' | 'link';
+  description: string;
+  landingPageUrl: string;
+  scans: number;
+  redemptions: number;
+  expiresAt?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CampaignReport {
+  reportId: string;
+  campaignId: string;
+  restaurantName: string;
+  period: { start: string; end: string };
+  metrics: {
+    totalReach: number;
+    totalImpressions: number;
+    totalSaves: number;
+    totalShares: number;
+    totalComments: number;
+    qrScans: number;
+    offerRedemptions: number;
+    estimatedVisits: number;
+    engagementRate: number;
+  };
+  posts: PostMetrics[];
+  generatedAt: string;
+}
+
+export interface PostMetrics {
+  postId: string;
+  platform: 'instagram' | 'tiktok';
+  postUrl: string;
+  postedAt: string;
+  impressions: number;
+  reach: number;
+  saves: number;
+  shares: number;
+  comments: number;
+  likes: number;
+}
+
+// ─── Concept 2: Insider (Membership + Discovery) ────────────────────────────
+
+export type MembershipTier = 'free' | 'insider';
+
+export interface SavedRestaurant {
+  restaurantId: string;
+  savedAt: string;
+  notes?: string;
+  occasion?: string;
+}
+
+export interface DealOffer {
+  dealId: string;
+  restaurantId: string;
+  restaurantName: string;
+  title: string;
+  description: string;
+  insiderOnly: boolean;
+  expiresAt?: string;
+}
+
+export interface RecommendationRequest {
+  query: string;
+  filters?: {
+    cuisine?: string[];
+    neighborhood?: string[];
+    priceLevel?: number[];
+    vibes?: string[];
+    occasion?: string;
+  };
+}
+
+// ─── Concept 3: SpotOps (Creator SaaS) ──────────────────────────────────────
+
+export interface CreatorProfile {
+  creatorId: string;
+  brandName: string;
+  platforms: {
+    instagram?: { handle: string; followers: number };
+    tiktok?: { handle: string; followers: number };
+    youtube?: { handle: string; subscribers: number };
+  };
+  city: string;
+  niche: string;
+  monthlyRate?: { min: number; max: number };
+}
+
+export interface PartnershipPipeline {
+  total: number;
+  byStatus: Record<CampaignStatus, number>;
+  totalRevenue: number;
+  avgDealSize: number;
+}
+
+export interface ContentItem {
+  contentId: string;
+  platform: 'instagram' | 'tiktok';
+  postUrl: string;
+  restaurantId?: string;
+  restaurantName?: string;
+  postedAt: string;
+  metrics: PostMetrics;
+  tags: string[];
+}
+
+export interface EditorialSlot {
+  slotId: string;
+  date: string;
+  restaurantId?: string;
+  restaurantName?: string;
+  type: 'sponsored' | 'organic' | 'reshoot';
+  status: 'planned' | 'shot' | 'editing' | 'published';
+  notes?: string;
+}
+
+// ─── API ─────────────────────────────────────────────────────────────────────
+
+export interface ApiResponse<T> {
+  data: T | null;
+  error: string | null;
+  status: 'success' | 'error' | 'timeout' | 'offline';
+  statusCode?: number;
+}
+
+// ─── Filters ─────────────────────────────────────────────────────────────────
+
+export interface RestaurantFilters {
+  search?: string;
+  cuisine?: string[];
+  neighborhood?: string[];
+  priceLevel?: number[];
+  vibes?: string[];
+  isPartner?: boolean;
+  occasion?: string;
+}

@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Spot Platform — Creator-powered restaurant discovery, partnerships, and audience tools
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 512
+    Tracing: Active
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DataTable
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+  AllowedOrigin:
+    Type: String
+    Default: 'http://localhost:5173'
+  AnthropicApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+  GooglePlacesApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+  YelpFusionApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+
+Resources:
+  # ─── DynamoDB ─────────────────────────────────────────────────────────────
+  DataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub spot-data-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ─── API Gateway ──────────────────────────────────────────────────────────
+  SpotApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub spot-api-${Environment}
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: !Sub "'${AllowedOrigin}'"
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  # ─── Main API Lambda ─────────────────────────────────────────────────────
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-api-${Environment}
+      CodeUri: lambda-api/
+      Handler: index.handler
+      Timeout: 15
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+      Events:
+        ProxyApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/{proxy+}
+            Method: ANY
+
+  # ─── AI Lambda ────────────────────────────────────────────────────────────
+  AiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-ai-${Environment}
+      CodeUri: lambda-ai/
+      Handler: index.handler
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          ANTHROPIC_API_KEY: !Ref AnthropicApiKey
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+      Events:
+        AiProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/ai/{proxy+}
+            Method: ANY
+
+  # ─── Background Sync Lambda ──────────────────────────────────────────────
+  SyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-sync-${Environment}
+      CodeUri: lambda-sync/
+      Handler: index.handler
+      Timeout: 300
+      MemorySize: 1024
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+          GOOGLE_PLACES_API_KEY: !Ref GooglePlacesApiKey
+          YELP_FUSION_API_KEY: !Ref YelpFusionApiKey
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+      Events:
+        DailySync:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+            Description: Daily restaurant data refresh
+            Enabled: false
+
+  # ─── CloudWatch Alarms ───────────────────────────────────────────────────
+  ApiErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-api-errors-${Environment}
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+
+  AiErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-ai-errors-${Environment}
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AiFunction
+
+  # ─── Budget Alert ────────────────────────────────────────────────────────
+  BudgetAlert:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub spot-monthly-${Environment}
+        BudgetLimit:
+          Amount: 50
+          Unit: USD
+        TimeUnit: MONTHLY
+        BudgetType: COST
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${SpotApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref DataTable
