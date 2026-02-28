@@ -524,9 +524,11 @@ export default function LandingPage() {
                   className="badge badge--accent"
                   style={{
                     position: 'absolute',
-                    top: '-10px',
+                    top: '-14px',
                     left: '50%',
                     transform: 'translateX(-50%)',
+                    zIndex: 1,
+                    boxShadow: '0 0 0 4px var(--color-bgPrimary)',
                   }}
                 >
                   Recommended
