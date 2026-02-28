@@ -26,24 +26,53 @@ function formatPct(n: number): string {
 /* ─── Styles ───────────────────────────────────────────────────────────────── */
 
 const styles = {
-  selectRow: {
+  campaignPicker: {
+    display: 'flex',
+    gap: 'var(--space-3)',
+    marginBottom: 'var(--space-8)',
+    overflowX: 'auto' as const,
+    paddingBottom: 'var(--space-2)',
+  } as React.CSSProperties,
+  campaignCard: (isSelected: boolean) =>
+    ({
+      flex: '0 0 auto',
+      minWidth: '220px',
+      maxWidth: '280px',
+      padding: 'var(--space-4)',
+      borderRadius: 'var(--radius-lg)',
+      border: isSelected
+        ? '2px solid var(--color-accent)'
+        : '1px solid var(--color-border)',
+      background: isSelected
+        ? 'color-mix(in srgb, var(--color-accent) 6%, var(--color-bgSecondary))'
+        : 'var(--color-bgSecondary)',
+      cursor: 'pointer',
+      transition: 'all 0.15s ease',
+      position: 'relative' as const,
+      overflow: 'hidden' as const,
+    }) as React.CSSProperties,
+  campaignCardName: {
+    fontSize: 'var(--font-sm)',
+    fontWeight: 600,
+    color: 'var(--color-textPrimary)',
+    marginBottom: '2px',
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden' as const,
+    textOverflow: 'ellipsis' as const,
+  } as React.CSSProperties,
+  campaignCardMeta: {
+    fontSize: 'var(--font-xs)',
+    color: 'var(--color-textMuted)',
     display: 'flex',
     alignItems: 'center',
-    gap: 'var(--space-4)',
-    marginBottom: 'var(--space-8)',
-    flexWrap: 'wrap' as const,
+    gap: 'var(--space-2)',
+    marginTop: 'var(--space-1)',
   } as React.CSSProperties,
-  select: {
-    flex: '1 1 300px',
-    padding: 'var(--space-3) var(--space-4)',
-    borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
-    background: 'var(--color-bgElevated)',
+  campaignCardBudget: {
+    fontSize: 'var(--font-lg)',
+    fontWeight: 700,
     color: 'var(--color-textPrimary)',
-    fontSize: 'var(--font-sm)',
-    cursor: 'pointer',
-    outline: 'none',
-    fontFamily: 'inherit',
+    marginTop: 'var(--space-2)',
   } as React.CSSProperties,
   metricsGrid: {
     display: 'grid',
@@ -294,6 +323,13 @@ export default function ROIReporter() {
     fetchCampaigns();
   }, [fetchCampaigns]);
 
+  // Auto-select first campaign once loaded
+  useEffect(() => {
+    if (campaigns.length > 0 && !selectedCampaignId) {
+      handleCampaignSelect(campaigns[0].campaignId);
+    }
+  }, [campaigns]);
+
   const fetchReport = useCallback(async (campaignId: string) => {
     setReportLoading(true);
     setReport(null);
@@ -422,27 +458,36 @@ export default function ROIReporter() {
         </div>
       )}
 
-      {/* Campaign Selector */}
-      <div style={styles.selectRow}>
-        <select
-          value={selectedCampaignId}
-          onChange={(e) => handleCampaignSelect(e.target.value)}
-          style={styles.select}
-        >
-          <option value="">Select a campaign...</option>
+      {/* Campaign Picker */}
+      {campaigns.length > 0 && (
+        <div style={styles.campaignPicker}>
           {campaigns.map((c) => (
-            <option key={c.campaignId} value={c.campaignId}>
-              {c.restaurantName} - {c.package} ({formatCurrency(c.budget)})
-            </option>
+            <div
+              key={c.campaignId}
+              style={styles.campaignCard(selectedCampaignId === c.campaignId)}
+              onClick={() => handleCampaignSelect(c.campaignId)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCampaignSelect(c.campaignId); }}
+            >
+              <div style={styles.campaignCardName}>{c.restaurantName}</div>
+              <div style={styles.campaignCardMeta}>
+                <span className={`badge badge--${c.status === 'active' ? 'success' : c.status === 'completed' ? 'accent' : 'info'}`}>
+                  {c.status}
+                </span>
+                <span>{c.package}</span>
+              </div>
+              <div style={styles.campaignCardBudget}>{formatCurrency(c.budget)}</div>
+            </div>
           ))}
-        </select>
-      </div>
+        </div>
+      )}
 
-      {/* No selection */}
-      {!selectedCampaignId && (
+      {/* No campaigns */}
+      {campaigns.length === 0 && !loading && (
         <div className="empty-state">
-          <h3>Select a Campaign</h3>
-          <p>Choose a campaign above to view its ROI report</p>
+          <h3>No Campaigns</h3>
+          <p>Create active or completed campaigns to generate ROI reports</p>
         </div>
       )}
 
