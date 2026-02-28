@@ -32,6 +32,7 @@ const PartnershipCRM = lazy(() => import('./features/concept3-spotops/Partnershi
 const ContentArchive = lazy(() => import('./features/concept3-spotops/ContentArchive'));
 const EditorialCalendar = lazy(() => import('./features/concept3-spotops/EditorialCalendar'));
 const ROIReporter = lazy(() => import('./features/concept3-spotops/ROIReporter'));
+const AIInsights = lazy(() => import('./features/concept3-spotops/AIInsights'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -85,6 +86,9 @@ export default function App() {
                 <Route path="partner" element={<FeatureGate flag="restaurantPortal"><PartnerPortal /></FeatureGate>} />
                 <Route path="partner/campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
                 <Route path="partner/offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
+
+                {/* AI */}
+                <Route path="insights" element={<AIInsights />} />
 
                 {/* Content */}
                 <Route path="archive" element={<ContentArchive />} />

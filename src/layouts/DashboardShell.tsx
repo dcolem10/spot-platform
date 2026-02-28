@@ -26,6 +26,7 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
       { to: '/app/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
       { to: '/app/offers', label: 'Offers & QR', icon: '\uD83C\uDF9F' },
       { to: '/app/reports', label: 'Reports', icon: '\uD83D\uDCCA' },
+      { to: '/app/insights', label: 'AI Insights', icon: '\u2728' },
     ],
   },
   {
