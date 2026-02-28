@@ -248,14 +248,19 @@ export default function PartnershipCRM() {
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    if (isDemoMode) {
+      setCampaigns(DEMO_CAMPAIGNS);
+      setLoading(false);
+      return;
+    }
+
     const res = await api.get<Campaign[]>('/api/spotops/campaigns');
-    if (res.error && !isDemoMode) {
+    if (res.error) {
       setError(res.error);
     }
     if (res.data && res.data.length > 0) {
       setCampaigns(res.data);
-    } else if (isDemoMode) {
-      setCampaigns(DEMO_CAMPAIGNS);
     }
     setLoading(false);
   }, []);

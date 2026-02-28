@@ -362,14 +362,18 @@ export function DiscoverApp() {
       setIsLoading(true);
       setError(null);
 
+      if (isDemoMode) {
+        setRestaurants(DEMO_RESTAURANTS);
+        setIsLoading(false);
+        return;
+      }
+
       const result = await api.get<Restaurant[]>('/api/restaurants', { public: true });
 
       if (cancelled) return;
 
       if (result.status === 'success' && result.data && result.data.length > 0) {
         setRestaurants(result.data);
-      } else if (isDemoMode) {
-        setRestaurants(DEMO_RESTAURANTS);
       } else if (result.error) {
         setError(result.error);
       }

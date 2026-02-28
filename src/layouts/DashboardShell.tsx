@@ -92,10 +92,13 @@ export default function DashboardShell() {
   const location = useLocation();
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
 
-  const isConsumerPath = CONSUMER_PATHS.some((p) => location.pathname.startsWith(p));
-  const effectiveRole = isConsumerPath ? 'audience' : (role || (isDemoMode ? 'creator' : 'viewer'));
+  // Explicit view mode — only switches via the toggle link, not on navigation
+  const initialMode = CONSUMER_PATHS.some((p) => location.pathname.startsWith(p)) ? 'audience' : 'creator';
+  const [viewMode, setViewMode] = useState<'creator' | 'audience'>(initialMode);
+
+  const effectiveRole = viewMode === 'audience' ? 'audience' : (role || (isDemoMode ? 'creator' : 'viewer'));
   const nav = effectiveRole === 'partner' ? partnerNav : effectiveRole === 'audience' ? audienceNav : creatorNav;
-  const displayName = name || (isDemoMode ? (isConsumerPath ? 'Foodie' : 'Demo Creator') : null);
+  const displayName = name || (isDemoMode ? (viewMode === 'audience' ? 'Foodie' : 'Demo Creator') : null);
   const displayRole = effectiveRole;
   const initials = displayName ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
 
@@ -130,12 +133,13 @@ export default function DashboardShell() {
         {isDemoMode && (
           <div style={{ padding: '0 var(--space-3) var(--space-3)' }}>
             <NavLink
-              to={isConsumerPath ? '/app/dashboard' : '/app/discover'}
+              to={viewMode === 'audience' ? '/app/dashboard' : '/app/discover'}
               className="sidebar-link"
               style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}
+              onClick={() => setViewMode(viewMode === 'audience' ? 'creator' : 'audience')}
             >
-              <span className="sidebar-link-icon">{isConsumerPath ? '\u{1F4BC}' : '\uD83D\uDD0D'}</span>
-              {isConsumerPath ? 'Switch to Creator' : 'Switch to Foodie'}
+              <span className="sidebar-link-icon">{viewMode === 'audience' ? '\u{1F4BC}' : '\uD83D\uDD0D'}</span>
+              {viewMode === 'audience' ? 'Switch to Creator' : 'Switch to Foodie'}
             </NavLink>
           </div>
         )}
@@ -154,12 +158,12 @@ export default function DashboardShell() {
           <div className="demo-banner">
             <span>
               <strong>Demo Mode</strong> &mdash; You&rsquo;re viewing example data.{' '}
-              {isConsumerPath ? (
-                <Link to="/app/dashboard" style={{ color: 'inherit', fontWeight: 600 }}>
+              {viewMode === 'audience' ? (
+                <Link to="/app/dashboard" style={{ color: 'inherit', fontWeight: 600 }} onClick={() => setViewMode('creator')}>
                   Switch to Creator View &rarr;
                 </Link>
               ) : (
-                <Link to="/app/discover" style={{ color: 'inherit', fontWeight: 600 }}>
+                <Link to="/app/discover" style={{ color: 'inherit', fontWeight: 600 }} onClick={() => setViewMode('audience')}>
                   Switch to Foodie View &rarr;
                 </Link>
               )}
@@ -197,7 +201,7 @@ export default function DashboardShell() {
 
       <nav className="mobile-nav">
         <div className="mobile-nav-items">
-          {(isConsumerPath ? audienceMobileNavItems : creatorMobileNavItems).map((item) => (
+          {(viewMode === 'audience' ? audienceMobileNavItems : creatorMobileNavItems).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -212,14 +212,19 @@ export default function ContentArchive() {
   const fetchContent = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    if (isDemoMode) {
+      setItems(DEMO_CONTENT);
+      setLoading(false);
+      return;
+    }
+
     const res = await api.get<ContentItem[]>('/api/spotops/content');
-    if (res.error && !isDemoMode) {
+    if (res.error) {
       setError(res.error);
     }
     if (res.data && res.data.length > 0) {
       setItems(res.data);
-    } else if (isDemoMode) {
-      setItems(DEMO_CONTENT);
     }
     setLoading(false);
   }, []);

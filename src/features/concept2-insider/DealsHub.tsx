@@ -286,14 +286,18 @@ export function DealsHub() {
       setIsLoading(true);
       setError(null);
 
+      if (isDemoMode) {
+        setDeals(DEMO_DEALS);
+        setIsLoading(false);
+        return;
+      }
+
       const result = await api.get<DealOffer[]>('/api/insider/deals', { public: true });
 
       if (cancelled) return;
 
       if (result.status === 'success' && result.data && result.data.length > 0) {
         setDeals(result.data);
-      } else if (isDemoMode) {
-        setDeals(DEMO_DEALS);
       } else if (result.error) {
         setError(result.error);
       }

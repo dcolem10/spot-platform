@@ -309,14 +309,19 @@ export default function EditorialCalendar() {
   const fetchSlots = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    if (isDemoMode) {
+      setSlots(DEMO_EDITORIAL_SLOTS);
+      setLoading(false);
+      return;
+    }
+
     const res = await api.get<EditorialSlot[]>('/api/spotops/calendar');
-    if (res.error && !isDemoMode) {
+    if (res.error) {
       setError(res.error);
     }
     if (res.data && res.data.length > 0) {
       setSlots(res.data);
-    } else if (isDemoMode) {
-      setSlots(DEMO_EDITORIAL_SLOTS);
     }
     setLoading(false);
   }, []);

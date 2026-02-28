@@ -44,6 +44,10 @@ export default function CampaignReport() {
   const { data: fetchedReport, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['campaign-report', campaignId],
     queryFn: async () => {
+      if (isDemoMode) {
+        const demo = DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId);
+        if (demo) return demo;
+      }
       const res = await api.get<CampaignReportType>(`/api/campaigns/${campaignId}/report`);
       if (res.error) throw new Error(res.error);
       if (!res.data) throw new Error('Report not found');

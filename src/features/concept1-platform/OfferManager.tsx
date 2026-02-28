@@ -119,7 +119,8 @@ export default function OfferManager() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['offers'],
     queryFn: async () => {
-      const res = await api.get<Offer[]>('/api/offers');
+      if (isDemoMode) return DEMO_OFFERS;
+      const res = await api.get<Offer[]>('/api/partner/offers');
       if (res.error) throw new Error(res.error);
       return res.data ?? [];
     },

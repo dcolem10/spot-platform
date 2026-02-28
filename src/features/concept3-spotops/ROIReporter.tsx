@@ -263,11 +263,19 @@ export default function ROIReporter() {
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    if (isDemoMode) {
+      setCampaigns(DEMO_CAMPAIGNS.filter((c) => c.status === 'active' || c.status === 'completed'));
+      setAllReports(DEMO_CAMPAIGN_REPORTS);
+      setLoading(false);
+      return;
+    }
+
     const [campaignRes, reportsRes] = await Promise.all([
       api.get<Campaign[]>('/api/spotops/campaigns'),
       api.get<CampaignReport[]>('/api/spotops/reports'),
     ]);
-    if (campaignRes.error && !isDemoMode) {
+    if (campaignRes.error) {
       setError(campaignRes.error);
     }
     if (campaignRes.data && campaignRes.data.length > 0) {
@@ -275,13 +283,9 @@ export default function ROIReporter() {
         (c) => c.status === 'active' || c.status === 'completed'
       );
       setCampaigns(completedOrActive);
-    } else if (isDemoMode) {
-      setCampaigns(DEMO_CAMPAIGNS.filter((c) => c.status === 'active' || c.status === 'completed'));
     }
     if (reportsRes.data && reportsRes.data.length > 0) {
       setAllReports(reportsRes.data);
-    } else if (isDemoMode) {
-      setAllReports(DEMO_CAMPAIGN_REPORTS);
     }
     setLoading(false);
   }, []);
@@ -293,12 +297,17 @@ export default function ROIReporter() {
   const fetchReport = useCallback(async (campaignId: string) => {
     setReportLoading(true);
     setReport(null);
+
+    if (isDemoMode) {
+      const demoReport = DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null;
+      setReport(demoReport);
+      setReportLoading(false);
+      return;
+    }
+
     const res = await api.get<CampaignReport>(`/api/spotops/reports/${campaignId}`);
     if (res.data) {
       setReport(res.data);
-    } else if (isDemoMode) {
-      const demoReport = DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null;
-      setReport(demoReport);
     } else {
       setError(res.error || 'Failed to load report');
     }

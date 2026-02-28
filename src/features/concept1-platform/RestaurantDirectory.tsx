@@ -58,6 +58,7 @@ export default function RestaurantDirectory() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['restaurants'],
     queryFn: async () => {
+      if (isDemoMode) return DEMO_RESTAURANTS;
       const res = await api.get<Restaurant[]>('/api/restaurants');
       if (res.error) throw new Error(res.error);
       return res.data ?? [];

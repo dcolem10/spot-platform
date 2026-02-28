@@ -38,6 +38,13 @@ export default function PartnerPortal() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['partner-dashboard', orgId],
     queryFn: async () => {
+      if (isDemoMode) {
+        return {
+          campaigns: DEMO_CAMPAIGNS,
+          offers: DEMO_OFFERS,
+          reports: DEMO_CAMPAIGN_REPORTS,
+        } as PartnerDashboardData;
+      }
       const [campaignsRes, offersRes, reportsRes] = await Promise.all([
         api.get<Campaign[]>('/api/partner/campaigns'),
         api.get<Offer[]>('/api/partner/offers'),

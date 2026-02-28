@@ -286,19 +286,22 @@ export function SavedList() {
       setIsLoading(true);
       setError(null);
 
+      if (isDemoMode) {
+        const enriched = DEMO_SAVED.map((saved) => ({
+          ...saved,
+          restaurant: DEMO_RESTAURANTS.find((r) => r.restaurantId === saved.restaurantId),
+        }));
+        setSavedItems(enriched);
+        setIsLoading(false);
+        return;
+      }
+
       const result = await api.get<SavedRestaurantWithDetails[]>('/api/insider/saved');
 
       if (cancelled) return;
 
       if (result.status === 'success' && result.data && result.data.length > 0) {
         setSavedItems(result.data);
-      } else if (isDemoMode) {
-        // Enrich saved items with restaurant details from demo data
-        const enriched = DEMO_SAVED.map((saved) => ({
-          ...saved,
-          restaurant: DEMO_RESTAURANTS.find((r) => r.restaurantId === saved.restaurantId),
-        }));
-        setSavedItems(enriched);
       } else if (result.error) {
         setError(result.error);
       }

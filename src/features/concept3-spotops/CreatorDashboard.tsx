@@ -217,31 +217,28 @@ export default function CreatorDashboard() {
     setLoading(true);
     setError(null);
 
+    if (isDemoMode) {
+      setPipeline(DEMO_PIPELINE);
+      setActivity(deriveActivity([...DEMO_CAMPAIGNS]));
+      setLoading(false);
+      return;
+    }
+
     const [pipelineRes, campaignsRes] = await Promise.all([
       api.get<PartnershipPipeline>('/api/spotops/pipeline'),
       api.get<Campaign[]>('/api/spotops/campaigns'),
     ]);
 
     if (pipelineRes.error || campaignsRes.error) {
-      if (isDemoMode) {
-        setPipeline(DEMO_PIPELINE);
-        setActivity(deriveActivity([...DEMO_CAMPAIGNS]));
-        setLoading(false);
-        return;
-      }
       setError(pipelineRes.error || campaignsRes.error || 'Failed to load dashboard data');
     }
 
     if (pipelineRes.data) {
       setPipeline(pipelineRes.data);
-    } else if (isDemoMode) {
-      setPipeline(DEMO_PIPELINE);
     }
 
     if (campaignsRes.data && campaignsRes.data.length > 0) {
       setActivity(deriveActivity(campaignsRes.data));
-    } else if (isDemoMode) {
-      setActivity(deriveActivity([...DEMO_CAMPAIGNS]));
     }
 
     setLoading(false);
