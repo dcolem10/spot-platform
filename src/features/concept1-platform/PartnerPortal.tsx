@@ -138,7 +138,7 @@ export default function PartnerPortal() {
         <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--color-textPrimary)' }}>
           Performance Summary
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
+        <div className="bento-grid">
           <MetricCard label="Total Reach" value={formatNumber(metrics.totalReach)} icon="&#x1F4E3;" color="var(--color-info)" bg="var(--color-infoMuted)" />
           <MetricCard label="Impressions" value={formatNumber(metrics.totalImpressions)} icon="&#x1F441;" color="var(--color-accent)" bg="var(--color-accentMuted)" />
           <MetricCard label="QR Scans" value={formatNumber(metrics.qrScans)} icon="&#x1F4F1;" color="var(--color-success)" bg="var(--color-successMuted)" />
@@ -147,11 +147,9 @@ export default function PartnerPortal() {
       </section>
 
       {/* Active Campaigns */}
-      <section style={{ marginBottom: 'var(--space-8)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
-            Active Campaigns ({activeCampaigns.length})
-          </h2>
+      <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
+        <div className="section-card-header">
+          <h2 className="section-card-title">Active Campaigns ({activeCampaigns.length})</h2>
         </div>
 
         {activeCampaigns.length === 0 ? (
@@ -235,11 +233,9 @@ export default function PartnerPortal() {
       </section>
 
       {/* Active Offers */}
-      <section>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
-            Active Offers ({activeOffers.length})
-          </h2>
+      <section className="section-card">
+        <div className="section-card-header">
+          <h2 className="section-card-title">Active Offers ({activeOffers.length})</h2>
           <Link to="/app/offers" className="btn btn-ghost" style={{ fontSize: 'var(--font-sm)' }}>
             Manage Offers &#8594;
           </Link>

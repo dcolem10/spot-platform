@@ -59,9 +59,6 @@ function timeAgo(iso: string): string {
 
 const styles = {
   metricsRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: 'var(--space-5)',
     marginBottom: 'var(--space-8)',
   } as React.CSSProperties,
   metricValue: {
@@ -100,9 +97,6 @@ const styles = {
     marginBottom: 'var(--space-4)',
   } as React.CSSProperties,
   twoCol: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 'var(--space-6)',
     marginTop: 'var(--space-6)',
   } as React.CSSProperties,
   pipelineBar: {
@@ -156,7 +150,7 @@ const styles = {
   } as React.CSSProperties,
   actionsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
     gap: 'var(--space-4)',
   } as React.CSSProperties,
   actionCard: {
@@ -311,9 +305,9 @@ export default function CreatorDashboard() {
           <div className="skeleton" style={{ width: '260px', height: '32px', marginBottom: 'var(--space-3)' }} />
           <div className="skeleton" style={{ width: '180px', height: '18px' }} />
         </div>
-        <div style={styles.metricsRow}>
+        <div className="bento-grid" style={styles.metricsRow}>
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="card">
+            <div key={i} className="card bento-narrow">
               <div className="skeleton" style={{ width: '100px', height: '14px', marginBottom: 'var(--space-3)' }} />
               <div className="skeleton" style={{ width: '80px', height: '36px' }} />
             </div>
@@ -344,9 +338,9 @@ export default function CreatorDashboard() {
       )}
 
       {/* Hero Metrics */}
-      <div style={styles.metricsRow} className="stagger-children">
+      <div className="bento-grid stagger-children" style={styles.metricsRow}>
         {heroMetrics.map((metric) => (
-          <div className="card" key={metric.label}>
+          <div className="card bento-narrow" key={metric.label}>
             <div style={styles.metricLabel}>{metric.label}</div>
             <div style={styles.metricValue}>{metric.value}</div>
             <div style={metric.trend >= 0 ? styles.trendUp : styles.trendDown}>
@@ -359,8 +353,10 @@ export default function CreatorDashboard() {
       </div>
 
       {/* Pipeline Summary */}
-      <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-        <div style={styles.sectionTitle}>Partnership Pipeline</div>
+      <div className="section-card" style={{ marginBottom: 'var(--space-6)' }}>
+        <div className="section-card-header">
+          <h2 className="section-card-title">Partnership Pipeline</h2>
+        </div>
 
         <div style={styles.pipelineBar}>
           {pipelineTotal > 0 &&
@@ -418,10 +414,12 @@ export default function CreatorDashboard() {
       </div>
 
       {/* Two-column: Activity + Quick Actions */}
-      <div style={styles.twoCol}>
+      <div className="bento-grid" style={styles.twoCol}>
         {/* Recent Activity */}
-        <div className="card">
-          <div style={styles.sectionTitle}>Recent Activity</div>
+        <div className="section-card bento-wide">
+          <div className="section-card-header">
+            <h2 className="section-card-title">Recent Activity</h2>
+          </div>
           {activity.length === 0 ? (
             <div className="empty-state" style={{ padding: 'var(--space-6)' }}>
               <h3>No recent activity</h3>
@@ -440,24 +438,17 @@ export default function CreatorDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="card">
-          <div style={styles.sectionTitle}>Quick Actions</div>
+        <div className="section-card bento-narrow">
+          <div className="section-card-header">
+            <h2 className="section-card-title">Quick Actions</h2>
+          </div>
           <div style={styles.actionsGrid}>
             {quickActions.map((action) => (
               <button
                 key={action.label}
+                className="card"
                 style={styles.actionCard}
                 onClick={action.onClick}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-borderHover)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
               >
                 <span style={styles.actionIcon}>{action.icon}</span>
                 <span style={styles.actionLabel}>{action.label}</span>
