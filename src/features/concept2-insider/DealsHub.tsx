@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { DealOffer, MembershipTier } from '../../types';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
@@ -99,7 +100,7 @@ function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
           </p>
           <a
             className="btn btn-primary"
-            href="/insider/upgrade"
+            href="/app/deals"
             style={{ fontSize: 'var(--font-sm)', textDecoration: 'none' }}
           >
             Upgrade to Insider
@@ -330,9 +331,11 @@ export function DealsHub() {
     [deals]
   );
 
+  const navigate = useNavigate();
+
   const handleRedeem = useCallback(async (dealId: string) => {
     if (!isAuthenticated) {
-      window.location.href = '/login?redirect=/deals';
+      navigate('/');
       return;
     }
 
@@ -341,7 +344,7 @@ export function DealsHub() {
     if (result.status === 'success') {
       // Could show a toast/modal with the redemption code here
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   return (
     <div className="page-container">
@@ -398,7 +401,7 @@ export function DealsHub() {
           </div>
           <a
             className="btn btn-primary"
-            href="/insider/upgrade"
+            href="/app/deals"
             style={{ textDecoration: 'none' }}
           >
             Upgrade to Insider

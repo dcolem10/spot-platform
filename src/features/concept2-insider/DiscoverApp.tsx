@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Restaurant, RestaurantFilters, MembershipTier } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import type { Restaurant, MembershipTier } from '../../types';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
@@ -321,7 +322,7 @@ export function InsiderCTA() {
           Get access to members-only discounts, early reservations, and AI-powered recommendations.
         </p>
       </div>
-      <a className="btn btn-primary" href="/insider/upgrade" style={{ textDecoration: 'none' }}>
+      <a className="btn btn-primary" href="/app/deals" style={{ textDecoration: 'none' }}>
         Become an Insider
       </a>
     </div>
@@ -345,25 +346,20 @@ export function DiscoverApp() {
   const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
 
   const toggleFilter = useCallback(
-    (_list: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+    (setter: React.Dispatch<React.SetStateAction<string[]>>) =>
       (value: string) => {
         setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
       },
     []
   );
 
-  // Fetch restaurants
+  // Fetch restaurants once on mount; filters are applied client-side in useMemo
   useEffect(() => {
     let cancelled = false;
 
     async function fetchData() {
       setIsLoading(true);
       setError(null);
-
-      const filters: RestaurantFilters = {};
-      if (selectedCuisines.length > 0) filters.cuisine = selectedCuisines;
-      if (selectedNeighborhoods.length > 0) filters.neighborhood = selectedNeighborhoods;
-      if (selectedVibes.length > 0) filters.vibes = selectedVibes;
 
       const result = await api.get<Restaurant[]>('/api/restaurants', { public: true });
 
@@ -379,7 +375,7 @@ export function DiscoverApp() {
 
     fetchData();
     return () => { cancelled = true; };
-  }, [selectedCuisines, selectedNeighborhoods, selectedVibes]);
+  }, []);
 
   // Fetch membership tier
   useEffect(() => {
@@ -435,13 +431,15 @@ export function DiscoverApp() {
     return list;
   }, [restaurants, searchQuery, selectedCuisines, selectedNeighborhoods, selectedVibes]);
 
+  const navigate = useNavigate();
+
   const handleSave = useCallback(async (restaurantId: string) => {
     if (!isAuthenticated) {
-      window.location.href = '/login?redirect=/discover';
+      navigate('/');
       return;
     }
     await api.post('/api/insider/saved', { restaurantId });
-  }, [isAuthenticated]);
+  }, [isAuthenticated, navigate]);
 
   const clearAllFilters = useCallback(() => {
     setSearchQuery('');
@@ -544,19 +542,19 @@ export function DiscoverApp() {
           label="Cuisine"
           options={CUISINE_OPTIONS}
           selected={selectedCuisines}
-          onToggle={toggleFilter(selectedCuisines, setSelectedCuisines)}
+          onToggle={toggleFilter(setSelectedCuisines)}
         />
         <FilterChips
           label="Neighborhood"
           options={NEIGHBORHOOD_OPTIONS}
           selected={selectedNeighborhoods}
-          onToggle={toggleFilter(selectedNeighborhoods, setSelectedNeighborhoods)}
+          onToggle={toggleFilter(setSelectedNeighborhoods)}
         />
         <FilterChips
           label="Vibe"
           options={VIBE_OPTIONS}
           selected={selectedVibes}
-          onToggle={toggleFilter(selectedVibes, setSelectedVibes)}
+          onToggle={toggleFilter(setSelectedVibes)}
         />
         {hasActiveFilters && (
           <button

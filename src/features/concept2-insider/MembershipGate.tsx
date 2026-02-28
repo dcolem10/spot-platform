@@ -1,4 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { MembershipTier } from '../../types';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
@@ -29,10 +30,11 @@ export function UpgradeCard({ variant = 'full', onUpgrade }: UpgradeCardProps) {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [isProcessing, setIsProcessing] = useState(false);
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   const handleUpgrade = async () => {
     if (!isAuthenticated) {
-      window.location.href = '/login?redirect=/insider/upgrade';
+      navigate('/');
       return;
     }
 

@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -75,15 +75,38 @@ async function refreshRestaurant(restaurant) {
 
   if (!google && !yelp) return;
 
-  const updates = {
-    ...restaurant,
+  // H6: Use UpdateCommand with SET expressions for only the synced fields,
+  // instead of PutCommand which could overwrite concurrent changes.
+  const syncedFields = {
     ...(google || {}),
     ...(yelp || {}),
     lastSynced: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  await ddb.send(new PutCommand({ TableName: TABLE, Item: updates }));
+  const names = {};
+  const values = {};
+  const parts = [];
+
+  Object.entries(syncedFields).forEach(([field, value]) => {
+    if (value !== undefined) {
+      names[`#${field}`] = field;
+      values[`:${field}`] = value;
+      parts.push(`#${field} = :${field}`);
+    }
+  });
+
+  if (parts.length === 0) return;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: restaurant.PK, SK: restaurant.SK },
+      UpdateExpression: `SET ${parts.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    })
+  );
   console.log(`Refreshed: ${restaurant.name} (${restaurant.restaurantId})`);
 }
 
@@ -92,17 +115,26 @@ async function refreshRestaurant(restaurant) {
 export const handler = async () => {
   console.log('Starting daily restaurant data sync...');
 
-  // Get all restaurants
-  const result = await ddb.send(
-    new QueryCommand({
+  // H5: Paginate through all restaurants to handle large datasets
+  const restaurants = [];
+  let exclusiveStartKey = undefined;
+
+  do {
+    const queryParams = {
       TableName: TABLE,
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
       ExpressionAttributeValues: { ':pk': 'RESTAURANTS' },
-    })
-  );
+    };
+    if (exclusiveStartKey) {
+      queryParams.ExclusiveStartKey = exclusiveStartKey;
+    }
 
-  const restaurants = result.Items || [];
+    const result = await ddb.send(new QueryCommand(queryParams));
+    restaurants.push(...(result.Items || []));
+    exclusiveStartKey = result.LastEvaluatedKey;
+  } while (exclusiveStartKey);
+
   console.log(`Found ${restaurants.length} restaurants to refresh`);
 
   // Process in batches of 5 to respect API rate limits

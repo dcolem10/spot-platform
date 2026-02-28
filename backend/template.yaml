@@ -21,18 +21,30 @@ Parameters:
   AllowedOrigin:
     Type: String
     Default: 'http://localhost:5173'
+  CognitoUserPoolId:
+    Type: String
+    Description: Cognito User Pool ID for API authorization
   AnthropicApiKey:
     Type: String
     Default: ''
     NoEcho: true
+    Description: >-
+      Anthropic API key for AI features.
+      NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
   GooglePlacesApiKey:
     Type: String
     Default: ''
     NoEcho: true
+    Description: >-
+      Google Places API key for restaurant data sync.
+      NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
   YelpFusionApiKey:
     Type: String
     Default: ''
     NoEcho: true
+    Description: >-
+      Yelp Fusion API key for restaurant data sync.
+      NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
 
 Resources:
   # ─── DynamoDB ─────────────────────────────────────────────────────────────
@@ -80,6 +92,19 @@ Resources:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: !Sub "'${AllowedOrigin}'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+      # H4: API Gateway throttling to protect AI endpoints and control costs.
+      # Stage-level default throttle applies to all methods including /api/ai/*.
+      # For more granular per-path throttling, use a Usage Plan resource.
+      MethodSettings:
+        - HttpMethod: '*'
+          ResourcePath: '/*'
+          ThrottlingBurstLimit: 50
+          ThrottlingRateLimit: 20
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
@@ -104,12 +129,46 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
       Events:
+        # Authenticated endpoints (default Cognito authorizer applies)
         ProxyApi:
           Type: Api
           Properties:
             RestApiId: !Ref SpotApi
             Path: /api/{proxy+}
             Method: ANY
+        # Public endpoints — no auth required
+        OfferScan:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/offers/{offerId}/scan
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        OfferRedeem:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/offers/{offerId}/redeem
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        Subscribe:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/subscribe
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        Health:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/health
+            Method: GET
+            Auth:
+              Authorizer: NONE
 
   # ─── AI Lambda ────────────────────────────────────────────────────────────
   AiFunction:

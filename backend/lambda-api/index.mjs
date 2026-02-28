@@ -37,25 +37,33 @@ const isValidId = (id) =>
   typeof id === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(id);
 
 function getUserId(event) {
-  return (
-    event.requestContext?.authorizer?.claims?.sub ||
-    event.headers?.['x-user-id'] ||
-    'anonymous'
-  );
+  // C1: Only trust Cognito authorizer claims — no header fallback, no anonymous.
+  // Callers must handle null (return 401).
+  return event.requestContext?.authorizer?.claims?.sub || null;
 }
 
 // ─── Restaurant CRUD ──────────────────────────────────────────────────────────
 
 async function listRestaurants(event) {
   const params = event.queryStringParameters || {};
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'RESTAURANTS' },
-    })
-  );
+
+  // H3: Pagination support
+  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 200);
+  const queryParams = {
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': 'RESTAURANTS' },
+    Limit: limit,
+  };
+
+  if (params.lastKey) {
+    try {
+      queryParams.ExclusiveStartKey = JSON.parse(Buffer.from(params.lastKey, 'base64').toString());
+    } catch { /* ignore invalid lastKey */ }
+  }
+
+  const result = await ddb.send(new QueryCommand(queryParams));
 
   let items = result.Items || [];
 
@@ -83,7 +91,11 @@ async function listRestaurants(event) {
     );
   }
 
-  return respond(200, { restaurants: items });
+  const response = { restaurants: items };
+  if (result.LastEvaluatedKey) {
+    response.lastEvaluatedKey = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64');
+  }
+  return respond(200, response);
 }
 
 async function getRestaurant(restaurantId) {
@@ -100,7 +112,7 @@ async function getRestaurant(restaurantId) {
 
 async function createRestaurant(event) {
   const body = JSON.parse(event.body || '{}');
-  const id = randomUUID().slice(0, 8);
+  const id = randomUUID();
   const item = {
     PK: `RESTAURANT#${id}`,
     SK: 'PROFILE',
@@ -182,20 +194,37 @@ async function updateRestaurant(restaurantId, event) {
 
 async function listCampaigns(event) {
   const userId = getUserId(event);
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'CAMPAIGNS' },
-    })
-  );
-  return respond(200, { campaigns: result.Items || [] });
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const queryParams = {
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': 'CAMPAIGNS' },
+  };
+
+  // H3: Pagination support
+  const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
+  queryParams.Limit = limit;
+  if (params.lastKey) {
+    try {
+      queryParams.ExclusiveStartKey = JSON.parse(Buffer.from(params.lastKey, 'base64').toString());
+    } catch { /* ignore invalid lastKey */ }
+  }
+
+  const result = await ddb.send(new QueryCommand(queryParams));
+
+  const response = { campaigns: result.Items || [] };
+  if (result.LastEvaluatedKey) {
+    response.lastEvaluatedKey = Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64');
+  }
+  return respond(200, response);
 }
 
 async function createCampaign(event) {
   const body = JSON.parse(event.body || '{}');
-  const id = randomUUID().slice(0, 8);
+  const id = randomUUID();
   const restaurantId = sanitize(body.restaurantId, 64);
 
   const item = {
@@ -213,7 +242,7 @@ async function createCampaign(event) {
     endDate: body.endDate || null,
     deliverables: Array.isArray(body.deliverables)
       ? body.deliverables.map((d) => ({
-          id: randomUUID().slice(0, 6),
+          id: randomUUID(),
           type: sanitize(d.type, 20),
           description: sanitize(d.description, 500),
           completed: false,
@@ -230,6 +259,9 @@ async function createCampaign(event) {
 
 async function updateCampaign(campaignId, event) {
   if (!isValidId(campaignId)) return respond(400, { error: 'Invalid ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
   const body = JSON.parse(event.body || '{}');
 
   // Find the campaign first via GSI
@@ -248,21 +280,48 @@ async function updateCampaign(campaignId, event) {
   if (!find.Items?.length) return respond(404, { error: 'Campaign not found' });
   const existing = find.Items[0];
 
-  const updates = { ...existing, ...body, updatedAt: new Date().toISOString() };
+  // C3: Allowlisted fields only — prevent mass assignment of PK/SK/GSI keys
+  const allowedFields = ['status', 'package', 'budget', 'startDate', 'endDate', 'deliverables', 'notes'];
+  const names = {};
+  const values = {};
+  let expr = '';
 
-  await ddb.send(
-    new PutCommand({ TableName: TABLE, Item: updates })
+  allowedFields.forEach((f) => {
+    if (body[f] !== undefined) {
+      const key = `#${f}`;
+      const val = `:${f}`;
+      names[key] = f;
+      values[val] = body[f];
+      expr += `${expr ? ', ' : ''}${key} = ${val}`;
+    }
+  });
+
+  if (!expr) return respond(400, { error: 'No valid fields to update' });
+
+  names['#updatedAt'] = 'updatedAt';
+  values[':updatedAt'] = new Date().toISOString();
+  expr += ', #updatedAt = :updatedAt';
+
+  const result = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: `SET ${expr}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      ReturnValues: 'ALL_NEW',
+    })
   );
 
-  return respond(200, updates);
+  return respond(200, result.Attributes);
 }
 
 // ─── Offer CRUD ───────────────────────────────────────────────────────────────
 
 async function createOffer(restaurantId, event) {
   const body = JSON.parse(event.body || '{}');
-  const id = randomUUID().slice(0, 8);
-  const code = `SPOT-${id.toUpperCase()}`;
+  const id = randomUUID();
+  const code = `SPOT-${id.slice(0, 8).toUpperCase()}`;
 
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
@@ -283,27 +342,47 @@ async function createOffer(restaurantId, event) {
   };
 
   await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+
+  // H2: Write a lookup record so trackScan/redeemOffer can do direct GetItem by code
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `OFFER_CODE#${code}`,
+        SK: 'LOOKUP',
+        restaurantPK: `RESTAURANT#${restaurantId}`,
+        offerSK: `OFFER#${id}`,
+        offerId: id,
+        restaurantId,
+        code,
+        description: item.description,
+        landingPageUrl: item.landingPageUrl,
+        isActive: item.isActive,
+        expiresAt: item.expiresAt,
+        createdAt: item.createdAt,
+      },
+    })
+  );
+
   return respond(201, item);
 }
 
 async function trackScan(code) {
-  // Find offer by code
-  const result = await ddb.send(
-    new QueryCommand({
+  // H2: Direct GetItem lookup by offer code instead of scanning all offers
+  const lookup = await ddb.send(
+    new GetCommand({
       TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'OFFERS' },
+      Key: { PK: `OFFER_CODE#${code}`, SK: 'LOOKUP' },
     })
   );
 
-  const offer = result.Items?.find((o) => o.code === code);
-  if (!offer) return respond(404, { error: 'Offer not found' });
+  if (!lookup.Item) return respond(404, { error: 'Offer not found' });
+  const offer = lookup.Item;
 
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE,
-      Key: { PK: offer.PK, SK: offer.SK },
+      Key: { PK: offer.restaurantPK, SK: offer.offerSK },
       UpdateExpression: 'SET scans = scans + :inc',
       ExpressionAttributeValues: { ':inc': 1 },
     })
@@ -317,22 +396,21 @@ async function trackScan(code) {
 }
 
 async function redeemOffer(code) {
-  const result = await ddb.send(
-    new QueryCommand({
+  // H2: Direct GetItem lookup by offer code instead of scanning all offers
+  const lookup = await ddb.send(
+    new GetCommand({
       TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'OFFERS' },
+      Key: { PK: `OFFER_CODE#${code}`, SK: 'LOOKUP' },
     })
   );
 
-  const offer = result.Items?.find((o) => o.code === code);
-  if (!offer) return respond(404, { error: 'Offer not found' });
+  if (!lookup.Item) return respond(404, { error: 'Offer not found' });
+  const offer = lookup.Item;
 
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE,
-      Key: { PK: offer.PK, SK: offer.SK },
+      Key: { PK: offer.restaurantPK, SK: offer.offerSK },
       UpdateExpression: 'SET redemptions = redemptions + :inc',
       ExpressionAttributeValues: { ':inc': 1 },
     })
@@ -345,6 +423,7 @@ async function redeemOffer(code) {
 
 async function saveRestaurant(event, restaurantId) {
   const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
   const body = JSON.parse(event.body || '{}');
 
   await ddb.send(
@@ -366,6 +445,7 @@ async function saveRestaurant(event, restaurantId) {
 
 async function listSaves(event) {
   const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
   const result = await ddb.send(
     new QueryCommand({
       TableName: TABLE,

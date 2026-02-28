@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import type { Campaign, CampaignStatus, Deliverable } from '../../types';
+import './CampaignManager.css';
 
 const STAGES: { key: CampaignStatus; label: string; badgeClass: string }[] = [
   { key: 'inquiry', label: 'Inquiry', badgeClass: 'badge--info' },
@@ -319,21 +320,6 @@ function FormField({ label, required, children }: { label: string; required?: bo
         {label}{required && <span style={{ color: 'var(--color-error)' }}> *</span>}
       </span>
       {children}
-      <style>{`
-        .form-input {
-          padding: var(--space-2) var(--space-3);
-          background: var(--color-bgElevated);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          color: var(--color-textPrimary);
-          font-size: var(--font-sm);
-          outline: none;
-          transition: border-color var(--transition-fast);
-        }
-        .form-input:focus {
-          border-color: var(--color-accent);
-        }
-      `}</style>
     </label>
   );
 }

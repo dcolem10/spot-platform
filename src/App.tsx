@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
+import { useAuth } from './hooks/useAuth';
 
 // Layouts
 const DashboardShell = lazy(() => import('./layouts/DashboardShell'));
@@ -30,6 +31,16 @@ const ContentArchive = lazy(() => import('./features/concept3-spotops/ContentArc
 const EditorialCalendar = lazy(() => import('./features/concept3-spotops/EditorialCalendar'));
 const ROIReporter = lazy(() => import('./features/concept3-spotops/ROIReporter'));
 
+function RequireAuth({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
+  if (isLoading) return <AppFallback />;
+  if (!isAuthenticated && !isDemoMode) return <Navigate to="/" replace />;
+
+  return <>{children}</>;
+}
+
 function AppFallback() {
   return (
     <div style={{ padding: 40 }}>
@@ -52,7 +63,7 @@ export default function App() {
               <Route path="/" element={<LandingPage />} />
 
               {/* Dashboard routes */}
-              <Route path="/app" element={<DashboardShell />}>
+              <Route path="/app" element={<RequireAuth><DashboardShell /></RequireAuth>}>
                 {/* Concept 3: SpotOps — Creator Dashboard (default) */}
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<CreatorDashboard />} />

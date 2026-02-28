@@ -217,7 +217,7 @@ export default function PartnerPortal() {
                   {/* Right: Report link */}
                   {report && (
                     <Link
-                      to={`/app/campaigns/${campaign.campaignId}/report`}
+                      to={`/app/reports/${campaign.campaignId}`}
                       className="btn btn-secondary"
                       style={{ flexShrink: 0 }}
                     >

@@ -8,6 +8,12 @@ const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 const CACHE_TTL = 3600;
 
+// H4: Rate limiting is enforced at two layers:
+// 1. API Gateway MethodSettings — stage-level throttle (50 burst / 20 sustained rps)
+// 2. Caching — AI responses cached in DynamoDB with 1hr TTL to reduce Anthropic API calls.
+// For production, consider adding per-user rate limiting via a Usage Plan + API Keys,
+// or an in-Lambda token-bucket backed by DynamoDB atomic counters.
+
 const headers = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': ORIGIN,
@@ -124,6 +130,18 @@ async function handleRecommendations(event) {
 
 async function handleContentIdeas(event) {
   const body = JSON.parse(event.body || '{}');
+
+  // H7: Prompt injection detection on user-supplied context
+  if (body.context && typeof body.context === 'string' && detectInjection(body.context)) {
+    return respond(400, { error: 'Invalid context content' });
+  }
+  if (body.context && typeof body.context === 'object') {
+    const contextStr = JSON.stringify(body.context);
+    if (detectInjection(contextStr)) {
+      return respond(400, { error: 'Invalid context content' });
+    }
+  }
+
   if (!API_KEY) {
     return respond(200, {
       ideas: [
@@ -175,6 +193,17 @@ async function handleContentIdeas(event) {
 
 async function handleCampaignInsights(event) {
   const body = JSON.parse(event.body || '{}');
+
+  // H7: Prompt injection detection on user-supplied campaign data
+  if (body.campaignData) {
+    const dataStr = typeof body.campaignData === 'string'
+      ? body.campaignData
+      : JSON.stringify(body.campaignData);
+    if (detectInjection(dataStr)) {
+      return respond(400, { error: 'Invalid campaign data content' });
+    }
+  }
+
   if (!API_KEY) {
     return respond(200, {
       insights: [

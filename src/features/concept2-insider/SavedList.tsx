@@ -391,7 +391,7 @@ export function SavedList() {
               <p>Start exploring to save restaurants you want to try.</p>
               <a
                 className="btn btn-primary"
-                href="/discover"
+                href="/app/discover"
                 style={{ marginTop: 'var(--space-4)', textDecoration: 'none' }}
               >
                 Discover restaurants

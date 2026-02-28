@@ -201,7 +201,6 @@ const styles = {
 
 export default function CreatorDashboard() {
   const [pipeline, setPipeline] = useState<PartnershipPipeline | null>(null);
-  const [_campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -224,10 +223,9 @@ export default function CreatorDashboard() {
     }
 
     if (campaignsRes.data) {
-      setCampaigns(campaignsRes.data);
-
       // Derive activity from recent campaign events
-      const events: ActivityEvent[] = campaignsRes.data
+      const campaigns = campaignsRes.data;
+      const events: ActivityEvent[] = campaigns
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         .slice(0, 5)
         .map((c) => ({

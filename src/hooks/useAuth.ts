@@ -1,16 +1,20 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '../store/authStore';
 
 export function useAuth() {
-  const store = useAuthStore();
+  const store = useAuthStore(useShallow((s) => ({
+    userId: s.userId,
+    email: s.email,
+    name: s.name,
+    role: s.role,
+    groups: s.groups,
+    orgId: s.orgId,
+    isAuthenticated: s.isAuthenticated,
+    isLoading: s.isLoading,
+  })));
+
   return {
-    userId: store.userId,
-    email: store.email,
-    name: store.name,
-    role: store.role,
-    groups: store.groups,
-    orgId: store.orgId,
-    isAuthenticated: store.isAuthenticated,
-    isLoading: store.isLoading,
+    ...store,
     isCreator: store.role === 'creator' || store.groups.includes('creator'),
     isPartner: store.role === 'partner' || store.groups.includes('partner'),
     isAudience: store.role === 'audience',
