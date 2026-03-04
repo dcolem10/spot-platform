@@ -16,6 +16,9 @@ const DashboardShell = lazy(() => import('./layouts/DashboardShell'));
 // Landing
 const LandingPage = lazy(() => import('./features/landing/LandingPage'));
 
+// Auth
+const AuthPage = lazy(() => import('./features/auth/AuthPage'));
+
 // Onboarding
 const CreatorOnboarding = lazy(() => import('./features/onboarding/CreatorOnboarding'));
 
@@ -48,7 +51,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
 
   if (isLoading) return <AppFallback />;
-  if (!isAuthenticated && !isDemoMode) return <Navigate to="/" replace />;
+  if (!isAuthenticated && !isDemoMode) return <Navigate to="/auth" replace />;
 
   return <>{children}</>;
 }
@@ -96,6 +99,9 @@ export default function App() {
             <Routes>
               {/* Public landing */}
               <Route path="/" element={<LandingPage />} />
+
+              {/* Auth */}
+              <Route path="/auth" element={<AuthPage />} />
 
               {/* Onboarding */}
               <Route path="/onboarding" element={<RequireAuth><CreatorOnboarding /></RequireAuth>} />

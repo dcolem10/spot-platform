@@ -323,13 +323,41 @@ export default function LandingPage() {
           </div>
           <span style={{ fontWeight: 700, fontSize: 'var(--font-lg)' }}>Spot</span>
         </div>
-        <Link
-          to="/app/dashboard"
-          className="btn btn-primary"
-          style={{ fontSize: 'var(--font-sm)', padding: '8px 24px' }}
-        >
-          Creator Demo
-        </Link>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <Link
+            to="/auth"
+            style={{
+              fontSize: 'var(--font-sm)',
+              padding: '8px 20px',
+              color: '#1B2838',
+              textDecoration: 'none',
+              fontWeight: 500,
+            }}
+          >
+            Sign In
+          </Link>
+          <Link
+            to="/auth"
+            className="btn btn-primary"
+            style={{ fontSize: 'var(--font-sm)', padding: '8px 24px' }}
+          >
+            Get Started
+          </Link>
+          <Link
+            to="/app/dashboard"
+            style={{
+              fontSize: 'var(--font-sm)',
+              padding: '8px 16px',
+              color: '#666',
+              textDecoration: 'none',
+              borderLeft: '1px solid #ddd',
+              marginLeft: 4,
+              paddingLeft: 16,
+            }}
+          >
+            Demo
+          </Link>
+        </div>
       </header>
 
       {/* Hero */}
