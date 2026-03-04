@@ -188,10 +188,14 @@ export default function CampaignReport() {
   };
 
   const handleDownloadPDF = () => {
-    // In a real implementation, this would call a backend endpoint or use
-    // a library like html2pdf.js / jsPDF. For now, trigger the browser print
-    // dialog which supports "Save as PDF".
+    if (!report) return;
+    const originalTitle = document.title;
+    document.title = `Campaign-Report-${report.restaurantName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}`;
     window.print();
+    // Restore title after print dialog
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 1000);
   };
 
   if (isLoading) {

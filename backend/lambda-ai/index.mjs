@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -22,9 +22,9 @@ const headers = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 };
 
-const respond = (statusCode, body) => ({
+const respond = (statusCode, body, customHeaders = {}) => ({
   statusCode,
-  headers,
+  headers: { ...headers, ...customHeaders },
   body: JSON.stringify(body),
 });
 
@@ -45,9 +45,86 @@ function detectInjection(text) {
   return INJECTION_PATTERNS.some((p) => p.test(text));
 }
 
+// ─── User ID Extraction ───────────────────────────────────────────────────────
+
+function getUserId(event) {
+  return event.requestContext?.authorizer?.claims?.sub || null;
+}
+
+// ─── Per-User Rate Limiting ───────────────────────────────────────────────────
+// Limits each user to MAX_AI_REQUESTS_PER_HOUR AI requests per hour.
+// Uses DynamoDB atomic counters with TTL for automatic cleanup.
+
+const MAX_AI_REQUESTS_PER_HOUR = 10;
+const RATE_LIMIT_WINDOW = 3600; // 1 hour in seconds
+
+async function checkRateLimit(userId) {
+  if (!userId) return { allowed: false, reason: 'No user ID' };
+
+  const now = Math.floor(Date.now() / 1000);
+  const windowKey = Math.floor(now / RATE_LIMIT_WINDOW); // changes every hour
+
+  try {
+    const result = await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: {
+          PK: `RATE_LIMIT#${userId}`,
+          SK: `AI#${windowKey}`,
+        },
+        UpdateExpression: 'SET #count = if_not_exists(#count, :zero) + :inc, #ttl = :ttl',
+        ExpressionAttributeNames: {
+          '#count': 'requestCount',
+          '#ttl': 'ttl',
+        },
+        ExpressionAttributeValues: {
+          ':zero': 0,
+          ':inc': 1,
+          ':ttl': now + RATE_LIMIT_WINDOW + 60, // TTL: window + 1 min buffer
+        },
+        ReturnValues: 'ALL_NEW',
+      })
+    );
+
+    const count = result.Attributes?.requestCount || 0;
+
+    if (count > MAX_AI_REQUESTS_PER_HOUR) {
+      return {
+        allowed: false,
+        reason: `Rate limit exceeded. Max ${MAX_AI_REQUESTS_PER_HOUR} AI requests per hour.`,
+        remaining: 0,
+        resetAt: (windowKey + 1) * RATE_LIMIT_WINDOW,
+      };
+    }
+
+    return {
+      allowed: true,
+      remaining: MAX_AI_REQUESTS_PER_HOUR - count,
+      resetAt: (windowKey + 1) * RATE_LIMIT_WINDOW,
+    };
+  } catch (err) {
+    // If rate limit check fails, allow the request (fail open)
+    // but log the error for monitoring
+    console.error('Rate limit check failed:', err.message);
+    return { allowed: true, remaining: -1 };
+  }
+}
+
 // ─── AI Recommendations ───────────────────────────────────────────────────────
 
 async function handleRecommendations(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const rateCheck = await checkRateLimit(userId);
+  if (!rateCheck.allowed) {
+    return respond(429, {
+      error: rateCheck.reason,
+      remaining: rateCheck.remaining,
+      resetAt: rateCheck.resetAt,
+    });
+  }
+
   const body = JSON.parse(event.body || '{}');
   const query = (body.query || '').trim().slice(0, 500);
 
@@ -65,7 +142,10 @@ async function handleRecommendations(event) {
   );
 
   if (cached.Item && Date.now() / 1000 < (cached.Item.ttl || 0)) {
-    return respond(200, { recommendations: cached.Item.payload, cached: true });
+    return respond(200, { recommendations: cached.Item.payload, cached: true }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   }
 
   if (!API_KEY) {
@@ -73,6 +153,9 @@ async function handleRecommendations(event) {
       recommendations: getFallbackRecommendations(query),
       cached: false,
       fallback: true,
+    }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
     });
   }
 
@@ -115,13 +198,19 @@ async function handleRecommendations(event) {
       })
     );
 
-    return respond(200, { recommendations, cached: false });
+    return respond(200, { recommendations, cached: false }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   } catch (err) {
     console.error('AI recommendation error:', err);
     return respond(200, {
       recommendations: getFallbackRecommendations(query),
       cached: false,
       fallback: true,
+    }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
     });
   }
 }
@@ -129,6 +218,18 @@ async function handleRecommendations(event) {
 // ─── Content Ideas ────────────────────────────────────────────────────────────
 
 async function handleContentIdeas(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const rateCheck = await checkRateLimit(userId);
+  if (!rateCheck.allowed) {
+    return respond(429, {
+      error: rateCheck.reason,
+      remaining: rateCheck.remaining,
+      resetAt: rateCheck.resetAt,
+    });
+  }
+
   const body = JSON.parse(event.body || '{}');
 
   // H7: Prompt injection detection on user-supplied context
@@ -152,6 +253,9 @@ async function handleContentIdeas(event) {
         { title: 'Price point challenge', description: 'Best meal under $15 in a specific area', type: 'tiktok' },
       ],
       fallback: true,
+    }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
     });
   }
 
@@ -182,16 +286,34 @@ async function handleContentIdeas(event) {
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     const ideas = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 
-    return respond(200, { ideas });
+    return respond(200, { ideas }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   } catch (err) {
     console.error('Content ideas error:', err);
-    return respond(500, { error: 'Failed to generate ideas' });
+    return respond(500, { error: 'Failed to generate ideas' }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   }
 }
 
 // ─── Campaign Insights ────────────────────────────────────────────────────────
 
 async function handleCampaignInsights(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const rateCheck = await checkRateLimit(userId);
+  if (!rateCheck.allowed) {
+    return respond(429, {
+      error: rateCheck.reason,
+      remaining: rateCheck.remaining,
+      resetAt: rateCheck.resetAt,
+    });
+  }
+
   const body = JSON.parse(event.body || '{}');
 
   // H7: Prompt injection detection on user-supplied campaign data
@@ -213,6 +335,9 @@ async function handleCampaignInsights(event) {
         'Including a limited-time offer in the caption increases QR scan rates by 60%.',
       ],
       fallback: true,
+    }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
     });
   }
 
@@ -242,10 +367,16 @@ async function handleCampaignInsights(event) {
     const text = data.content?.[0]?.text || '';
     const insights = text.split('\n').filter((l) => l.trim().length > 10);
 
-    return respond(200, { insights });
+    return respond(200, { insights }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   } catch (err) {
     console.error('Campaign insights error:', err);
-    return respond(500, { error: 'Failed to generate insights' });
+    return respond(500, { error: 'Failed to generate insights' }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   }
 }
 

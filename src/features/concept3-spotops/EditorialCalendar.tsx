@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { EditorialSlot } from '../../types';
 import { api } from '../../services/ApiService';
-import { isDemoMode, DEMO_EDITORIAL_SLOTS } from '../../data/demoData';
+import { isDemoMode, DEMO_EDITORIAL_SLOTS, DEMO_CAMPAIGNS } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -11,6 +11,7 @@ interface SlotFormData {
   restaurantName: string;
   type: EditorialSlot['type'];
   notes: string;
+  campaignId?: string;
 }
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
@@ -306,6 +307,10 @@ export default function EditorialCalendar() {
   });
   const [saving, setSaving] = useState(false);
 
+  // Campaigns and drag-drop
+  const [campaigns, setCampaigns] = useState<Array<{campaignId: string; restaurantName: string}>>([]);
+  const [draggedSlot, setDraggedSlot] = useState<EditorialSlot | null>(null);
+
   const fetchSlots = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -329,6 +334,16 @@ export default function EditorialCalendar() {
   useEffect(() => {
     fetchSlots();
   }, [fetchSlots]);
+
+  useEffect(() => {
+    if (isDemoMode) {
+      setCampaigns(DEMO_CAMPAIGNS.map(c => ({ campaignId: c.campaignId, restaurantName: c.restaurantName })));
+      return;
+    }
+    api.get<Array<{campaignId: string; restaurantName: string}>>('/api/campaigns').then(res => {
+      if (res.data) setCampaigns(res.data);
+    });
+  }, []);
 
   /* ─── Date Navigation ──────────────────────────────────────────────────── */
 
@@ -382,6 +397,7 @@ export default function EditorialCalendar() {
       type: formData.type,
       status: 'planned',
       notes: formData.notes.trim() || undefined,
+      campaignId: formData.campaignId || undefined,
     };
 
     const res = await api.post<EditorialSlot>('/api/spotops/calendar', newSlot);
@@ -398,6 +414,7 @@ export default function EditorialCalendar() {
           type: formData.type,
           status: 'planned',
           notes: formData.notes.trim() || undefined,
+          campaignId: formData.campaignId || undefined,
         },
       ]);
     }
@@ -433,10 +450,21 @@ export default function EditorialCalendar() {
   const renderSlot = (slot: EditorialSlot) => (
     <div
       key={slot.slotId}
-      style={styles.slotCard(slot.type)}
+      draggable
+      style={{
+        ...styles.slotCard(slot.type),
+        opacity: draggedSlot?.slotId === slot.slotId ? 0.4 : 1,
+      }}
       title={slot.notes || slot.restaurantName || 'Slot'}
+      onDragStart={(e) => {
+        setDraggedSlot(slot);
+        e.dataTransfer!.effectAllowed = 'move';
+      }}
+      onDragEnd={() => setDraggedSlot(null)}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+        if (draggedSlot?.slotId !== slot.slotId) {
+          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+        }
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.boxShadow = 'none';
@@ -521,7 +549,34 @@ export default function EditorialCalendar() {
               const isToday = isSameDay(day, today);
               const daySlots = slotsForDate(day);
               return (
-                <div key={day.toISOString()} style={styles.dayCol(isToday)}>
+                <div
+                  key={day.toISOString()}
+                  style={styles.dayCol(isToday)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent) 10%, var(--color-bgSecondary))';
+                  }}
+                  onDragLeave={(e) => {
+                    e.currentTarget.style.background = '';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.style.background = '';
+                    if (draggedSlot) {
+                      const newDate = formatDateISO(day);
+                      if (draggedSlot.date !== newDate) {
+                        setSlots(prev => prev.map(s =>
+                          s.slotId === draggedSlot.slotId ? { ...s, date: newDate } : s
+                        ));
+                        // Persist to backend (fire and forget)
+                        if (!isDemoMode) {
+                          api.put(`/api/spotops/calendar/${draggedSlot.slotId}`, { date: newDate });
+                        }
+                      }
+                      setDraggedSlot(null);
+                    }
+                  }}
+                >
                   <div style={styles.dayLabel(isToday)}>{formatDateShort(day)}</div>
                   {daySlots.map(renderSlot)}
                   <button
@@ -618,6 +673,27 @@ export default function EditorialCalendar() {
                 onChange={(e) => setFormData((f) => ({ ...f, restaurantName: e.target.value }))}
                 autoFocus
               />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>Link to Campaign (optional)</label>
+              <select
+                style={{ ...styles.formInput, cursor: 'pointer' }}
+                value={formData.campaignId || ''}
+                onChange={(e) => {
+                  const cId = e.target.value;
+                  setFormData(f => ({
+                    ...f,
+                    campaignId: cId || undefined,
+                    restaurantName: cId ? (campaigns.find(c => c.campaignId === cId)?.restaurantName || f.restaurantName) : f.restaurantName,
+                  }));
+                }}
+              >
+                <option value="">No campaign</option>
+                {campaigns.map(c => (
+                  <option key={c.campaignId} value={c.campaignId}>{c.restaurantName}</option>
+                ))}
+              </select>
             </div>
 
             <div style={styles.formGroup}>
