@@ -38,6 +38,21 @@ Parameters:
     Description: >-
       Google Places API key for restaurant data sync.
       NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
+  StripeSecretKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Stripe secret key for payment processing
+  StripeWebhookSecret:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Stripe webhook signing secret
+  FromEmail:
+    Type: String
+    Default: 'networth589@gmail.com'
+    Description: Verified SES sender email address
+
 Resources:
   # ─── DynamoDB ─────────────────────────────────────────────────────────────
   DataTable:
@@ -120,9 +135,14 @@ Resources:
       Environment:
         Variables:
           GOOGLE_PLACES_API_KEY: !Ref GooglePlacesApiKey
+          EMAIL_FUNCTION_NAME: !Ref EmailFunction
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !GetAtt EmailFunction.Arn
       Events:
         # Authenticated endpoints (default Cognito authorizer applies)
         ProxyApi:
@@ -245,6 +265,60 @@ Resources:
             Schedule: rate(1 day)
             Description: Daily restaurant data refresh
             Enabled: false
+
+  # ─── Stripe Subscription Lambda ───────────────────────────────────────────
+  StripeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-stripe-${Environment}
+      CodeUri: lambda-stripe/
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          STRIPE_SECRET_KEY: !Ref StripeSecretKey
+          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+      Events:
+        StripeProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/stripe/{proxy+}
+            Method: ANY
+        StripeWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/stripe/webhook
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  # ─── Email Lambda ─────────────────────────────────────────────────────────
+  EmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-email-${Environment}
+      CodeUri: lambda-email/
+      Handler: index.handler
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          FROM_EMAIL: !Ref FromEmail
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: '*'
 
   # ─── CloudWatch Alarms ───────────────────────────────────────────────────
   ApiErrorAlarm:

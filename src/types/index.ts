@@ -196,6 +196,7 @@ export interface EditorialSlot {
   type: 'sponsored' | 'organic' | 'reshoot';
   status: 'planned' | 'shot' | 'editing' | 'published';
   notes?: string;
+  campaignId?: string;
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────

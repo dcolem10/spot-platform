@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useState, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
@@ -7,12 +7,17 @@ import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { useAuth } from './hooks/useAuth';
 import { FeatureGate } from './components/FeatureGate';
 import { useAuthInit } from './hooks/useAuthInit';
+import { api } from './services/ApiService';
+import './styles/print.css';
 
 // Layouts
 const DashboardShell = lazy(() => import('./layouts/DashboardShell'));
 
 // Landing
 const LandingPage = lazy(() => import('./features/landing/LandingPage'));
+
+// Onboarding
+const CreatorOnboarding = lazy(() => import('./features/onboarding/CreatorOnboarding'));
 
 // Partnerships & Restaurants
 const RestaurantDirectory = lazy(() => import('./features/concept1-platform/RestaurantDirectory'));
@@ -44,6 +49,27 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function OnboardingGuard({ children }: { children: ReactNode }) {
+  const [checking, setChecking] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
+  useEffect(() => {
+    if (isDemoMode) { setChecking(false); return; }
+
+    api.get('/api/profile').then(res => {
+      if (res.status === 'error' && res.statusCode === 404) {
+        setNeedsOnboarding(true);
+      }
+      setChecking(false);
+    });
+  }, []);
+
+  if (checking) return <AppFallback />;
+  if (needsOnboarding) return <Navigate to="/onboarding" replace />;
+  return <>{children}</>;
+}
+
 function AppFallback() {
   return (
     <div style={{ padding: 40 }}>
@@ -67,8 +93,11 @@ export default function App() {
               {/* Public landing */}
               <Route path="/" element={<LandingPage />} />
 
+              {/* Onboarding */}
+              <Route path="/onboarding" element={<RequireAuth><CreatorOnboarding /></RequireAuth>} />
+
               {/* Dashboard routes */}
-              <Route path="/app" element={<RequireAuth><DashboardShell /></RequireAuth>}>
+              <Route path="/app" element={<RequireAuth><OnboardingGuard><DashboardShell /></OnboardingGuard></RequireAuth>}>
                 {/* Dashboard */}
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<CreatorDashboard />} />

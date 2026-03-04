@@ -33,7 +33,7 @@ const respond = (statusCode, body) => ({
 const sanitize = (s, max = 500) =>
   typeof s === 'string' ? s.trim().slice(0, max) : '';
 
-const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK']);
+const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK', 'creatorId']);
 const stripDdbKeys = (item) => {
   const clean = {};
   for (const [k, v] of Object.entries(item)) {
@@ -117,14 +117,18 @@ async function getRestaurant(restaurantId) {
 }
 
 async function createRestaurant(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
   const body = JSON.parse(event.body || '{}');
   const id = randomUUID();
   const item = {
     PK: `RESTAURANT#${id}`,
     SK: 'PROFILE',
-    GSI1PK: 'RESTAURANTS',
+    GSI1PK: `CREATOR#${userId}#RESTAURANTS`,
     GSI1SK: `RESTAURANT#${id}`,
     restaurantId: id,
+    creatorId: userId,
     name: sanitize(body.name, 200),
     address: sanitize(body.address, 500),
     neighborhood: sanitize(body.neighborhood, 100),
@@ -149,6 +153,23 @@ async function createRestaurant(event) {
 
   await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
   return respond(201, item);
+}
+
+async function listMyRestaurants(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#RESTAURANTS` },
+      Limit: 200,
+    })
+  );
+
+  return respond(200, stripAll(result.Items || []));
 }
 
 async function updateRestaurant(restaurantId, event) {
@@ -206,7 +227,7 @@ async function listCampaigns(event) {
     TableName: TABLE,
     IndexName: 'GSI1',
     KeyConditionExpression: 'GSI1PK = :pk',
-    ExpressionAttributeValues: { ':pk': 'CAMPAIGNS' },
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
   };
 
   // H3: Pagination support
@@ -224,6 +245,9 @@ async function listCampaigns(event) {
 }
 
 async function createCampaign(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
   const body = JSON.parse(event.body || '{}');
   const id = randomUUID();
   const restaurantId = sanitize(body.restaurantId, 64);
@@ -231,9 +255,10 @@ async function createCampaign(event) {
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
     SK: `CAMPAIGN#${id}`,
-    GSI1PK: 'CAMPAIGNS',
+    GSI1PK: `CREATOR#${userId}#CAMPAIGNS`,
     GSI1SK: `CAMPAIGN#${id}`,
     campaignId: id,
+    creatorId: userId,
     restaurantId,
     restaurantName: sanitize(body.restaurantName, 200),
     status: 'inquiry',
@@ -272,7 +297,7 @@ async function updateCampaign(campaignId, event) {
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
       ExpressionAttributeValues: {
-        ':pk': 'CAMPAIGNS',
+        ':pk': `CREATOR#${userId}#CAMPAIGNS`,
         ':sk': `CAMPAIGN#${campaignId}`,
       },
     })
@@ -320,6 +345,9 @@ async function updateCampaign(campaignId, event) {
 // ─── Offer CRUD ───────────────────────────────────────────────────────────────
 
 async function createOffer(restaurantId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
   const body = JSON.parse(event.body || '{}');
   const id = randomUUID();
   const code = `SPOT-${id.slice(0, 8).toUpperCase()}`;
@@ -327,9 +355,10 @@ async function createOffer(restaurantId, event) {
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
     SK: `OFFER#${id}`,
-    GSI1PK: 'OFFERS',
+    GSI1PK: `CREATOR#${userId}#OFFERS`,
     GSI1SK: `OFFER#${id}`,
     offerId: id,
+    creatorId: userId,
     restaurantId,
     code,
     type: body.type || 'qr',
@@ -471,7 +500,7 @@ async function getSpotOpsPipeline(event) {
       TableName: TABLE,
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'CAMPAIGNS' },
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
     })
   );
 
@@ -503,7 +532,8 @@ async function listOffers(event) {
       TableName: TABLE,
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'OFFERS' },
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+      Limit: 200,
     })
   );
 
@@ -521,7 +551,8 @@ async function listReports(event) {
       TableName: TABLE,
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'REPORTS' },
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#REPORTS` },
+      Limit: 200,
     })
   );
 
@@ -699,6 +730,218 @@ async function subscribe(event) {
   return respond(201, { message: 'Subscribed' });
 }
 
+// ─── Creator Profile ────────────────────────────────────────────────────────
+
+async function getProfile(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'PROFILE' },
+    })
+  );
+
+  if (!result.Item) return respond(404, { error: 'Profile not found' });
+  return respond(200, stripDdbKeys(result.Item));
+}
+
+async function upsertProfile(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  const body = JSON.parse(event.body || '{}');
+
+  const item = {
+    PK: `CREATOR#${userId}`,
+    SK: 'PROFILE',
+    GSI1PK: 'CREATORS',
+    GSI1SK: `CREATOR#${userId}`,
+    creatorId: userId,
+    displayName: sanitize(body.displayName, 100),
+    bio: sanitize(body.bio, 500),
+    city: sanitize(body.city, 100),
+    neighborhoods: Array.isArray(body.neighborhoods)
+      ? body.neighborhoods.slice(0, 10).map(n => sanitize(n, 100))
+      : [],
+    cuisinePreferences: Array.isArray(body.cuisinePreferences)
+      ? body.cuisinePreferences.slice(0, 15).map(c => sanitize(c, 50))
+      : [],
+    socialLinks: {
+      instagram: sanitize(body.socialLinks?.instagram || '', 200),
+      tiktok: sanitize(body.socialLinks?.tiktok || '', 200),
+      youtube: sanitize(body.socialLinks?.youtube || '', 200),
+      website: sanitize(body.socialLinks?.website || '', 300),
+    },
+    followerCount: Math.max(0, Math.min(100000000, Number(body.followerCount) || 0)),
+    creatorType: ['food', 'lifestyle', 'travel', 'other'].includes(body.creatorType)
+      ? body.creatorType
+      : 'food',
+    onboardingCompleted: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+  return respond(200, stripDdbKeys(item));
+}
+
+// ─── ROI Calculator ───────────────────────────────────────────────────────────
+
+async function calculateROI(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  const body = JSON.parse(event.body || '{}');
+
+  const campaignId = sanitize(body.campaignId, 64);
+  if (!campaignId) return respond(400, { error: 'campaignId required' });
+
+  // Fetch campaign data
+  const campaignResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+      ':sk': `CAMPAIGN#${campaignId}`,
+    },
+    Limit: 1,
+  }));
+
+  if (!campaignResult.Items?.length) return respond(404, { error: 'Campaign not found' });
+  const campaign = campaignResult.Items[0];
+
+  // Fetch offers for this restaurant to get scan/redemption data
+  const offersResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+    Limit: 200,
+  }));
+
+  const restaurantOffers = (offersResult.Items || []).filter(
+    o => o.restaurantId === campaign.restaurantId
+  );
+
+  const totalScans = restaurantOffers.reduce((sum, o) => sum + (o.scans || 0), 0);
+  const totalRedemptions = restaurantOffers.reduce((sum, o) => sum + (o.redemptions || 0), 0);
+
+  // ROI Calculations
+  const budget = campaign.budget || 0;
+  const avgCheckSize = Math.max(0, Math.min(500, Number(body.avgCheckSize) || 35)); // restaurant avg check
+  const estimatedVisits = Math.round(totalRedemptions * 1.8); // multiplier: not all visitors use offers
+  const estimatedRevenue = estimatedVisits * avgCheckSize;
+  const roi = budget > 0 ? ((estimatedRevenue - budget) / budget) * 100 : 0;
+  const costPerVisit = estimatedVisits > 0 ? budget / estimatedVisits : 0;
+  const costPerRedemption = totalRedemptions > 0 ? budget / totalRedemptions : 0;
+  const scanToRedemptionRate = totalScans > 0 ? totalRedemptions / totalScans : 0;
+
+  // Save ROI report to DynamoDB
+  const reportId = `roi-${campaignId}-${Date.now()}`;
+  const roiReport = {
+    PK: `CREATOR#${userId}`,
+    SK: `ROI_REPORT#${reportId}`,
+    GSI1PK: `CREATOR#${userId}#REPORTS`,
+    GSI1SK: `REPORT#${reportId}`,
+    reportId,
+    campaignId,
+    restaurantId: campaign.restaurantId,
+    restaurantName: campaign.restaurantName || '',
+    creatorId: userId,
+    budget,
+    avgCheckSize,
+    totalScans,
+    totalRedemptions,
+    estimatedVisits,
+    estimatedRevenue: Math.round(estimatedRevenue),
+    roi: Math.round(roi * 100) / 100,
+    costPerVisit: Math.round(costPerVisit * 100) / 100,
+    costPerRedemption: Math.round(costPerRedemption * 100) / 100,
+    scanToRedemptionRate: Math.round(scanToRedemptionRate * 10000) / 10000,
+    generatedAt: new Date().toISOString(),
+    ttl: Math.floor(Date.now() / 1000) + (90 * 86400), // 90 day TTL
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: roiReport }));
+
+  return respond(200, stripDdbKeys(roiReport));
+}
+
+// ─── Creator Benchmarking ─────────────────────────────────────────────────────
+
+async function getBenchmarks(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Get this creator's campaigns
+  const campaignsResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
+    Limit: 200,
+  }));
+
+  const campaigns = campaignsResult.Items || [];
+
+  // Get this creator's offers
+  const offersResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+    Limit: 200,
+  }));
+
+  const offers = offersResult.Items || [];
+
+  // Calculate creator's metrics
+  const totalCampaigns = campaigns.length;
+  const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
+  const completedCampaigns = campaigns.filter(c => c.status === 'completed').length;
+  const totalRevenue = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
+  const avgDealSize = totalCampaigns > 0 ? Math.round(totalRevenue / totalCampaigns) : 0;
+  const totalScans = offers.reduce((sum, o) => sum + (o.scans || 0), 0);
+  const totalRedemptions = offers.reduce((sum, o) => sum + (o.redemptions || 0), 0);
+  const avgRedemptionRate = totalScans > 0 ? totalRedemptions / totalScans : 0;
+
+  // Platform averages (hardcoded benchmarks for MVP — replace with real aggregation later)
+  // These represent typical DC food creator metrics
+  const platformAvg = {
+    avgDealSize: 2500,
+    avgCampaignsPerMonth: 2.5,
+    avgRedemptionRate: 0.12,
+    avgScansPerOffer: 45,
+    avgCompletionRate: 0.78,
+  };
+
+  const completionRate = totalCampaigns > 0 ? completedCampaigns / totalCampaigns : 0;
+  const scansPerOffer = offers.length > 0 ? totalScans / offers.length : 0;
+
+  return respond(200, {
+    creator: {
+      totalCampaigns,
+      activeCampaigns,
+      completedCampaigns,
+      totalRevenue,
+      avgDealSize,
+      totalScans,
+      totalRedemptions,
+      avgRedemptionRate: Math.round(avgRedemptionRate * 10000) / 10000,
+      completionRate: Math.round(completionRate * 100) / 100,
+      scansPerOffer: Math.round(scansPerOffer * 10) / 10,
+    },
+    platformAvg,
+    deltas: {
+      dealSize: avgDealSize > 0 ? Math.round(((avgDealSize - platformAvg.avgDealSize) / platformAvg.avgDealSize) * 100) : 0,
+      redemptionRate: avgRedemptionRate > 0 ? Math.round(((avgRedemptionRate - platformAvg.avgRedemptionRate) / platformAvg.avgRedemptionRate) * 100) : 0,
+      scansPerOffer: scansPerOffer > 0 ? Math.round(((scansPerOffer - platformAvg.avgScansPerOffer) / platformAvg.avgScansPerOffer) * 100) : 0,
+      completionRate: completionRate > 0 ? Math.round(((completionRate - platformAvg.avgCompletionRate) / platformAvg.avgCompletionRate) * 100) : 0,
+    },
+  });
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
@@ -715,6 +958,8 @@ export const handler = async (event) => {
       return listRestaurants(event);
     if (path.match(/\/api\/restaurants$/) && method === 'POST')
       return createRestaurant(event);
+    if (path.match(/\/api\/my\/restaurants$/) && method === 'GET')
+      return listMyRestaurants(event);
     if (path.match(/\/api\/restaurants\/[^/]+$/) && method === 'GET')
       return getRestaurant(pathParts[pathParts.length - 1]);
     if (path.match(/\/api\/restaurants\/[^/]+$/) && method === 'PUT')
@@ -783,6 +1028,14 @@ export const handler = async (event) => {
     // Subscribe
     if (path.match(/\/api\/subscribe$/) && method === 'POST')
       return subscribe(event);
+
+    // Profile
+    if (path.match(/\/api\/profile$/) && method === 'GET') return getProfile(event);
+    if (path.match(/\/api\/profile$/) && method === 'POST') return upsertProfile(event);
+
+    // ROI & Benchmarks
+    if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);
+    if (path.match(/\/api\/reports\/benchmarks$/) && method === 'GET') return getBenchmarks(event);
 
     return respond(404, { error: 'Not found' });
   } catch (err) {
