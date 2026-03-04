@@ -25,6 +25,7 @@ export default function AuthPage() {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setDemoMode = useAuthStore((s) => s.setDemoMode);
 
   const validate = (): boolean => {
     const errs: FormErrors = {};
@@ -84,6 +85,7 @@ export default function AuthPage() {
       const claims = session.tokens?.idToken?.payload;
 
       if (claims) {
+        setDemoMode(false);
         setAuth({
           userId: user.userId,
           email: (claims['email'] as string) ?? email,
@@ -147,6 +149,7 @@ export default function AuthPage() {
         const claims = session.tokens?.idToken?.payload;
 
         if (claims) {
+          setDemoMode(false);
           setAuth({
             userId: user.userId,
             email: (claims['email'] as string) ?? email,

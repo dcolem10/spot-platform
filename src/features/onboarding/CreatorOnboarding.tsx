@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
+import { useAuthStore } from '../../store/authStore';
 
 const NEIGHBORHOODS = [
   'Shaw', 'Adams Morgan', 'Capitol Hill', 'Georgetown', 'Dupont Circle',
@@ -127,7 +128,7 @@ export default function CreatorOnboarding() {
   };
 
   const handleSubmit = async () => {
-    const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+    const isDemoMode = useAuthStore.getState().isDemoMode;
 
     if (!isDemoMode) {
       setIsSubmitting(true);

@@ -15,7 +15,15 @@ import type {
   CreatorProfile,
 } from '../types';
 
-export const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+import { useAuthStore } from '../store/authStore';
+
+/**
+ * Runtime demo mode check. Returns true only when the user is browsing
+ * in demo mode (not signed in with a real Cognito account).
+ */
+export function isDemoMode(): boolean {
+  return useAuthStore.getState().isDemoMode;
+}
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 

@@ -293,7 +293,7 @@ export default function ROIReporter() {
     setLoading(true);
     setError(null);
 
-    if (isDemoMode) {
+    if (isDemoMode()) {
       setCampaigns(DEMO_CAMPAIGNS.filter((c) => c.status === 'active' || c.status === 'completed'));
       setAllReports(DEMO_CAMPAIGN_REPORTS);
       setLoading(false);
@@ -334,7 +334,7 @@ export default function ROIReporter() {
     setReportLoading(true);
     setReport(null);
 
-    if (isDemoMode) {
+    if (isDemoMode()) {
       const demoReport = DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null;
       setReport(demoReport);
       setReportLoading(false);

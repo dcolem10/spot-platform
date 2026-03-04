@@ -315,7 +315,7 @@ export default function EditorialCalendar() {
     setLoading(true);
     setError(null);
 
-    if (isDemoMode) {
+    if (isDemoMode()) {
       setSlots(DEMO_EDITORIAL_SLOTS);
       setLoading(false);
       return;
@@ -336,7 +336,7 @@ export default function EditorialCalendar() {
   }, [fetchSlots]);
 
   useEffect(() => {
-    if (isDemoMode) {
+    if (isDemoMode()) {
       setCampaigns(DEMO_CAMPAIGNS.map(c => ({ campaignId: c.campaignId, restaurantName: c.restaurantName })));
       return;
     }
@@ -569,7 +569,7 @@ export default function EditorialCalendar() {
                           s.slotId === draggedSlot.slotId ? { ...s, date: newDate } : s
                         ));
                         // Persist to backend (fire and forget)
-                        if (!isDemoMode) {
+                        if (!isDemoMode()) {
                           api.put(`/api/spotops/calendar/${draggedSlot.slotId}`, { date: newDate });
                         }
                       }

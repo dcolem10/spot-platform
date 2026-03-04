@@ -523,7 +523,7 @@ export default function AmbassadorDashboard() {
         setIsLoading(true);
         setError(null);
 
-        if (isDemoMode) {
+        if (isDemoMode()) {
           setAmbassadorStatus(DEMO_AMBASSADOR_STATUS);
           setReferrals(DEMO_REFERRALS);
           setIsLoading(false);

@@ -56,7 +56,7 @@ export default function CampaignManager() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['campaigns'],
     queryFn: async () => {
-      if (isDemoMode) return DEMO_CAMPAIGNS;
+      if (isDemoMode()) return DEMO_CAMPAIGNS;
       const res = await api.get<Campaign[]>('/api/campaigns');
       if (res.error) throw new Error(res.error);
       return res.data ?? [];
@@ -87,7 +87,7 @@ export default function CampaignManager() {
     },
   });
 
-  const campaigns = data?.length ? data : (isDemoMode ? DEMO_CAMPAIGNS : []);
+  const campaigns = data?.length ? data : (isDemoMode() ? DEMO_CAMPAIGNS : []);
 
   const grouped = useMemo(() => {
     const map: Record<CampaignStatus, Campaign[]> = {

@@ -213,7 +213,7 @@ export default function ContentArchive() {
     setLoading(true);
     setError(null);
 
-    if (isDemoMode) {
+    if (isDemoMode()) {
       setItems(DEMO_CONTENT);
       setLoading(false);
       return;

@@ -218,7 +218,7 @@ export default function CreatorDashboard() {
     setLoading(true);
     setError(null);
 
-    if (isDemoMode) {
+    if (isDemoMode()) {
       setPipeline(DEMO_PIPELINE);
       setActivity(deriveActivity([...DEMO_CAMPAIGNS]));
       setLoading(false);

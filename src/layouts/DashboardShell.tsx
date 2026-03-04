@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { ScrollToTop } from '../components/ScrollToTop';
-import { isDemoMode } from '../data/demoData';
 import './Sidebar.css';
 
 interface NavItem {
@@ -95,6 +94,7 @@ export default function DashboardShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const resetAuth = useAuthStore((s) => s.reset);
+  const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
 
   const handleSignOut = useCallback(async () => {
@@ -178,27 +178,25 @@ export default function DashboardShell() {
             <div className="sidebar-user-name">{displayName || email || 'User'}</div>
             <div className="sidebar-user-role">{displayRole}</div>
           </div>
-          {!isDemoMode && (
-            <button
-              onClick={handleSignOut}
-              title="Sign out"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--color-textMuted, #999)',
-                cursor: 'pointer',
-                fontSize: 14,
-                padding: '4px 8px',
-                borderRadius: 6,
-                marginLeft: 'auto',
-                transition: 'color 0.2s',
-              }}
-              onMouseOver={(e) => { (e.target as HTMLElement).style.color = '#E8673C'; }}
-              onMouseOut={(e) => { (e.target as HTMLElement).style.color = 'var(--color-textMuted, #999)'; }}
-            >
-              Sign Out
-            </button>
-          )}
+          <button
+            onClick={isDemoMode ? () => { resetAuth(); navigate('/', { replace: true }); } : handleSignOut}
+            title={isDemoMode ? 'Exit demo' : 'Sign out'}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-textMuted, #999)',
+              cursor: 'pointer',
+              fontSize: 14,
+              padding: '4px 8px',
+              borderRadius: 6,
+              marginLeft: 'auto',
+              transition: 'color 0.2s',
+            }}
+            onMouseOver={(e) => { (e.target as HTMLElement).style.color = '#E8673C'; }}
+            onMouseOut={(e) => { (e.target as HTMLElement).style.color = 'var(--color-textMuted, #999)'; }}
+          >
+            {isDemoMode ? 'Exit Demo' : 'Sign Out'}
+          </button>
         </div>
       </aside>
 

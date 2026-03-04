@@ -286,7 +286,7 @@ export function SavedList() {
       setIsLoading(true);
       setError(null);
 
-      if (isDemoMode) {
+      if (isDemoMode()) {
         const enriched = DEMO_SAVED.map((saved) => ({
           ...saved,
           restaurant: DEMO_RESTAURANTS.find((r) => r.restaurantId === saved.restaurantId),

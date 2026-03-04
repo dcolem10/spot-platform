@@ -458,7 +458,7 @@ export default function AIInsights() {
 
   // API calls for real mode
   const fetchAIInsights = useCallback(async () => {
-    if (isDemoMode) return;
+    if (isDemoMode()) return;
     setIsLoadingAI(true);
     const result = await api.post<{ insights: string[] }>('/api/ai/campaign-insights', {
       campaignData: {
@@ -474,7 +474,7 @@ export default function AIInsights() {
   }, []);
 
   const fetchAIRecommendations = useCallback(async () => {
-    if (isDemoMode) return;
+    if (isDemoMode()) return;
     setIsLoadingAI(true);
     const result = await api.post<{ recommendations: Recommendation[] }>(
       '/api/ai/recommendations',
@@ -487,7 +487,7 @@ export default function AIInsights() {
   }, []);
 
   const fetchAIContentIdeas = useCallback(async () => {
-    if (isDemoMode) return;
+    if (isDemoMode()) return;
     setIsLoadingAI(true);
     const result = await api.post<{ ideas: ContentIdea[] }>('/api/ai/content-ideas', {
       context: { city: 'DC', niche: 'food', platforms: ['instagram', 'tiktok'] },
@@ -501,7 +501,7 @@ export default function AIInsights() {
   const handleTabChange = useCallback(
     (tab: 'insights' | 'recommendations' | 'content') => {
       setActiveTab(tab);
-      if (!isDemoMode) {
+      if (!isDemoMode()) {
         if (tab === 'insights' && !aiInsights) fetchAIInsights();
         if (tab === 'recommendations' && !aiRecommendations) fetchAIRecommendations();
         if (tab === 'content' && !aiContentIdeas) fetchAIContentIdeas();
@@ -594,7 +594,7 @@ export default function AIInsights() {
       {/* ── Campaign Insights Tab ── */}
       {activeTab === 'insights' && !isLoadingAI && (
         <section>
-          {isDemoMode ? (
+          {isDemoMode() ? (
             <div
               className="stagger-children"
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}
@@ -638,7 +638,7 @@ export default function AIInsights() {
           >
             Restaurants you haven't partnered with yet that align with your audience and content style.
           </p>
-          {isDemoMode ? (
+          {isDemoMode() ? (
             <div className="card-grid stagger-children">
               {demoRecommendations.map((rec) => (
                 <RecommendationCard key={rec.name} rec={rec} />
@@ -670,7 +670,7 @@ export default function AIInsights() {
           >
             Tailored content ideas based on your active partnerships and audience trends.
           </p>
-          {isDemoMode ? (
+          {isDemoMode() ? (
             <div
               className="stagger-children"
               style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}

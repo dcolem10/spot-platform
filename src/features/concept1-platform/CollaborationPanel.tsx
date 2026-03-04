@@ -296,7 +296,7 @@ export default function CollaborationPanel() {
     queryKey: ['collaborators', campaignId],
     queryFn: async () => {
       if (!campaignId) return [];
-      if (isDemoMode) return DEMO_COLLABORATORS;
+      if (isDemoMode()) return DEMO_COLLABORATORS;
       const res = await api.get<Collaborator[]>(`/api/campaigns/${campaignId}/collaborators`);
       if (res.error) throw new Error(res.error);
       return res.data ?? [];
@@ -308,7 +308,7 @@ export default function CollaborationPanel() {
   const { data: myCollabs, isLoading: myCollabsLoading } = useQuery({
     queryKey: ['myCollaborations'],
     queryFn: async () => {
-      if (isDemoMode) return DEMO_MY_COLLABS;
+      if (isDemoMode()) return DEMO_MY_COLLABS;
       const res = await api.get<Collaborator[]>('/api/campaigns/collaborations');
       if (res.error) throw new Error(res.error);
       return res.data ?? [];

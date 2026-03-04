@@ -10,6 +10,7 @@ interface AuthState {
   orgId: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isDemoMode: boolean;
   setAuth: (payload: {
     userId: string;
     email: string;
@@ -18,6 +19,7 @@ interface AuthState {
     groups: string[];
     orgId?: string;
   }) => void;
+  setDemoMode: (demo: boolean) => void;
   setLoading: (loading: boolean) => void;
   reset: () => void;
 }
@@ -31,6 +33,7 @@ const initialState = {
   orgId: null,
   isAuthenticated: false,
   isLoading: true,
+  isDemoMode: false,
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -46,6 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: true,
       isLoading: false,
     }),
+  setDemoMode: (demo) => set({ isDemoMode: demo }),
   setLoading: (loading) => set({ isLoading: loading }),
   reset: () => set(initialState),
 }));

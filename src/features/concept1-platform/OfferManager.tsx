@@ -119,7 +119,7 @@ export default function OfferManager() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['offers'],
     queryFn: async () => {
-      if (isDemoMode) return DEMO_OFFERS;
+      if (isDemoMode()) return DEMO_OFFERS;
       const res = await api.get<Offer[]>('/api/partner/offers');
       if (res.error) throw new Error(res.error);
       return res.data ?? [];
@@ -150,7 +150,7 @@ export default function OfferManager() {
     },
   });
 
-  const offers = data?.length ? data : (isDemoMode ? DEMO_OFFERS : []);
+  const offers = data?.length ? data : (isDemoMode() ? DEMO_OFFERS : []);
   const activeOffers = offers.filter((o) => o.isActive);
   const inactiveOffers = offers.filter((o) => !o.isActive);
 

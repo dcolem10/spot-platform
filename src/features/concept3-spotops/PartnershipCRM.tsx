@@ -372,7 +372,7 @@ export default function PartnershipCRM() {
     setLoading(true);
     setError(null);
 
-    if (isDemoMode) {
+    if (isDemoMode()) {
       setCampaigns(DEMO_CAMPAIGNS);
       setLoading(false);
       return;
@@ -434,7 +434,7 @@ export default function PartnershipCRM() {
       setSelectedCampaign((prev) => (prev && prev.campaignId === id ? { ...prev, ...updates, updatedAt: new Date().toISOString() } : prev));
 
       // In real mode, fire API
-      if (!isDemoMode) {
+      if (!isDemoMode()) {
         await api.put(`/api/campaigns/${id}`, updates);
       }
     },

@@ -362,7 +362,7 @@ export function DiscoverApp() {
       setIsLoading(true);
       setError(null);
 
-      if (isDemoMode) {
+      if (isDemoMode()) {
         setRestaurants(DEMO_RESTAURANTS);
         setIsLoading(false);
         return;

@@ -5,6 +5,7 @@ import { queryClient } from './lib/queryClient';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { useAuth } from './hooks/useAuth';
+import { useAuthStore } from './store/authStore';
 import { FeatureGate } from './components/FeatureGate';
 import { useAuthInit } from './hooks/useAuthInit';
 import { api } from './services/ApiService';
@@ -48,10 +49,10 @@ const CollaborationPanel = lazy(() => import('./features/concept1-platform/Colla
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
 
   if (isLoading) return <AppFallback />;
-  if (!isAuthenticated && !isDemoMode) return <Navigate to="/auth" replace />;
+  if (!isAuthenticated && !storeIsDemoMode) return <Navigate to="/auth" replace />;
 
   return <>{children}</>;
 }
@@ -59,10 +60,10 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function OnboardingGuard({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+  const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
 
   useEffect(() => {
-    if (isDemoMode) { setChecking(false); return; }
+    if (storeIsDemoMode) { setChecking(false); return; }
 
     api.get('/api/profile').then(res => {
       if (res.status === 'error' && res.statusCode === 404) {

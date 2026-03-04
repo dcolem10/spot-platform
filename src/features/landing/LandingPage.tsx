@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useAuthStore } from '../../store/authStore';
 import './LandingPage.css';
 
 /* ─── Hooks ──────────────────────────────────────────────────────────────── */
@@ -290,6 +291,22 @@ const pricingTiers = [
 
 export default function LandingPage() {
   const rootRef = useScrollReveal();
+  const navigate = useNavigate();
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const setDemoMode = useAuthStore((s) => s.setDemoMode);
+
+  const enterDemo = useCallback((path: string) => {
+    setDemoMode(true);
+    setAuth({
+      userId: 'demo-user',
+      email: 'demo@spot.app',
+      name: 'Demo Creator',
+      role: 'creator',
+      groups: ['creator'],
+      orgId: 'org-demo',
+    });
+    navigate(path);
+  }, [setDemoMode, setAuth, navigate]);
 
   return (
     <div ref={rootRef} style={{ minHeight: '100vh', background: 'var(--color-bgPrimary)' }}>
@@ -343,20 +360,22 @@ export default function LandingPage() {
           >
             Get Started
           </Link>
-          <Link
-            to="/app/dashboard"
+          <button
+            onClick={() => enterDemo('/app/dashboard')}
             style={{
               fontSize: 'var(--font-sm)',
               padding: '8px 16px',
               color: '#666',
-              textDecoration: 'none',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
               borderLeft: '1px solid #ddd',
               marginLeft: 4,
               paddingLeft: 16,
             }}
           >
             Demo
-          </Link>
+          </button>
         </div>
       </header>
 
@@ -392,20 +411,20 @@ export default function LandingPage() {
           prove ROI to restaurants, and give your audience a discovery app they&rsquo;ll actually use.
         </p>
         <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link
-            to="/app/dashboard"
+          <button
+            onClick={() => enterDemo('/app/dashboard')}
             className="btn btn-primary"
             style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
           >
             I&rsquo;m a Creator
-          </Link>
-          <Link
-            to="/app/discover"
+          </button>
+          <button
+            onClick={() => enterDemo('/app/discover')}
             className="btn btn-secondary"
             style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
           >
             Explore Restaurants
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -524,13 +543,13 @@ export default function LandingPage() {
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-8)' }} className="reveal">
-          <Link
-            to="/app/discover"
+          <button
+            onClick={() => enterDemo('/app/discover')}
             className="btn btn-primary"
             style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
           >
             Explore Restaurants
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -574,13 +593,13 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/app/dashboard"
+              <button
+                onClick={() => enterDemo('/app/dashboard')}
                 className={`btn ${tier.highlighted ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ width: '100%', textAlign: 'center', display: 'block' }}
               >
                 Try Creator Demo
-              </Link>
+              </button>
             </div>
           ))}
         </div>

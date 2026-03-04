@@ -1,10 +1,10 @@
-const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+import { useAuthStore } from '../store/authStore';
 
 function flag(envKey: string, defaultInDemo: boolean): boolean {
   const val = import.meta.env[envKey];
   if (val === 'true') return true;
   if (val === 'false') return false;
-  return isDemoMode ? defaultInDemo : false;
+  return useAuthStore.getState().isDemoMode ? defaultInDemo : false;
 }
 
 export const flags = {

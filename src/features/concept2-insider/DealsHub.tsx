@@ -286,7 +286,7 @@ export function DealsHub() {
       setIsLoading(true);
       setError(null);
 
-      if (isDemoMode) {
+      if (isDemoMode()) {
         setDeals(DEMO_DEALS);
         setIsLoading(false);
         return;

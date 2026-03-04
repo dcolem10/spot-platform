@@ -44,7 +44,7 @@ export default function CampaignReport() {
   const { data: fetchedReport, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['campaign-report', campaignId],
     queryFn: async () => {
-      if (isDemoMode) {
+      if (isDemoMode()) {
         const demo = DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId);
         if (demo) return demo;
       }
@@ -56,7 +56,7 @@ export default function CampaignReport() {
     enabled: Boolean(campaignId),
   });
 
-  const report = fetchedReport ?? (isDemoMode ? DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null : null);
+  const report = fetchedReport ?? (isDemoMode() ? DEMO_CAMPAIGN_REPORTS.find((r) => r.campaignId === campaignId) ?? null : null);
 
   const metricCards: MetricDef[] = useMemo(() => {
     if (!report) return [];
