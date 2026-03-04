@@ -1,0 +1,55 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**']
+  pull_request:
+    branches: [main]
+    paths: ['backend/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check all Lambdas
+        run: |
+          for f in backend/lambda-*/index.mjs; do
+            node --check "$f"
+          done
+      - uses: aws-actions/setup-sam@v2
+      - name: SAM Validate
+        run: cd backend && sam validate
+
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - uses: aws-actions/setup-sam@v2
+      - name: SAM Build
+        run: cd backend && sam build
+      - name: SAM Deploy
+        run: |
+          cd backend && sam deploy \
+            --no-confirm-changeset \
+            --parameter-overrides \
+              "CognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} \
+               AllowedOrigin=${{ secrets.ALLOWED_ORIGIN }} \
+               StripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
+               StripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+               AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }}"

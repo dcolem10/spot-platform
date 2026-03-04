@@ -12,6 +12,7 @@ Globals:
       Variables:
         TABLE_NAME: !Ref DataTable
         ALLOWED_ORIGIN: !Ref AllowedOrigin
+        LOG_LEVEL: info
 
 Parameters:
   Environment:
@@ -362,6 +363,120 @@ Resources:
           Unit: USD
         TimeUnit: MONTHLY
         BudgetType: COST
+
+  # ─── Additional CloudWatch Alarms ─────────────────────────────────────────
+  ApiLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-api-latency-p99-${Environment}
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      ExtendedStatistic: p99
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ApiFunction
+      TreatMissingData: notBreaching
+
+  DynamoDBThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-dynamodb-throttle-${Environment}
+      MetricName: ThrottledRequests
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Ref DataTable
+      TreatMissingData: notBreaching
+
+  AiCostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-ai-invocations-daily-${Environment}
+      MetricName: Invocations
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 1000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AiFunction
+      TreatMissingData: notBreaching
+
+  # ─── CloudWatch Dashboard ────────────────────────────────────────────────
+  SpotDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub spot-platform-${Environment}
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ApiFunction}", { "stat": "Sum", "label": "Invocations" } ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${ApiFunction}", { "stat": "Sum", "label": "Errors" } ],
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${ApiFunction}", { "stat": "Average", "label": "Avg Duration (ms)" } ]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}",
+                "title": "API Lambda Metrics"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${AiFunction}", { "stat": "Sum", "label": "Invocations" } ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${AiFunction}", { "stat": "Sum", "label": "Errors" } ],
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${AiFunction}", { "stat": "Average", "label": "Avg Duration (ms)" } ]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}",
+                "title": "AI Lambda Metrics"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", { "stat": "Sum", "label": "Read Capacity" } ],
+                  [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${DataTable}", { "stat": "Sum", "label": "Write Capacity" } ]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Capacity"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "4XXError", "ApiName", "spot-api-${Environment}", { "stat": "Sum", "label": "4XX Errors" } ],
+                  [ "AWS/ApiGateway", "5XXError", "ApiName", "spot-api-${Environment}", { "stat": "Sum", "label": "5XX Errors" } ]
+                ],
+                "period": 300,
+                "region": "${AWS::Region}",
+                "title": "API Gateway Errors"
+              }
+            }
+          ]
+        }
 
 Outputs:
   ApiUrl:

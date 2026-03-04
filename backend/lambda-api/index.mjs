@@ -942,6 +942,440 @@ async function getBenchmarks(event) {
   });
 }
 
+// ─── Ambassador & Referral System ──────────────────────────────────────────
+
+async function generateReferralCode(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Check if code already exists
+  const existingCode = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#AMBASSADOR`,
+        ':sk': 'CODE#',
+      },
+      Limit: 1,
+    })
+  );
+
+  if (existingCode.Items?.length) {
+    const existing = existingCode.Items[0];
+    return respond(200, {
+      referralCode: existing.code,
+      createdAt: existing.createdAt,
+      referralCount: existing.referralCount || 0,
+      tier: calculateTier(existing.referralCount || 0),
+    });
+  }
+
+  // Generate unique code: REF-${shortId}
+  const shortId = randomUUID().slice(0, 8).toUpperCase();
+  const code = `REF-${shortId}`;
+
+  const item = {
+    PK: `CREATOR#${userId}`,
+    SK: `REFERRAL_CODE`,
+    GSI1PK: `CREATOR#${userId}#AMBASSADOR`,
+    GSI1SK: `CODE#${code}`,
+    code,
+    referralCount: 0,
+    commissionEarned: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+
+  return respond(201, {
+    referralCode: code,
+    createdAt: item.createdAt,
+    referralCount: 0,
+    tier: 'bronze',
+  });
+}
+
+function calculateTier(count) {
+  if (count >= 15) return 'gold';
+  if (count >= 5) return 'silver';
+  return 'bronze';
+}
+
+async function trackReferral(event) {
+  const body = JSON.parse(event.body || '{}');
+  const code = sanitize(body.referralCode, 50);
+  const newUserId = sanitize(body.newUserId, 64);
+
+  if (!code || !newUserId) return respond(400, { error: 'Missing code or newUserId' });
+
+  // Look up referral code via GSI
+  const lookup = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `REFERRAL#${code}` },
+      Limit: 1,
+    })
+  );
+
+  if (!lookup.Items?.length) return respond(404, { error: 'Referral code not found' });
+
+  // Extract referrer ID from first match
+  const referrerMatch = lookup.Items[0].GSI1SK?.match(/CREATOR#(.+)$/);
+  if (!referrerMatch) return respond(400, { error: 'Invalid referral code' });
+  const referrerId = referrerMatch[1];
+
+  // Create referral record
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `CREATOR#${referrerId}`,
+        SK: `REFERRAL#${newUserId}`,
+        GSI1PK: `CREATOR#${referrerId}#REFERRALS`,
+        GSI1SK: `REFERRAL#${newUserId}`,
+        referredUserId: newUserId,
+        referrerId,
+        referralCode: code,
+        createdAt: new Date().toISOString(),
+      },
+    })
+  );
+
+  // Increment referral count on ambassador record
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${referrerId}`, SK: `REFERRAL_CODE` },
+      UpdateExpression: 'SET referralCount = referralCount + :inc, #updated = :updatedAt',
+      ExpressionAttributeNames: { '#updated': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':inc': 1,
+        ':updatedAt': new Date().toISOString(),
+      },
+    })
+  );
+
+  return respond(200, { message: 'Referral tracked', referrerId });
+}
+
+async function getAmbassadorStatus(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Try to get ambassador record
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `REFERRAL_CODE` },
+    })
+  );
+
+  if (!result.Item) {
+    // Create default ambassador record
+    const item = {
+      PK: `CREATOR#${userId}`,
+      SK: `REFERRAL_CODE`,
+      GSI1PK: `CREATOR#${userId}#AMBASSADOR`,
+      GSI1SK: `CODE#NONE`,
+      referralCount: 0,
+      commissionEarned: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+    return respond(200, {
+      tier: 'bronze',
+      referralCount: 0,
+      commissionEarned: 0,
+      referralCode: null,
+    });
+  }
+
+  const ambassador = result.Item;
+  const tier = calculateTier(ambassador.referralCount || 0);
+
+  return respond(200, {
+    tier,
+    referralCount: ambassador.referralCount || 0,
+    commissionEarned: ambassador.commissionEarned || 0,
+    referralCode: ambassador.code || null,
+  });
+}
+
+async function listReferrals(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}`,
+        ':sk': 'REFERRAL#',
+      },
+      Limit: 100,
+    })
+  );
+
+  return respond(200, stripAll(result.Items || []));
+}
+
+// ─── Multi-Creator Collaborations ─────────────────────────────────────────────
+
+async function inviteCollaborator(campaignId, event) {
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid campaign ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = JSON.parse(event.body || '{}');
+  const inviteeId = sanitize(body.creatorId, 64);
+  const sharePercent = Math.max(1, Math.min(99, Number(body.sharePercent) || 50));
+  const role = body.role === 'co-creator' ? 'co-creator' : 'viewer';
+
+  if (!inviteeId) return respond(400, { error: 'creatorId required' });
+  if (inviteeId === userId) return respond(400, { error: 'Cannot invite yourself' });
+
+  // Verify caller owns the campaign
+  const campaignFind = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+        ':sk': `CAMPAIGN#${campaignId}`,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!campaignFind.Items?.length) return respond(404, { error: 'Campaign not found' });
+  const campaign = campaignFind.Items[0];
+
+  // Check max collaborators limit
+  const collabCount = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `CAMPAIGN#${campaignId}`,
+        ':sk': 'COLLAB#',
+      },
+      Limit: 10,
+    })
+  );
+
+  if (collabCount.Items?.length >= 5) {
+    return respond(400, { error: 'Max 5 collaborators per campaign' });
+  }
+
+  const createdAt = new Date().toISOString();
+
+  // Create collaboration record linked to campaign
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `CAMPAIGN#${campaignId}`,
+        SK: `COLLAB#${inviteeId}`,
+        GSI1PK: `CAMPAIGN#${campaignId}#COLLABS`,
+        GSI1SK: `CREATOR#${inviteeId}`,
+        collaboratorId: inviteeId,
+        campaignId,
+        ownerCreatorId: userId,
+        status: 'pending',
+        role,
+        sharePercent,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    })
+  );
+
+  // Create reverse lookup for invitee
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `CREATOR#${inviteeId}`,
+        SK: `COLLAB_INVITE#${campaignId}`,
+        GSI1PK: `CREATOR#${inviteeId}#COLLABS`,
+        GSI1SK: `CAMPAIGN#${campaignId}`,
+        campaignId,
+        campaignName: campaign.restaurantName || 'Unknown',
+        invitedBy: userId,
+        status: 'pending',
+        role,
+        sharePercent,
+        createdAt,
+        updatedAt: createdAt,
+      },
+    })
+  );
+
+  return respond(201, { message: 'Invite sent', campaignId, collaboratorId: inviteeId });
+}
+
+async function respondToInvite(campaignId, event) {
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid campaign ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = JSON.parse(event.body || '{}');
+  const accept = body.accept === true;
+  const newStatus = accept ? 'accepted' : 'declined';
+
+  // Get the invite record
+  const inviteFind = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `COLLAB_INVITE#${campaignId}` },
+    })
+  );
+
+  if (!inviteFind.Item) return respond(404, { error: 'Invite not found' });
+  const invite = inviteFind.Item;
+
+  const updatedAt = new Date().toISOString();
+
+  // Update campaign collab record
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CAMPAIGN#${campaignId}`, SK: `COLLAB#${userId}` },
+      UpdateExpression: 'SET #status = :status, #updated = :updatedAt',
+      ExpressionAttributeNames: { '#status': 'status', '#updated': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':status': newStatus,
+        ':updatedAt': updatedAt,
+      },
+    })
+  );
+
+  // Update invitee's invite record
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `COLLAB_INVITE#${campaignId}` },
+      UpdateExpression: 'SET #status = :status, #updated = :updatedAt',
+      ExpressionAttributeNames: { '#status': 'status', '#updated': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':status': newStatus,
+        ':updatedAt': updatedAt,
+      },
+    })
+  );
+
+  return respond(200, { message: `Invite ${newStatus}`, campaignId });
+}
+
+async function listCollaborators(campaignId, event) {
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid campaign ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Verify caller owns the campaign
+  const campaignFind = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+        ':sk': `CAMPAIGN#${campaignId}`,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!campaignFind.Items?.length) return respond(404, { error: 'Campaign not found' });
+
+  // Get all collaborators for this campaign
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `CAMPAIGN#${campaignId}`,
+        ':sk': 'COLLAB#',
+      },
+      Limit: 10,
+    })
+  );
+
+  return respond(200, stripAll(result.Items || []));
+}
+
+async function listMyCollabCampaigns(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Query GSI for campaigns where user is a collaborator
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#COLLABS` },
+      Limit: 100,
+    })
+  );
+
+  const items = result.Items || [];
+  // Filter to only campaigns where user has accepted invites
+  const acceptedCampaigns = items.filter((item) => item.status === 'accepted');
+
+  return respond(200, stripAll(acceptedCampaigns));
+}
+
+async function removeCollaborator(campaignId, creatorId, event) {
+  if (!isValidId(campaignId) || !isValidId(creatorId)) {
+    return respond(400, { error: 'Invalid IDs' });
+  }
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Verify caller owns the campaign
+  const campaignFind = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+        ':sk': `CAMPAIGN#${campaignId}`,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!campaignFind.Items?.length) return respond(404, { error: 'Campaign not found' });
+
+  // Delete from campaign collabs
+  await ddb.send(
+    new DeleteCommand({
+      TableName: TABLE,
+      Key: { PK: `CAMPAIGN#${campaignId}`, SK: `COLLAB#${creatorId}` },
+    })
+  );
+
+  // Delete from creator's invites
+  await ddb.send(
+    new DeleteCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${creatorId}`, SK: `COLLAB_INVITE#${campaignId}` },
+    })
+  );
+
+  return respond(200, { message: 'Collaborator removed' });
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
@@ -1036,6 +1470,37 @@ export const handler = async (event) => {
     // ROI & Benchmarks
     if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);
     if (path.match(/\/api\/reports\/benchmarks$/) && method === 'GET') return getBenchmarks(event);
+
+    // Ambassador & Referral
+    if (path.match(/\/api\/ambassador\/generate-link$/) && method === 'POST')
+      return generateReferralCode(event);
+    if (path.match(/\/api\/ambassador\/track-referral$/) && method === 'POST')
+      return trackReferral(event);
+    if (path.match(/\/api\/ambassador\/status$/) && method === 'GET')
+      return getAmbassadorStatus(event);
+    if (path.match(/\/api\/ambassador\/referrals$/) && method === 'GET')
+      return listReferrals(event);
+
+    // Multi-Creator Collaborations
+    if (path.match(/\/api\/campaigns\/[^/]+\/collaborators$/) && method === 'POST') {
+      const campaignId = pathParts[pathParts.length - 2];
+      return inviteCollaborator(campaignId, event);
+    }
+    if (path.match(/\/api\/campaigns\/[^/]+\/collaborators\/respond$/) && method === 'PUT') {
+      const campaignId = pathParts[pathParts.length - 3];
+      return respondToInvite(campaignId, event);
+    }
+    if (path.match(/\/api\/campaigns\/[^/]+\/collaborators$/) && method === 'GET') {
+      const campaignId = pathParts[pathParts.length - 2];
+      return listCollaborators(campaignId, event);
+    }
+    if (path.match(/\/api\/campaigns\/collaborations$/) && method === 'GET')
+      return listMyCollabCampaigns(event);
+    if (path.match(/\/api\/campaigns\/[^/]+\/collaborators\/[^/]+$/) && method === 'DELETE') {
+      const campaignId = pathParts[pathParts.length - 3];
+      const creatorId = pathParts[pathParts.length - 1];
+      return removeCollaborator(campaignId, creatorId, event);
+    }
 
     return respond(404, { error: 'Not found' });
   } catch (err) {

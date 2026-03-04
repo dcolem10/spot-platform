@@ -10,7 +10,8 @@ function flag(envKey: string, defaultInDemo: boolean): boolean {
 export const flags = {
   restaurantPortal: flag('VITE_ENABLE_RESTAURANT_PORTAL', true),
   membership: flag('VITE_ENABLE_MEMBERSHIP', true),
-  multiCreator: flag('VITE_ENABLE_MULTI_CREATOR', false),
+  multiCreator: flag('VITE_ENABLE_MULTI_CREATOR', true),
+  ambassador: flag('VITE_ENABLE_AMBASSADOR', true),
 } as const;
 
 export type FeatureFlagKey = keyof typeof flags;

@@ -38,6 +38,10 @@ const ContentArchive = lazy(() => import('./features/concept3-spotops/ContentArc
 const EditorialCalendar = lazy(() => import('./features/concept3-spotops/EditorialCalendar'));
 const ROIReporter = lazy(() => import('./features/concept3-spotops/ROIReporter'));
 const AIInsights = lazy(() => import('./features/concept3-spotops/AIInsights'));
+const AmbassadorDashboard = lazy(() => import('./features/concept3-spotops/AmbassadorDashboard'));
+
+// Multi-Creator Collaboration
+const CollaborationPanel = lazy(() => import('./features/concept1-platform/CollaborationPanel'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -116,12 +120,18 @@ export default function App() {
                 <Route path="partner/campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
                 <Route path="partner/offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
 
+                {/* Multi-Creator Collaborations */}
+                <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />
+
                 {/* AI */}
                 <Route path="insights" element={<AIInsights />} />
 
                 {/* Content */}
                 <Route path="archive" element={<ContentArchive />} />
                 <Route path="calendar" element={<EditorialCalendar />} />
+
+                {/* Ambassador Program */}
+                <Route path="ambassador" element={<FeatureGate flag="ambassador"><AmbassadorDashboard /></FeatureGate>} />
 
                 {/* Audience & Discovery */}
                 <Route path="discover" element={<DiscoverApp />} />
