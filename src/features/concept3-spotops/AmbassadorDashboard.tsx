@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
+
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
 
@@ -401,7 +401,7 @@ function TierBadge({ tier, count }: { tier: TierLevel; count: number }) {
       )}
 
       {tier === 'gold' && (
-        <div style={styles.progressText} style={{ color: config.color }}>
+        <div style={{ ...styles.progressText, color: config.color }}>
           You've reached the top tier!
         </div>
       )}
