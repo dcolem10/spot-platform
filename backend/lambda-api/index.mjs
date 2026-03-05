@@ -8,6 +8,7 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'crypto';
+import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS } from './helpers.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -30,21 +31,38 @@ const respond = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
-const sanitize = (s, max = 500) =>
-  typeof s === 'string' ? s.trim().slice(0, max) : '';
+// Imported from helpers.mjs: sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS
 
-const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK', 'creatorId']);
-const stripDdbKeys = (item) => {
-  const clean = {};
-  for (const [k, v] of Object.entries(item)) {
-    if (!DDB_KEYS.has(k)) clean[k] = v;
-  }
-  return clean;
-};
 const stripAll = (items) => items.map(stripDdbKeys);
 
-const isValidId = (id) =>
-  typeof id === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(id);
+/** Safe JSON body parser — returns null on malformed input */
+function parseBody(event) {
+  try {
+    return JSON.parse(event.body || '{}');
+  } catch {
+    return null;
+  }
+}
+
+/** Validate and decode a pagination lastKey — only allows expected DDB key shapes */
+function decodePaginationKey(encoded) {
+  if (!encoded || typeof encoded !== 'string' || encoded.length > 500) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(encoded, 'base64').toString());
+    // Must be a plain object with only string values (DDB key attributes)
+    if (typeof decoded !== 'object' || decoded === null || Array.isArray(decoded)) return null;
+    const keys = Object.keys(decoded);
+    if (keys.length === 0 || keys.length > 4) return null; // DDB keys: PK, SK, GSI1PK, GSI1SK
+    for (const k of keys) {
+      if (typeof decoded[k] !== 'string' || decoded[k].length > 500) return null;
+      // Only allow expected key attribute names
+      if (!['PK', 'SK', 'GSI1PK', 'GSI1SK'].includes(k)) return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
 
 function getUserId(event) {
   // C1: Only trust Cognito authorizer claims — no header fallback, no anonymous.
@@ -68,9 +86,8 @@ async function listRestaurants(event) {
   };
 
   if (params.lastKey) {
-    try {
-      queryParams.ExclusiveStartKey = JSON.parse(Buffer.from(params.lastKey, 'base64').toString());
-    } catch { /* ignore invalid lastKey */ }
+    const decoded = decodePaginationKey(params.lastKey);
+    if (decoded) queryParams.ExclusiveStartKey = decoded;
   }
 
   const result = await ddb.send(new QueryCommand(queryParams));
@@ -123,7 +140,8 @@ async function createRestaurant(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const id = randomUUID();
   const item = {
     PK: `RESTAURANT#${id}`,
@@ -177,7 +195,8 @@ async function listMyRestaurants(event) {
 
 async function updateRestaurant(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const names = {};
   const values = {};
   let expr = '';
@@ -252,21 +271,100 @@ async function listCampaigns(event) {
   const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
   queryParams.Limit = limit;
   if (params.lastKey) {
-    try {
-      queryParams.ExclusiveStartKey = JSON.parse(Buffer.from(params.lastKey, 'base64').toString());
-    } catch { /* ignore invalid lastKey */ }
+    const decoded = decodePaginationKey(params.lastKey);
+    if (decoded) queryParams.ExclusiveStartKey = decoded;
   }
 
   const result = await ddb.send(new QueryCommand(queryParams));
 
-  return respond(200, stripAll(result.Items || []));
+  // Filter out soft-deleted campaigns by default
+  const includeArchived = params.includeArchived === 'true';
+  let items = result.Items || [];
+  if (!includeArchived) {
+    items = items.filter((c) => !c.deletedAt);
+  }
+
+  return respond(200, stripAll(items));
+}
+
+async function archiveCampaign(campaignId, event) {
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Find campaign via GSI (user-isolated)
+  const find = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+        ':sk': `CAMPAIGN#${campaignId}`,
+      },
+    })
+  );
+
+  if (!find.Items?.length) return respond(404, { error: 'Campaign not found' });
+  const existing = find.Items[0];
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: 'SET #deletedAt = :deletedAt, #updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#deletedAt': 'deletedAt', '#updatedAt': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':deletedAt': new Date().toISOString(),
+        ':updatedAt': new Date().toISOString(),
+      },
+    })
+  );
+
+  return respond(200, { message: 'Campaign archived', campaignId });
+}
+
+async function restoreCampaign(campaignId, event) {
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const find = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+        ':sk': `CAMPAIGN#${campaignId}`,
+      },
+    })
+  );
+
+  if (!find.Items?.length) return respond(404, { error: 'Campaign not found' });
+  const existing = find.Items[0];
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: 'REMOVE #deletedAt SET #updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#deletedAt': 'deletedAt', '#updatedAt': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':updatedAt': new Date().toISOString(),
+      },
+    })
+  );
+
+  return respond(200, { message: 'Campaign restored', campaignId });
 }
 
 async function createCampaign(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const id = randomUUID();
   const restaurantId = sanitize(body.restaurantId, 64);
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
@@ -309,7 +407,8 @@ async function updateCampaign(campaignId, event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   // Find the campaign first via GSI
   const find = await ddb.send(
@@ -328,20 +427,36 @@ async function updateCampaign(campaignId, event) {
   const existing = find.Items[0];
 
   // C3: Allowlisted fields only — prevent mass assignment of PK/SK/GSI keys
-  const allowedFields = ['status', 'package', 'budget', 'startDate', 'endDate', 'deliverables', 'notes'];
+  const ALLOWED_STATUSES = ['inquiry', 'negotiation', 'active', 'completed', 'cancelled'];
+  const campaignSanitizers = {
+    status: (v) => ALLOWED_STATUSES.includes(v) ? v : undefined,
+    package: (v) => sanitize(v, 200),
+    budget: (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(1000000, Math.max(0, n)) : undefined; },
+    startDate: (v) => sanitize(v, 20),
+    endDate: (v) => sanitize(v, 20),
+    deliverables: (v) => Array.isArray(v) ? v.slice(0, 20).map((d) => ({
+      id: sanitize(d.id, 64) || randomUUID(),
+      type: sanitize(d.type, 20),
+      description: sanitize(d.description, 500),
+      completed: d.completed === true,
+    })) : undefined,
+    notes: (v) => sanitize(v, 2000),
+  };
   const names = {};
   const values = {};
   let expr = '';
 
-  allowedFields.forEach((f) => {
+  for (const [f, fn] of Object.entries(campaignSanitizers)) {
     if (body[f] !== undefined) {
+      const safe = fn(body[f]);
+      if (safe === undefined) continue;
       const key = `#${f}`;
       const val = `:${f}`;
       names[key] = f;
-      values[val] = body[f];
+      values[val] = safe;
       expr += `${expr ? ', ' : ''}${key} = ${val}`;
     }
-  });
+  }
 
   if (!expr) return respond(400, { error: 'No valid fields to update' });
 
@@ -366,12 +481,25 @@ async function updateCampaign(campaignId, event) {
 // ─── Offer CRUD ───────────────────────────────────────────────────────────────
 
 async function createOffer(restaurantId, event) {
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const id = randomUUID();
   const code = `SPOT-${id.slice(0, 8).toUpperCase()}`;
+
+  // Validate offer type
+  const ALLOWED_OFFER_TYPES = ['qr', 'link', 'code', 'promo'];
+  const offerType = ALLOWED_OFFER_TYPES.includes(body.type) ? body.type : 'qr';
+
+  // Validate expiresAt is a proper ISO date string if provided
+  let expiresAt = null;
+  if (body.expiresAt) {
+    const parsed = new Date(sanitize(body.expiresAt, 30));
+    if (!isNaN(parsed.getTime())) expiresAt = parsed.toISOString();
+  }
 
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
@@ -382,12 +510,12 @@ async function createOffer(restaurantId, event) {
     creatorId: userId,
     restaurantId,
     code,
-    type: body.type || 'qr',
+    type: offerType,
     description: sanitize(body.description, 500),
     landingPageUrl: `/r/${sanitize(body.slug || restaurantId, 100)}`,
     scans: 0,
     redemptions: 0,
-    expiresAt: body.expiresAt || null,
+    expiresAt,
     isActive: true,
     createdAt: new Date().toISOString(),
   };
@@ -418,8 +546,61 @@ async function createOffer(restaurantId, event) {
   return respond(201, item);
 }
 
-async function trackScan(code) {
-  // H2: Direct GetItem lookup by offer code instead of scanning all offers
+/**
+ * Lightweight rate limiter for public (unauthenticated) endpoints.
+ * Limits by source IP to prevent scan/redeem abuse.
+ * Max 30 requests per 5-minute window per IP.
+ */
+const PUBLIC_RATE_LIMIT = 30;
+const PUBLIC_RATE_WINDOW = 300; // 5 minutes
+
+async function checkPublicRateLimit(event) {
+  const ip = event.requestContext?.identity?.sourceIp || 'unknown';
+  const windowKey = Math.floor(Date.now() / 1000 / PUBLIC_RATE_WINDOW);
+  try {
+    const result = await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RATE#IP#${ip}`, SK: `WIN#${windowKey}` },
+      UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :inc, #ttl = :ttl',
+      ExpressionAttributeNames: { '#c': 'cnt', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':zero': 0,
+        ':inc': 1,
+        ':ttl': Math.floor(Date.now() / 1000) + PUBLIC_RATE_WINDOW + 60,
+      },
+      ReturnValues: 'ALL_NEW',
+    }));
+    return (result.Attributes?.cnt || 0) <= PUBLIC_RATE_LIMIT;
+  } catch {
+    return true; // fail open
+  }
+}
+
+function validateOffer(offer) {
+  // Check if offer is active
+  if (offer.isActive === false) {
+    return { valid: false, error: 'This offer is no longer active' };
+  }
+  // Check expiration
+  if (offer.expiresAt) {
+    const expiry = new Date(offer.expiresAt);
+    if (!isNaN(expiry.getTime()) && expiry < new Date()) {
+      return { valid: false, error: 'This offer has expired' };
+    }
+  }
+  return { valid: true };
+}
+
+async function trackScan(code, event) {
+  if (!code || !/^[A-Z0-9-]{5,20}$/.test(code)) {
+    return respond(400, { error: 'Invalid offer code format' });
+  }
+
+  // Rate limit public endpoint
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
   const lookup = await ddb.send(
     new GetCommand({
       TableName: TABLE,
@@ -429,6 +610,10 @@ async function trackScan(code) {
 
   if (!lookup.Item) return respond(404, { error: 'Offer not found' });
   const offer = lookup.Item;
+
+  // Validate offer is active and not expired
+  const check = validateOffer(offer);
+  if (!check.valid) return respond(410, { error: check.error });
 
   await ddb.send(
     new UpdateCommand({
@@ -446,8 +631,16 @@ async function trackScan(code) {
   });
 }
 
-async function redeemOffer(code) {
-  // H2: Direct GetItem lookup by offer code instead of scanning all offers
+async function redeemOffer(code, event) {
+  if (!code || !/^[A-Z0-9-]{5,20}$/.test(code)) {
+    return respond(400, { error: 'Invalid offer code format' });
+  }
+
+  // Rate limit public endpoint
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
   const lookup = await ddb.send(
     new GetCommand({
       TableName: TABLE,
@@ -457,6 +650,10 @@ async function redeemOffer(code) {
 
   if (!lookup.Item) return respond(404, { error: 'Offer not found' });
   const offer = lookup.Item;
+
+  // Validate offer is active and not expired
+  const check = validateOffer(offer);
+  if (!check.valid) return respond(410, { error: check.error });
 
   await ddb.send(
     new UpdateCommand({
@@ -473,9 +670,11 @@ async function redeemOffer(code) {
 // ─── Saves (Audience) ─────────────────────────────────────────────────────────
 
 async function saveRestaurant(event, restaurantId) {
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   await ddb.send(
     new PutCommand({
@@ -652,7 +851,8 @@ async function updateSaveNotes(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   await ddb.send(
     new UpdateCommand({
@@ -732,7 +932,8 @@ async function getGoogleDetails(restaurantId) {
 // ─── Email Subscribe ──────────────────────────────────────────────────────────
 
 async function subscribe(event) {
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const email = sanitize(body.email, 200).toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return respond(400, { error: 'Invalid email' });
 
@@ -771,7 +972,8 @@ async function getProfile(event) {
 async function upsertProfile(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   const item = {
     PK: `CREATOR#${userId}`,
@@ -812,7 +1014,8 @@ async function upsertProfile(event) {
 async function calculateROI(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   const campaignId = sanitize(body.campaignId, 64);
   if (!campaignId) return respond(400, { error: 'campaignId required' });
@@ -1019,14 +1222,11 @@ async function generateReferralCode(event) {
   });
 }
 
-function calculateTier(count) {
-  if (count >= 15) return 'gold';
-  if (count >= 5) return 'silver';
-  return 'bronze';
-}
+// calculateTier imported from helpers.mjs
 
 async function trackReferral(event) {
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const code = sanitize(body.referralCode, 50);
   const newUserId = sanitize(body.newUserId, 64);
 
@@ -1157,7 +1357,8 @@ async function inviteCollaborator(campaignId, event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const inviteeId = sanitize(body.creatorId, 64);
   const sharePercent = Math.max(1, Math.min(99, Number(body.sharePercent) || 50));
   const role = body.role === 'co-creator' ? 'co-creator' : 'viewer';
@@ -1251,7 +1452,8 @@ async function respondToInvite(campaignId, event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const body = JSON.parse(event.body || '{}');
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
   const accept = body.accept === true;
   const newStatus = accept ? 'accepted' : 'declined';
 
@@ -1452,12 +1654,16 @@ export const handler = async (event) => {
       return createCampaign(event);
     if (path.match(/\/api\/campaigns\/[^/]+$/) && method === 'PUT')
       return updateCampaign(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/campaigns\/[^/]+\/archive$/) && method === 'POST')
+      return archiveCampaign(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/campaigns\/[^/]+\/restore$/) && method === 'POST')
+      return restoreCampaign(pathParts[pathParts.length - 2], event);
 
-    // Offer tracking (public)
+    // Offer tracking (public — rate limited by IP)
     if (path.match(/\/api\/offers\/[^/]+\/scan$/) && method === 'GET')
-      return trackScan(pathParts[pathParts.length - 2]);
+      return trackScan(pathParts[pathParts.length - 2], event);
     if (path.match(/\/api\/offers\/[^/]+\/redeem$/) && method === 'POST')
-      return redeemOffer(pathParts[pathParts.length - 2]);
+      return redeemOffer(pathParts[pathParts.length - 2], event);
 
     // SpotOps
     if (path.match(/\/api\/spotops\/pipeline$/) && method === 'GET')

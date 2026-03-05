@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const client = new DynamoDBClient({});
@@ -126,6 +126,114 @@ async function checkRateLimit(userId) {
   }
 }
 
+// ─── Creator Data Fetching ────────────────────────────────────────────────────
+// Helper functions to fetch creator's campaigns, offers, and profile from DynamoDB
+
+async function getCreatorCampaigns(userId) {
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: {
+          ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+        },
+        Limit: 20,
+        ScanIndexForward: false, // Most recent first
+      })
+    );
+    return result.Items || [];
+  } catch (err) {
+    console.error('Error fetching campaigns:', err.message);
+    return [];
+  }
+}
+
+async function getCreatorOffers(userId) {
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: {
+          ':pk': `CREATOR#${userId}#OFFERS`,
+        },
+        Limit: 20,
+        ScanIndexForward: false, // Most recent first
+      })
+    );
+    return result.Items || [];
+  } catch (err) {
+    console.error('Error fetching offers:', err.message);
+    return [];
+  }
+}
+
+async function getCreatorProfile(userId) {
+  try {
+    const result = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: {
+          PK: `CREATOR#${userId}`,
+          SK: 'PROFILE',
+        },
+      })
+    );
+    return result.Item || {};
+  } catch (err) {
+    console.error('Error fetching profile:', err.message);
+    return {};
+  }
+}
+
+// Helper function to build context summary from campaigns and offers
+function buildCreatorContextSummary(campaigns, offers) {
+  const activeCount = campaigns.filter((c) => c.status === 'active').length;
+  const completedCount = campaigns.filter((c) => c.status === 'completed').length;
+
+  // Extract top restaurant names
+  const restaurantNames = campaigns
+    .map((c) => c.restaurantName)
+    .filter((name) => name)
+    .slice(0, 5);
+
+  // Calculate offer stats
+  let totalScans = 0;
+  let totalRedemptions = 0;
+  offers.forEach((o) => {
+    totalScans += o.scans || 0;
+    totalRedemptions += o.redemptions || 0;
+  });
+
+  const avgRedemptionRate = totalScans > 0 ? ((totalRedemptions / totalScans) * 100).toFixed(1) : 0;
+
+  // Find budget range
+  const budgets = campaigns
+    .map((c) => c.budget)
+    .filter((b) => typeof b === 'number');
+  const minBudget = budgets.length > 0 ? Math.min(...budgets) : 0;
+  const maxBudget = budgets.length > 0 ? Math.max(...budgets) : 0;
+
+  return {
+    campaigns: {
+      total: campaigns.length,
+      active: activeCount,
+      completed: completedCount,
+    },
+    topRestaurants: restaurantNames,
+    offers: {
+      total: offers.length,
+      totalScans,
+      totalRedemptions,
+      avgRedemptionRate: `${avgRedemptionRate}%`,
+    },
+    budgetRange: `$${minBudget}-$${maxBudget}`,
+  };
+}
+
 // ─── AI Recommendations ───────────────────────────────────────────────────────
 
 async function handleRecommendations(event) {
@@ -141,7 +249,8 @@ async function handleRecommendations(event) {
     });
   }
 
-  const body = JSON.parse(event.body || '{}');
+  let body;
+  try { body = JSON.parse(event.body || '{}'); } catch { return respond(400, { error: 'Invalid JSON body' }); }
   const query = (body.query || '').trim().slice(0, 500);
 
   if (!query) return respond(400, { error: 'Query is required' });
@@ -177,7 +286,23 @@ async function handleRecommendations(event) {
   }
 
   try {
-    const systemPrompt = `You are a knowledgeable DC/DMV food recommender. The user is asking for restaurant suggestions. Respond with 3-5 restaurant recommendations in JSON format. Each recommendation should have: name, neighborhood, cuisine, whyRecommended (1-2 sentences), priceLevel (1-4), and vibes (array of strings). Only recommend real DC/DMV restaurants. Be specific and helpful.`;
+    // Fetch creator's profile for personalization
+    const profile = await getCreatorProfile(userId);
+
+    // Build personalized context
+    let contextStr = '';
+    if (profile.cuisinePreferences && profile.cuisinePreferences.length > 0) {
+      contextStr += `Creator's cuisine preferences: ${profile.cuisinePreferences.join(', ')}. `;
+    }
+    if (profile.preferredNeighborhoods && profile.preferredNeighborhoods.length > 0) {
+      contextStr += `Creator's preferred neighborhoods: ${profile.preferredNeighborhoods.join(', ')}. `;
+    }
+
+    const baseSystemPrompt = `You are a knowledgeable DC/DMV food recommender. The user is asking for restaurant suggestions. Respond with 3-5 restaurant recommendations in JSON format. Each recommendation should have: name, neighborhood, cuisine, whyRecommended (1-2 sentences), priceLevel (1-4), and vibes (array of strings). Only recommend real DC/DMV restaurants. Be specific and helpful.`;
+
+    const systemPrompt = contextStr
+      ? `${baseSystemPrompt} Creator context: ${contextStr}`
+      : baseSystemPrompt;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -247,7 +372,8 @@ async function handleContentIdeas(event) {
     });
   }
 
-  const body = JSON.parse(event.body || '{}');
+  let body;
+  try { body = JSON.parse(event.body || '{}'); } catch { return respond(400, { error: 'Invalid JSON body' }); }
 
   // H7: Prompt injection detection on user-supplied context
   if (body.context && typeof body.context === 'string' && detectInjection(body.context)) {
@@ -278,6 +404,32 @@ async function handleContentIdeas(event) {
   }
 
   try {
+    // Fetch creator's campaigns and offers for personalization
+    const [campaigns, offers] = await Promise.all([
+      getCreatorCampaigns(userId),
+      getCreatorOffers(userId),
+    ]);
+
+    // Build context summary
+    const contextSummary = buildCreatorContextSummary(campaigns, offers);
+
+    // Build personalized context string
+    let personalizationContext = '';
+    if (campaigns.length > 0) {
+      personalizationContext = `Creator Campaign Data: ${campaigns.length} total campaigns (${contextSummary.campaigns.active} active, ${contextSummary.campaigns.completed} completed). `;
+      personalizationContext += `Top restaurants worked with: ${contextSummary.topRestaurants.join(', ')}. `;
+      personalizationContext += `Offer performance: ${contextSummary.offers.totalScans} scans, ${contextSummary.offers.totalRedemptions} redemptions, avg redemption rate ${contextSummary.offers.avgRedemptionRate}. `;
+      personalizationContext += `Campaign budget range: ${contextSummary.budgetRange}. `;
+    }
+
+    // Merge with user-provided context
+    const mergedContext = {
+      ...body.context,
+      creatorStats: contextSummary,
+    };
+
+    const systemPrompt = `You are a content strategist for a DC/DMV food influencer. Generate 5 personalized content ideas. Return JSON array with: title, description, type (reel/story/tiktok/post). Focus on what performs well for local food content. ${personalizationContext}Use the creator's past performance and partnerships to inform recommendations.`;
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -288,12 +440,11 @@ async function handleContentIdeas(event) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
-        system:
-          'You are a content strategist for a DC/DMV food influencer. Generate 5 content ideas. Return JSON array with: title, description, type (reel/story/tiktok/post). Focus on what performs well for local food content.',
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
-            content: `Generate content ideas for this week. Context: ${JSON.stringify(body.context || {})}`,
+            content: `Generate content ideas for this week. Context: ${JSON.stringify(mergedContext)}`,
           },
         ],
       }),
@@ -332,7 +483,8 @@ async function handleCampaignInsights(event) {
     });
   }
 
-  const body = JSON.parse(event.body || '{}');
+  let body;
+  try { body = JSON.parse(event.body || '{}'); } catch { return respond(400, { error: 'Invalid JSON body' }); }
 
   // H7: Prompt injection detection on user-supplied campaign data
   if (body.campaignData) {
@@ -361,6 +513,17 @@ async function handleCampaignInsights(event) {
   }
 
   try {
+    // Fetch creator's actual campaigns from DynamoDB for richer context
+    const campaigns = await getCreatorCampaigns(userId);
+
+    // Use provided campaign data if available, otherwise use fetched campaigns
+    let campaignDataForAnalysis = body.campaignData || campaigns;
+
+    // If no data provided and no campaigns exist, use empty array
+    if (!campaignDataForAnalysis || (Array.isArray(campaignDataForAnalysis) && campaignDataForAnalysis.length === 0)) {
+      campaignDataForAnalysis = campaigns;
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -372,11 +535,11 @@ async function handleCampaignInsights(event) {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
         system:
-          'You are an analytics advisor for a food influencer marketing platform. Analyze the campaign data and provide 4-5 actionable insights. Be specific with numbers and recommendations.',
+          'You are an analytics advisor for a food influencer marketing platform. Analyze the campaign data and provide 4-5 actionable, specific insights. Be specific with numbers and recommendations based on the creator\'s actual performance data.',
         messages: [
           {
             role: 'user',
-            content: `Analyze this campaign data and provide insights: ${JSON.stringify(body.campaignData || {})}`,
+            content: `Analyze this creator's campaign data and provide personalized insights: ${JSON.stringify(campaignDataForAnalysis)}`,
           },
         ],
       }),

@@ -5,6 +5,7 @@ import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_CAMPAIGNS, DEMO_OFFERS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
+import PartnerOnboarding from '../onboarding/PartnerOnboarding';
 import type { Campaign, Offer, CampaignReport } from '../../types';
 
 interface PartnerDashboardData {
@@ -64,6 +65,13 @@ export default function PartnerPortal() {
   const dashboard = data ?? (isDemoMode()
     ? { campaigns: DEMO_CAMPAIGNS, offers: DEMO_OFFERS, reports: DEMO_CAMPAIGN_REPORTS }
     : { campaigns: [], offers: [], reports: [] });
+
+  // Check if onboarding is needed (no restaurants/offers exist yet)
+  const needsOnboarding = dashboard.offers.length === 0 && dashboard.campaigns.length === 0;
+
+  if (needsOnboarding && !isLoading) {
+    return <PartnerOnboarding />;
+  }
 
   // Aggregate metrics from all reports
   const metrics = useMemo(() => {

@@ -1,0 +1,214 @@
+/**
+ * Lifecycle Email Scheduler
+ *
+ * Runs daily via CloudWatch Schedule. Queries creators by signup date
+ * and sends lifecycle emails at day 1, 14, and 28 milestones.
+ *
+ * Uses a "lastLifecycleEmail" attribute on creator profiles to avoid
+ * duplicate sends. Invokes the Email Lambda asynchronously for each send.
+ */
+
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+
+const ddbClient = new DynamoDBClient({});
+const ddb = DynamoDBDocumentClient.from(ddbClient);
+const lambda = new LambdaClient({});
+
+const TABLE = process.env.TABLE_NAME;
+const EMAIL_FUNCTION = process.env.EMAIL_FUNCTION_NAME;
+
+/** Day milestones to check (in days since signup) */
+const MILESTONES = [1, 14, 28];
+
+/** Safety cap: max creators processed per invocation to prevent runaway costs */
+const MAX_CREATORS_PER_RUN = 500;
+
+/** Safety cap: max emails sent per invocation */
+const MAX_EMAILS_PER_RUN = 50;
+
+/** Map milestone day → email template type */
+const MILESTONE_TEMPLATES = {
+  1: 'lifecycle_day1',
+  14: 'lifecycle_day14',
+  28: 'lifecycle_day28',
+};
+
+export const handler = async () => {
+  console.log('Lifecycle scheduler starting...');
+  const now = new Date();
+  let processed = 0;
+  let sent = 0;
+  let errors = 0;
+
+  try {
+    // Scan all creator profiles
+    // For scale: replace with GSI query on createdAt ranges
+    const creators = await getAllCreators();
+    console.log(`Found ${creators.length} creators to evaluate (cap: ${MAX_CREATORS_PER_RUN})`);
+
+    for (const creator of creators) {
+      if (processed >= MAX_CREATORS_PER_RUN) {
+        console.warn(`Hit creator cap (${MAX_CREATORS_PER_RUN}). Stopping.`);
+        break;
+      }
+      if (sent >= MAX_EMAILS_PER_RUN) {
+        console.warn(`Hit email cap (${MAX_EMAILS_PER_RUN}). Stopping.`);
+        break;
+      }
+      processed++;
+      try {
+        const result = await processCreator(creator, now);
+        if (result.sent) sent++;
+      } catch (err) {
+        errors++;
+        console.error(`Error processing creator ${creator.PK}: ${err.message}`);
+      }
+    }
+
+    console.log(`Lifecycle complete: processed=${processed}, sent=${sent}, errors=${errors}`);
+    return { statusCode: 200, processed, sent, errors };
+  } catch (err) {
+    console.error(`Lifecycle scheduler failed: ${err.message}`);
+    return { statusCode: 500, error: err.message };
+  }
+};
+
+/**
+ * Get all creator profiles from DynamoDB
+ * Scans for items where PK starts with USER# and SK = PROFILE
+ */
+async function getAllCreators() {
+  const items = [];
+  let lastKey;
+
+  do {
+    const result = await ddb.send(new ScanCommand({
+      TableName: TABLE,
+      FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
+      ExpressionAttributeValues: {
+        ':prefix': 'USER#',
+        ':sk': 'PROFILE',
+      },
+      ExclusiveStartKey: lastKey,
+    }));
+
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  return items;
+}
+
+/**
+ * Process a single creator — check if they're due for a lifecycle email
+ */
+async function processCreator(creator, now) {
+  const { PK, SK, email, name, createdAt, lastLifecycleEmail } = creator;
+
+  // Must have email and createdAt
+  if (!email || !createdAt) return { sent: false };
+
+  const signupDate = new Date(createdAt);
+  if (isNaN(signupDate.getTime())) return { sent: false };
+
+  const daysSinceSignup = Math.floor((now - signupDate) / (1000 * 60 * 60 * 24));
+  const lastSent = lastLifecycleEmail || '';
+
+  // Find the milestone that matches today (±0 buffer — runs daily)
+  for (const milestone of MILESTONES) {
+    if (daysSinceSignup !== milestone) continue;
+
+    const templateType = MILESTONE_TEMPLATES[milestone];
+
+    // Skip if already sent this milestone
+    if (lastSent === templateType) {
+      console.log(`Skipping ${PK}: already sent ${templateType}`);
+      continue;
+    }
+
+    // Gather activity data for day 14 and 28 templates
+    const templateData = { name: name || 'Friend' };
+
+    if (milestone >= 14) {
+      const userId = PK.replace('USER#', '');
+      const activity = await getCreatorActivity(userId);
+      Object.assign(templateData, activity);
+    }
+
+    // Send the email
+    await invokeEmailLambda(templateType, email, templateData);
+
+    // Mark as sent
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK, SK },
+      UpdateExpression: 'SET lastLifecycleEmail = :template, lastLifecycleAt = :now',
+      ExpressionAttributeValues: {
+        ':template': templateType,
+        ':now': now.toISOString(),
+      },
+    }));
+
+    console.log(`Sent ${templateType} to ${PK} (day ${daysSinceSignup})`);
+    return { sent: true };
+  }
+
+  return { sent: false };
+}
+
+/**
+ * Query creator's campaign and offer activity for email personalization
+ */
+async function getCreatorActivity(userId) {
+  const activity = { campaignCount: 0, scanCount: 0, redemptionCount: 0, tier: 'bronze' };
+
+  try {
+    // Count campaigns
+    const campaigns = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
+      Select: 'COUNT',
+    }));
+    activity.campaignCount = campaigns.Count || 0;
+
+    // Count scans and redemptions across all offers
+    const offers = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+    }));
+
+    if (offers.Items) {
+      for (const offer of offers.Items) {
+        activity.scanCount += offer.scanCount || 0;
+        activity.redemptionCount += offer.redemptionCount || 0;
+      }
+    }
+
+    // Calculate tier
+    const referralCount = activity.campaignCount; // simplified — use actual referral count if tracked
+    if (referralCount >= 15) activity.tier = 'gold';
+    else if (referralCount >= 5) activity.tier = 'silver';
+
+  } catch (err) {
+    console.error(`Failed to get activity for ${userId}: ${err.message}`);
+  }
+
+  return activity;
+}
+
+/**
+ * Invoke the email Lambda asynchronously
+ */
+async function invokeEmailLambda(type, to, data) {
+  await lambda.send(new InvokeCommand({
+    FunctionName: EMAIL_FUNCTION,
+    InvocationType: 'Event',
+    Payload: JSON.stringify({ type, to, data }),
+  }));
+}

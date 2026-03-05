@@ -320,6 +320,33 @@ Resources:
             Auth:
               Authorizer: NONE
 
+  # ─── Lifecycle Email Scheduler ─────────────────────────────────────────────
+  LifecycleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-lifecycle-${Environment}
+      CodeUri: lambda-lifecycle/
+      Handler: index.handler
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          EMAIL_FUNCTION_NAME: !Ref EmailFunction
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DataTable
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !GetAtt EmailFunction.Arn
+      Events:
+        DailyLifecycle:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+            Description: Daily lifecycle email check (day 1, 14, 28)
+            Enabled: true
+
   # ─── Email Lambda ─────────────────────────────────────────────────────────
   EmailFunction:
     Type: AWS::Serverless::Function

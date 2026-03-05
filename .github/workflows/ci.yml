@@ -1,0 +1,88 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v4
+
+      # Frontend Setup
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend lint
+        run: npm run lint
+        continue-on-error: true
+
+      # Backend Tests
+      - name: Install lambda-api dependencies
+        run: cd backend/lambda-api && npm ci
+
+      - name: Test lambda-api helpers
+        run: cd backend/lambda-api && npm test
+
+      - name: Syntax check all Lambda functions
+        run: |
+          for f in backend/lambda-*/index.mjs; do
+            node --check "$f"
+          done
+
+      - name: SAM Validate
+        uses: aws-actions/setup-sam@v2
+      - run: cd backend && sam validate
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    name: Deploy
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: SAM Build
+        run: cd backend && sam build
+
+      - name: SAM Deploy
+        run: |
+          cd backend && sam deploy \
+            --no-confirm-changeset \
+            --parameter-overrides \
+              "CognitoUserPoolId=${{ secrets.COGNITO_USER_POOL_ID }} \
+               AllowedOrigin=${{ secrets.ALLOWED_ORIGIN }} \
+               StripeSecretKey=${{ secrets.STRIPE_SECRET_KEY }} \
+               StripeWebhookSecret=${{ secrets.STRIPE_WEBHOOK_SECRET }} \
+               AnthropicApiKey=${{ secrets.ANTHROPIC_API_KEY }}"

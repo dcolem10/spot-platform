@@ -1,0 +1,10 @@
+{
+  "name": "spot-lifecycle",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/lib-dynamodb": "^3.500.0",
+    "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/client-lambda": "^3.500.0"
+  }
+}

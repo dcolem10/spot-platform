@@ -25,10 +25,10 @@ export const handler = async (event) => {
         },
       },
     }));
-    console.log(`Email sent: type=${type}, to=${to}`);
+    console.log(`Email sent: type=${type}`);
     return { statusCode: 200, message: 'Sent' };
   } catch (err) {
-    console.error(`SES send error: type=${type}, to=${to}, error=${err.message}`);
+    console.error(`SES send error: type=${type}, error=${err.message}`);
     return { statusCode: 500, error: 'Send failed' };
   }
 };
@@ -44,6 +44,9 @@ function getTemplate(type, data) {
     offer_alert: getOfferAlertTemplate(data),
     subscription_confirmed: getSubscriptionConfirmedTemplate(data),
     weekly_digest: getWeeklyDigestTemplate(data),
+    lifecycle_day1: getLifecycleDay1Template(data),
+    lifecycle_day14: getLifecycleDay14Template(data),
+    lifecycle_day28: getLifecycleDay28Template(data),
   };
 
   return templates[type] || null;
@@ -382,6 +385,287 @@ Unsubscribe from digest: https://spot-platform.com/unsubscribe`;
 
   return {
     subject: '📧 Your Weekly Digest from Spot Platform',
+    html,
+    text,
+  };
+}
+
+/**
+ * Day 1 check-in — sent 24 hours after signup
+ */
+function getLifecycleDay1Template(data) {
+  const { name = 'Friend' } = data;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started with Spot</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+    .header { background: linear-gradient(135deg, #E8673C 0%, #d84d1f 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 600; }
+    .content { padding: 40px 20px; color: #333333; }
+    .content h2 { color: #1B2838; font-size: 20px; margin-top: 0; }
+    .content p { line-height: 1.6; margin: 15px 0; }
+    .step-box { background-color: #f9f9f9; padding: 20px; border-left: 4px solid #E8673C; margin: 15px 0; border-radius: 0 4px 4px 0; }
+    .step-box strong { color: #E8673C; }
+    .cta-button { display: inline-block; background-color: #E8673C; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: 600; margin: 20px 0; }
+    .footer { background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666666; border-top: 1px solid #e0e0e0; }
+    .footer a { color: #E8673C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Ready to Get Started?</h1>
+    </div>
+    <div class="content">
+      <h2>Hi ${escapeHtml(name)},</h2>
+      <p>It's been a day since you joined Spot Platform — here are three quick things to help you hit the ground running:</p>
+      <div class="step-box">
+        <strong>1. Create your first campaign</strong>
+        <p>Set up a campaign to start tracking how your content drives real restaurant visits.</p>
+      </div>
+      <div class="step-box">
+        <strong>2. Add a restaurant partner</strong>
+        <p>Connect with a restaurant you already love — our onboarding wizard makes it quick.</p>
+      </div>
+      <div class="step-box">
+        <strong>3. Share your first offer</strong>
+        <p>Create an offer code your audience can redeem. You'll see scans and redemptions in real time.</p>
+      </div>
+      <a href="https://spot-platform.com" class="cta-button">Open Your Dashboard</a>
+      <p>Need help? Just reply to this email — we read every message.</p>
+    </div>
+    <div class="footer">
+      <p>Spot Platform &bull; Creator-powered Restaurant Discovery</p>
+      <p><a href="https://spot-platform.com/unsubscribe">Unsubscribe</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = `Ready to Get Started?
+
+Hi ${name},
+
+It's been a day since you joined Spot Platform — here are three quick things to help you hit the ground running:
+
+1. Create your first campaign — Set up a campaign to start tracking how your content drives real restaurant visits.
+
+2. Add a restaurant partner — Connect with a restaurant you already love — our onboarding wizard makes it quick.
+
+3. Share your first offer — Create an offer code your audience can redeem. You'll see scans and redemptions in real time.
+
+Open Your Dashboard: https://spot-platform.com
+
+Need help? Just reply to this email — we read every message.
+
+---
+Spot Platform • Creator-powered Restaurant Discovery
+Unsubscribe: https://spot-platform.com/unsubscribe`;
+
+  return {
+    subject: 'Quick start: 3 things to do on Spot Platform',
+    html,
+    text,
+  };
+}
+
+/**
+ * Day 14 engagement — sent two weeks after signup
+ */
+function getLifecycleDay14Template(data) {
+  const { name = 'Friend', campaignCount = 0, scanCount = 0 } = data;
+  const hasActivity = campaignCount > 0 || scanCount > 0;
+
+  const activitySection = hasActivity
+    ? `<div class="stat-row">
+        <div class="stat-box">
+          <div class="stat-number">${campaignCount}</div>
+          <div class="stat-label">Campaigns</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${scanCount}</div>
+          <div class="stat-label">Offer Scans</div>
+        </div>
+      </div>
+      <p>Nice progress! Here are some tips to keep the momentum going:</p>`
+    : `<p>You haven't launched a campaign yet — that's okay! Here are a few ideas to get started:</p>`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Two-Week Check-In</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+    .header { background: linear-gradient(135deg, #1B2838 0%, #2d4052 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 600; }
+    .content { padding: 40px 20px; color: #333333; }
+    .content p { line-height: 1.6; margin: 15px 0; }
+    .stat-row { display: flex; gap: 20px; margin: 25px 0; }
+    .stat-box { flex: 1; background-color: #f9f9f9; padding: 20px; border-radius: 4px; text-align: center; border-top: 3px solid #E8673C; }
+    .stat-number { font-size: 32px; font-weight: 700; color: #E8673C; }
+    .stat-label { font-size: 12px; color: #666; text-transform: uppercase; margin-top: 5px; }
+    .tip-box { background-color: #fff3e0; padding: 15px 20px; border-radius: 4px; margin: 10px 0; }
+    .tip-box strong { color: #1B2838; }
+    .cta-button { display: inline-block; background-color: #E8673C; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: 600; margin: 20px 0; }
+    .footer { background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666666; border-top: 1px solid #e0e0e0; }
+    .footer a { color: #E8673C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Your Two-Week Check-In</h1>
+    </div>
+    <div class="content">
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>You've been on Spot Platform for two weeks now!</p>
+      ${activitySection}
+      <div class="tip-box">
+        <strong>Tip:</strong> Use AI Content Ideas to generate post captions and campaign angles tailored to your audience.
+      </div>
+      <div class="tip-box">
+        <strong>Tip:</strong> Restaurants with active offers get 3x more engagement from creator audiences.
+      </div>
+      <a href="https://spot-platform.com" class="cta-button">View Your Dashboard</a>
+    </div>
+    <div class="footer">
+      <p>Spot Platform &bull; Creator-powered Restaurant Discovery</p>
+      <p><a href="https://spot-platform.com/unsubscribe">Unsubscribe</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = `Your Two-Week Check-In
+
+Hi ${name},
+
+You've been on Spot Platform for two weeks now!
+
+${hasActivity ? `Your progress so far:\nCampaigns: ${campaignCount}\nOffer Scans: ${scanCount}\n\nNice progress! Here are some tips:` : `You haven't launched a campaign yet — here are a few ideas:`}
+
+Tip: Use AI Content Ideas to generate post captions and campaign angles tailored to your audience.
+Tip: Restaurants with active offers get 3x more engagement from creator audiences.
+
+View Your Dashboard: https://spot-platform.com
+
+---
+Spot Platform • Creator-powered Restaurant Discovery
+Unsubscribe: https://spot-platform.com/unsubscribe`;
+
+  return {
+    subject: `Two weeks on Spot — ${hasActivity ? 'your progress so far' : 'let\'s get you started'}`,
+    html,
+    text,
+  };
+}
+
+/**
+ * Day 28 renewal/retention — sent four weeks after signup
+ */
+function getLifecycleDay28Template(data) {
+  const { name = 'Friend', campaignCount = 0, scanCount = 0, redemptionCount = 0, tier = 'bronze' } = data;
+  const tierColors = { bronze: '#CD7F32', silver: '#C0C0C0', gold: '#FFD700' };
+  const tierColor = tierColors[tier] || tierColors.bronze;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your First Month on Spot</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+    .header { background: linear-gradient(135deg, #E8673C 0%, #d84d1f 100%); color: white; padding: 40px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 600; }
+    .header p { margin: 10px 0 0; font-size: 16px; opacity: 0.9; }
+    .content { padding: 40px 20px; color: #333333; }
+    .content p { line-height: 1.6; margin: 15px 0; }
+    .tier-badge { display: inline-block; background-color: ${tierColor}; color: ${tier === 'silver' ? '#333' : 'white'}; padding: 8px 20px; border-radius: 20px; font-weight: 600; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
+    .stat-row { display: flex; gap: 15px; margin: 25px 0; }
+    .stat-box { flex: 1; background-color: #f9f9f9; padding: 15px; border-radius: 4px; text-align: center; }
+    .stat-number { font-size: 28px; font-weight: 700; color: #E8673C; }
+    .stat-label { font-size: 11px; color: #666; text-transform: uppercase; margin-top: 5px; }
+    .next-steps { background-color: #f0f7ff; padding: 20px; border-radius: 4px; margin: 20px 0; border-left: 4px solid #1B2838; }
+    .next-steps h3 { color: #1B2838; margin-top: 0; }
+    .cta-button { display: inline-block; background-color: #E8673C; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: 600; margin: 20px 0; }
+    .footer { background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666666; border-top: 1px solid #e0e0e0; }
+    .footer a { color: #E8673C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Your First Month on Spot</h1>
+      <p>Here's how it's going</p>
+    </div>
+    <div class="content">
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>One month in! Here's a snapshot of your journey so far:</p>
+      <p style="text-align:center;"><span class="tier-badge">${escapeHtml(tier)} Ambassador</span></p>
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="stat-number">${campaignCount}</div>
+          <div class="stat-label">Campaigns</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${scanCount}</div>
+          <div class="stat-label">Scans</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">${redemptionCount}</div>
+          <div class="stat-label">Redemptions</div>
+        </div>
+      </div>
+      <div class="next-steps">
+        <h3>What's Next</h3>
+        <p>Keep building momentum — the most successful creators on Spot run at least 2 campaigns per month and partner with 3+ restaurants.</p>
+        <p>Need fresh ideas? Try our <strong>AI Content Ideas</strong> tool to generate personalized campaign angles.</p>
+      </div>
+      <a href="https://spot-platform.com" class="cta-button">Go to Dashboard</a>
+    </div>
+    <div class="footer">
+      <p>Spot Platform &bull; Creator-powered Restaurant Discovery</p>
+      <p><a href="https://spot-platform.com/unsubscribe">Unsubscribe</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = `Your First Month on Spot
+
+Hi ${name},
+
+One month in! Here's a snapshot of your journey so far:
+
+Ambassador Tier: ${tier}
+Campaigns: ${campaignCount}
+Scans: ${scanCount}
+Redemptions: ${redemptionCount}
+
+What's Next:
+Keep building momentum — the most successful creators on Spot run at least 2 campaigns per month and partner with 3+ restaurants.
+
+Need fresh ideas? Try our AI Content Ideas tool to generate personalized campaign angles.
+
+Go to Dashboard: https://spot-platform.com
+
+---
+Spot Platform • Creator-powered Restaurant Discovery
+Unsubscribe: https://spot-platform.com/unsubscribe`;
+
+  return {
+    subject: `Your first month on Spot — ${tier} ambassador recap`,
     html,
     text,
   };

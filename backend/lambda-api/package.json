@@ -2,6 +2,9 @@
   "name": "spot-lambda-api",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "test": "node --test helpers.test.mjs"
+  },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.500.0",
     "@aws-sdk/lib-dynamodb": "^3.500.0"
