@@ -78,27 +78,30 @@ async function listRestaurants(event) {
   let items = result.Items || [];
 
   if (params.cuisine) {
-    const cuisines = params.cuisine.split(',');
+    const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);
     items = items.filter((r) =>
       r.cuisine?.some((c) => cuisines.includes(c))
     );
   }
   if (params.neighborhood) {
+    const hood = sanitize(params.neighborhood, 100);
     items = items.filter(
-      (r) => r.neighborhood === params.neighborhood
+      (r) => r.neighborhood === hood
     );
   }
   if (params.partner === 'true') {
     items = items.filter((r) => r.isPartner);
   }
   if (params.search) {
-    const q = params.search.toLowerCase();
-    items = items.filter(
-      (r) =>
-        r.name?.toLowerCase().includes(q) ||
-        r.cuisine?.some((c) => c.toLowerCase().includes(q)) ||
-        r.neighborhood?.toLowerCase().includes(q)
-    );
+    const q = sanitize(params.search, 100).toLowerCase();
+    if (q) {
+      items = items.filter(
+        (r) =>
+          r.name?.toLowerCase().includes(q) ||
+          r.cuisine?.some((c) => c.toLowerCase().includes(q)) ||
+          r.neighborhood?.toLowerCase().includes(q)
+      );
+    }
   }
 
   return respond(200, stripAll(items));
@@ -175,26 +178,41 @@ async function listMyRestaurants(event) {
 async function updateRestaurant(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
   const body = JSON.parse(event.body || '{}');
-  const updates = {};
   const names = {};
   const values = {};
   let expr = '';
 
-  const fields = [
-    'name', 'address', 'neighborhood', 'cuisine', 'vibes', 'priceLevel',
-    'phone', 'website', 'hours', 'spotRating', 'spotVideoUrl', 'spotReview',
-    'lastVisited', 'isPartner', 'photos', 'reservationUrl',
-  ];
+  // Sanitize every field before storing — mirrors createRestaurant() logic
+  const sanitizers = {
+    name:           (v) => sanitize(v, 200),
+    address:        (v) => sanitize(v, 300),
+    neighborhood:   (v) => sanitize(v, 100),
+    cuisine:        (v) => Array.isArray(v) ? v.slice(0, 10).map((c) => sanitize(c, 50)) : undefined,
+    vibes:          (v) => Array.isArray(v) ? v.slice(0, 10).map((c) => sanitize(c, 50)) : undefined,
+    priceLevel:     (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(4, Math.max(1, Math.round(n))) : undefined; },
+    phone:          (v) => sanitize(v, 30),
+    website:        (v) => sanitize(v, 500),
+    hours:          (v) => sanitize(v, 500),
+    spotRating:     (v) => { const n = Number(v); return Number.isFinite(n) ? Math.min(10, Math.max(0, n)) : undefined; },
+    spotVideoUrl:   (v) => sanitize(v, 500),
+    spotReview:     (v) => sanitize(v, 2000),
+    lastVisited:    (v) => sanitize(v, 20),
+    isPartner:      (v) => v === true,
+    photos:         (v) => Array.isArray(v) ? v.slice(0, 20).map((p) => sanitize(p, 500)) : undefined,
+    reservationUrl: (v) => sanitize(v, 500),
+  };
 
-  fields.forEach((f) => {
+  for (const [f, fn] of Object.entries(sanitizers)) {
     if (body[f] !== undefined) {
+      const safe = fn(body[f]);
+      if (safe === undefined) continue;
       const key = `#${f}`;
       const val = `:${f}`;
       names[key] = f;
-      values[val] = body[f];
+      values[val] = safe;
       expr += `${expr ? ', ' : ''}${key} = ${val}`;
     }
-  });
+  }
 
   if (!expr) return respond(400, { error: 'No fields to update' });
 
@@ -251,6 +269,9 @@ async function createCampaign(event) {
   const body = JSON.parse(event.body || '{}');
   const id = randomUUID();
   const restaurantId = sanitize(body.restaurantId, 64);
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
+
+  const budget = Number(body.budget) || 0;
 
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
@@ -263,11 +284,11 @@ async function createCampaign(event) {
     restaurantName: sanitize(body.restaurantName, 200),
     status: 'inquiry',
     package: sanitize(body.package, 200),
-    budget: Number(body.budget) || 0,
-    startDate: body.startDate || null,
-    endDate: body.endDate || null,
+    budget: Math.min(1000000, Math.max(0, budget)),
+    startDate: sanitize(body.startDate || '', 20) || null,
+    endDate: sanitize(body.endDate || '', 20) || null,
     deliverables: Array.isArray(body.deliverables)
-      ? body.deliverables.map((d) => ({
+      ? body.deliverables.slice(0, 20).map((d) => ({
           id: randomUUID(),
           type: sanitize(d.type, 20),
           description: sanitize(d.description, 500),
@@ -712,8 +733,8 @@ async function getGoogleDetails(restaurantId) {
 
 async function subscribe(event) {
   const body = JSON.parse(event.body || '{}');
-  const email = sanitize(body.email, 200);
-  if (!email || !email.includes('@')) return respond(400, { error: 'Invalid email' });
+  const email = sanitize(body.email, 200).toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return respond(400, { error: 'Invalid email' });
 
   await ddb.send(
     new PutCommand({
@@ -1010,6 +1031,9 @@ async function trackReferral(event) {
   const newUserId = sanitize(body.newUserId, 64);
 
   if (!code || !newUserId) return respond(400, { error: 'Missing code or newUserId' });
+  // Validate format: referral codes should be alphanumeric with hyphens only
+  if (!/^[a-zA-Z0-9_-]{3,50}$/.test(code)) return respond(400, { error: 'Invalid referral code format' });
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(newUserId)) return respond(400, { error: 'Invalid user ID format' });
 
   // Look up referral code via GSI
   const lookup = await ddb.send(
@@ -1384,6 +1408,10 @@ export const handler = async (event) => {
   const pathParts = path.split('/').filter(Boolean);
 
   try {
+    // Global guard: reject oversized request bodies (100 KB max)
+    if (event.body && event.body.length > 102400) {
+      return respond(413, { error: 'Request body too large' });
+    }
     // Health check
     if (path.endsWith('/health')) return respond(200, { status: 'ok' });
 

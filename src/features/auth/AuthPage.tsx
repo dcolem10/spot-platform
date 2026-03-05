@@ -78,7 +78,11 @@ export default function AuthPage() {
 
   const handleSignIn = async () => {
     try {
-      const { signIn, getCurrentUser, fetchAuthSession } = await import('aws-amplify/auth');
+      const { signIn, signOut, getCurrentUser, fetchAuthSession } = await import('aws-amplify/auth');
+
+      // Clear any stale Cognito session before attempting sign-in
+      try { await signOut(); } catch { /* no session to clear */ }
+
       await signIn({ username: email, password });
       const user = await getCurrentUser();
       const session = await fetchAuthSession();
@@ -138,11 +142,12 @@ export default function AuthPage() {
 
   const handleConfirm = async () => {
     try {
-      const { confirmSignUp, signIn, getCurrentUser, fetchAuthSession } = await import('aws-amplify/auth');
+      const { confirmSignUp, signIn, signOut, getCurrentUser, fetchAuthSession } = await import('aws-amplify/auth');
       await confirmSignUp({ username: email, confirmationCode: code });
 
       // Auto sign in after confirmation
       if (password) {
+        try { await signOut(); } catch { /* no session to clear */ }
         await signIn({ username: email, password });
         const user = await getCurrentUser();
         const session = await fetchAuthSession();

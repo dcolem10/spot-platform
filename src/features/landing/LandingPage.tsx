@@ -295,7 +295,13 @@ export default function LandingPage() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const setDemoMode = useAuthStore((s) => s.setDemoMode);
 
-  const enterDemo = useCallback((path: string) => {
+  const enterDemo = useCallback(async (path: string) => {
+    // Clear any stale Cognito session so demo mode doesn't conflict
+    try {
+      const { signOut } = await import('aws-amplify/auth');
+      await signOut();
+    } catch { /* no session to clear */ }
+
     setDemoMode(true);
     setAuth({
       userId: 'demo-user',
