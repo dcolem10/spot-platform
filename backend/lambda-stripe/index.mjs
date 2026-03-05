@@ -61,9 +61,9 @@ async function getWebhookSecret() {
 
 // Allowed price IDs — hardcoded to prevent abuse (max 3)
 const ALLOWED_PRICES = new Set([
-  'price_1QqhR2HHGM8mRhx2j9Q8kL2m', // Example: starter plan
-  'price_1QqhR2HHGM8mRhx2n5R9mN3o', // Example: pro plan
-  'price_1QqhR2HHGM8mRhx2p7T1oP5q', // Example: enterprise plan
+  'price_1T7lCIJob49CLLyGuvtIIKgP', // Spot Starter — $49/mo
+  'price_1T7lCiJob49CLLyG7vfdi7kq', // Spot Pro — $99/mo
+  'price_1T7lKHJob49CLLyGajlRXAsr', // Spot Scale — $149/mo
 ]);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
