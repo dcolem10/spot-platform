@@ -15,7 +15,8 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
-const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const ORIGIN = process.env.ALLOWED_ORIGIN || '';
+if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
 
 // ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
 let _apiSecrets = null;
@@ -124,6 +125,11 @@ async function listRestaurants(event) {
 
   let items = result.Items || [];
 
+  // City filter (server-side)
+  if (params.city) {
+    const city = sanitize(params.city, 100);
+    items = items.filter((r) => r.city === city);
+  }
   if (params.cuisine) {
     const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);
     items = items.filter((r) =>
@@ -601,8 +607,9 @@ async function checkPublicRateLimit(event) {
       ReturnValues: 'ALL_NEW',
     }));
     return (result.Attributes?.cnt || 0) <= PUBLIC_RATE_LIMIT;
-  } catch {
-    return true; // fail open
+  } catch (err) {
+    console.error('Rate limit check failed (fail-closed):', err.message);
+    return false; // fail closed — reject if we can't verify rate limit
   }
 }
 
@@ -631,34 +638,40 @@ async function trackScan(code, event) {
     return respond(429, { error: 'Too many requests. Please try again later.' });
   }
 
-  const lookup = await ddb.send(
-    new GetCommand({
-      TableName: TABLE,
-      Key: { PK: `OFFER_CODE#${code}`, SK: 'LOOKUP' },
-    })
-  );
+  try {
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `OFFER_CODE#${code}`, SK: 'LOOKUP' },
+      })
+    );
 
-  if (!lookup.Item) return respond(404, { error: 'Offer not found' });
-  const offer = lookup.Item;
+    if (!lookup.Item) return respond(404, { error: 'Offer not found' });
+    const offer = lookup.Item;
 
-  // Validate offer is active and not expired
-  const check = validateOffer(offer);
-  if (!check.valid) return respond(410, { error: check.error });
+    // Validate offer is active and not expired
+    const check = validateOffer(offer);
+    if (!check.valid) return respond(410, { error: check.error });
 
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-      UpdateExpression: 'SET scans = scans + :inc',
-      ExpressionAttributeValues: { ':inc': 1 },
-    })
-  );
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: offer.restaurantPK, SK: offer.offerSK },
+        UpdateExpression: 'SET scans = scans + :inc',
+        ExpressionAttributeValues: { ':inc': 1 },
+      })
+    );
 
-  return respond(200, {
-    restaurantId: offer.restaurantId,
-    landingPageUrl: offer.landingPageUrl,
-    description: offer.description,
-  });
+    console.log(`Offer scanned: code=${code}, restaurant=${offer.restaurantId}`);
+    return respond(200, {
+      restaurantId: offer.restaurantId,
+      landingPageUrl: offer.landingPageUrl,
+      description: offer.description,
+    });
+  } catch (err) {
+    console.error(`trackScan error: code=${code}, error=${err.message}`);
+    return respond(500, { error: 'Internal server error' });
+  }
 }
 
 async function redeemOffer(code, event) {
@@ -671,30 +684,36 @@ async function redeemOffer(code, event) {
     return respond(429, { error: 'Too many requests. Please try again later.' });
   }
 
-  const lookup = await ddb.send(
-    new GetCommand({
-      TableName: TABLE,
-      Key: { PK: `OFFER_CODE#${code}`, SK: 'LOOKUP' },
-    })
-  );
+  try {
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `OFFER_CODE#${code}`, SK: 'LOOKUP' },
+      })
+    );
 
-  if (!lookup.Item) return respond(404, { error: 'Offer not found' });
-  const offer = lookup.Item;
+    if (!lookup.Item) return respond(404, { error: 'Offer not found' });
+    const offer = lookup.Item;
 
-  // Validate offer is active and not expired
-  const check = validateOffer(offer);
-  if (!check.valid) return respond(410, { error: check.error });
+    // Validate offer is active and not expired
+    const check = validateOffer(offer);
+    if (!check.valid) return respond(410, { error: check.error });
 
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-      UpdateExpression: 'SET redemptions = redemptions + :inc',
-      ExpressionAttributeValues: { ':inc': 1 },
-    })
-  );
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: offer.restaurantPK, SK: offer.offerSK },
+        UpdateExpression: 'SET redemptions = redemptions + :inc',
+        ExpressionAttributeValues: { ':inc': 1 },
+      })
+    );
 
-  return respond(200, { message: 'Redeemed', offerId: offer.offerId });
+    console.log(`Offer redeemed: code=${code}, restaurant=${offer.restaurantId}`);
+    return respond(200, { message: 'Redeemed', offerId: offer.offerId });
+  } catch (err) {
+    console.error(`redeemOffer error: code=${code}, error=${err.message}`);
+    return respond(500, { error: 'Internal server error' });
+  }
 }
 
 // ─── Saves (Audience) ─────────────────────────────────────────────────────────
@@ -934,6 +953,7 @@ async function getGoogleDetails(restaurantId) {
   const res = await fetch(
     `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}`,
     {
+      signal: AbortSignal.timeout(5000),
       headers: {
         'X-Goog-Api-Key': googleKey,
         'X-Goog-FieldMask': fields,

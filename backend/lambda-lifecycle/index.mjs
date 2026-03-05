@@ -83,6 +83,7 @@ export const handler = async () => {
 async function getAllCreators() {
   const items = [];
   let lastKey;
+  let scannedCount = 0;
   const SCAN_CAP = MAX_CREATORS_PER_RUN * 2; // Safety margin for filtered scans
 
   do {
@@ -97,14 +98,17 @@ async function getAllCreators() {
     }));
 
     if (result.Items) items.push(...result.Items);
+    scannedCount += result.ScannedCount || 0;
     lastKey = result.LastEvaluatedKey;
 
     if (items.length >= SCAN_CAP) {
-      console.warn(`Hit scan safety cap (${SCAN_CAP}). Stopping pagination.`);
+      console.warn(`Hit scan safety cap (${SCAN_CAP}). Stopping pagination. Scanned: ${scannedCount}`);
       break;
     }
   } while (lastKey);
 
+  const efficiency = scannedCount > 0 ? ((items.length / scannedCount) * 100).toFixed(1) : '100';
+  console.log(`Lifecycle scan: ${items.length} creators from ${scannedCount} items (${efficiency}% efficiency)`);
   return items;
 }
 

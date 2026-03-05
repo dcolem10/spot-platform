@@ -1,10 +1,24 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_RESTAURANTS } from '../../data/demoData';
-import type { Restaurant, RestaurantFilters } from '../../types';
+import type { Restaurant, RestaurantFilters, CreatorProfile } from '../../types';
+
+const CITY_OPTIONS = [
+  'Washington, DC',
+  'Baltimore, MD',
+  'Arlington, VA',
+  'Alexandria, VA',
+  'Richmond, VA',
+  'Philadelphia, PA',
+  'New York, NY',
+  'Atlanta, GA',
+  'Chicago, IL',
+  'Los Angeles, CA',
+  'Miami, FL',
+];
 
 const CUISINE_OPTIONS = [
   'Italian', 'Japanese', 'Mexican', 'Chinese', 'Thai', 'Indian',
@@ -47,6 +61,7 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function RestaurantDirectory() {
+  const [selectedCity, setSelectedCity] = useState('Washington, DC');
   const [filters, setFilters] = useState<RestaurantFilters>({
     search: '',
     cuisine: [],
@@ -55,11 +70,27 @@ export default function RestaurantDirectory() {
     isPartner: undefined,
   });
 
+  // Fetch creator profile to get home city
+  const { data: profile } = useQuery({
+    queryKey: ['creatorProfile'],
+    queryFn: async () => {
+      if (isDemoMode()) return { city: 'Washington, DC' } as CreatorProfile;
+      const res = await api.get<CreatorProfile>('/api/profile');
+      return res.data ?? null;
+    },
+  });
+
+  // Set city from profile on first load
+  useEffect(() => {
+    if (profile?.city) setSelectedCity(profile.city);
+  }, [profile?.city]);
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['restaurants'],
+    queryKey: ['restaurants', selectedCity],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_RESTAURANTS;
-      const res = await api.get<Restaurant[]>('/api/restaurants');
+      const params = selectedCity ? `?city=${encodeURIComponent(selectedCity)}` : '';
+      const res = await api.get<Restaurant[]>(`/api/restaurants${params}`);
       if (res.error) throw new Error(res.error);
       return res.data ?? [];
     },
@@ -192,11 +223,33 @@ export default function RestaurantDirectory() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">Restaurant Directory</h1>
-        <p className="page-subtitle">
-          Discover, filter, and connect with restaurants in your area
-        </p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+        <div>
+          <h1 className="page-title">Restaurant Directory</h1>
+          <p className="page-subtitle">
+            Discover, filter, and connect with restaurants in your area
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <label style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', whiteSpace: 'nowrap' }}>City:</label>
+          <select
+            value={selectedCity}
+            onChange={(e) => setSelectedCity(e.target.value)}
+            style={{
+              padding: 'var(--space-2) var(--space-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              fontSize: 'var(--font-sm)',
+              cursor: 'pointer',
+            }}
+          >
+            {CITY_OPTIONS.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Search and Filters */}

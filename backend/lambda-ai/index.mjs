@@ -6,7 +6,8 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
-const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const ORIGIN = process.env.ALLOWED_ORIGIN || '';
+if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
 const CACHE_TTL = 3600;
 
 // ─── Secrets (cached with TTL for key rotation support) ──────────────────────

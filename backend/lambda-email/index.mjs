@@ -14,7 +14,7 @@ export const handler = async (event) => {
   if (!template) return { statusCode: 400, error: `Unknown template: ${type}` };
 
   try {
-    await ses.send(new SendEmailCommand({
+    const emailParams = {
       Source: FROM_EMAIL,
       Destination: { ToAddresses: [to] },
       Message: {
@@ -24,7 +24,12 @@ export const handler = async (event) => {
           Text: { Data: template.text },
         },
       },
-    }));
+    };
+    // Attach SES Configuration Set for bounce/complaint tracking
+    if (process.env.SES_CONFIG_SET) {
+      emailParams.ConfigurationSetName = process.env.SES_CONFIG_SET;
+    }
+    await ses.send(new SendEmailCommand(emailParams));
     console.log(`Email sent: type=${type}`);
     return { statusCode: 200, message: 'Sent' };
   } catch (err) {

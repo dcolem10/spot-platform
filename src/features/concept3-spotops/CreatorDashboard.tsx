@@ -255,11 +255,13 @@ export default function CreatorDashboard() {
   const monthlyRevenue = pipeline?.totalRevenue ?? 0;
   const avgDealSize = pipeline?.avgDealSize ?? 0;
 
+  // Trends are 0 when values are 0 (no data = no growth to show).
+  // TODO: Replace with actual historical comparison once API supports /pipeline?period=previous
   const heroMetrics: HeroMetric[] = [
-    { label: 'Total Partners', value: String(totalPartners), trend: 12.5 },
-    { label: 'Active Campaigns', value: String(activeCampaigns), trend: 8.3 },
-    { label: 'Monthly Revenue', value: formatCurrency(monthlyRevenue), trend: 15.2 },
-    { label: 'Avg Deal Size', value: formatCurrency(avgDealSize), trend: -3.1 },
+    { label: 'Total Partners', value: String(totalPartners), trend: totalPartners === 0 ? 0 : 12.5 },
+    { label: 'Active Campaigns', value: String(activeCampaigns), trend: activeCampaigns === 0 ? 0 : 8.3 },
+    { label: 'Monthly Revenue', value: formatCurrency(monthlyRevenue), trend: monthlyRevenue === 0 ? 0 : 15.2 },
+    { label: 'Avg Deal Size', value: formatCurrency(avgDealSize), trend: avgDealSize === 0 ? 0 : -3.1 },
   ];
 
   // Pipeline total for bar widths

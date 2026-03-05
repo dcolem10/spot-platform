@@ -13,12 +13,13 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
-const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const ORIGIN = process.env.ALLOWED_ORIGIN || '';
+if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
 
 // ─── Secrets (cached with TTL for key rotation support) ──────────────────────
 let _secrets = null;
 let _secretsLoadedAt = 0;
-const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+const SECRETS_CACHE_TTL = 300 * 1000; // 5 minutes (shorter for financial operations)
 
 async function getSecrets() {
   const now = Date.now();

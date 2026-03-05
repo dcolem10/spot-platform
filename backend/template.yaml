@@ -368,6 +368,7 @@ Resources:
       Environment:
         Variables:
           FROM_EMAIL: !Ref FromEmail
+          SES_CONFIG_SET: !Ref SESConfigurationSet
       Policies:
         - Statement:
             - Effect: Allow
@@ -467,6 +468,229 @@ Resources:
         - Name: FunctionName
           Value: !Ref AiFunction
       TreatMissingData: notBreaching
+
+  # ─── Lambda Error Alarms (Stripe, Email, Lifecycle, Sync) ───────────────
+  StripeErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-stripe-errors-${Environment}
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 2
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref StripeFunction
+      TreatMissingData: notBreaching
+
+  EmailErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-email-errors-${Environment}
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref EmailFunction
+      TreatMissingData: notBreaching
+
+  LifecycleErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-lifecycle-errors-${Environment}
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref LifecycleFunction
+      TreatMissingData: notBreaching
+
+  SyncErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-sync-errors-${Environment}
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SyncFunction
+      TreatMissingData: notBreaching
+
+  ApiGateway5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-api-gateway-5xx-${Environment}
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub spot-api-${Environment}
+      TreatMissingData: notBreaching
+
+  # ─── Dead Letter Queues ─────────────────────────────────────────────────
+  LifecycleDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub spot-lifecycle-dlq-${Environment}
+      MessageRetentionPeriod: 1209600
+
+  EmailDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub spot-email-dlq-${Environment}
+      MessageRetentionPeriod: 1209600
+
+  SyncDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub spot-sync-dlq-${Environment}
+      MessageRetentionPeriod: 1209600
+
+  # ─── DLQ Wiring (EventInvokeConfig) ─────────────────────────────────────
+  LifecycleEventInvoke:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref LifecycleFunction
+      Qualifier: $LATEST
+      MaximumEventAgeInSeconds: 3600
+      MaximumRetryAttempts: 2
+      DestinationConfig:
+        OnFailure:
+          Destination: !GetAtt LifecycleDLQ.Arn
+
+  EmailEventInvoke:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref EmailFunction
+      Qualifier: $LATEST
+      MaximumEventAgeInSeconds: 300
+      MaximumRetryAttempts: 1
+      DestinationConfig:
+        OnFailure:
+          Destination: !GetAtt EmailDLQ.Arn
+
+  SyncEventInvoke:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref SyncFunction
+      Qualifier: $LATEST
+      MaximumEventAgeInSeconds: 7200
+      MaximumRetryAttempts: 0
+      DestinationConfig:
+        OnFailure:
+          Destination: !GetAtt SyncDLQ.Arn
+
+  # ─── DLQ Alarms ─────────────────────────────────────────────────────────
+  LifecycleDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-lifecycle-dlq-${Environment}
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt LifecycleDLQ.QueueName
+      TreatMissingData: notBreaching
+
+  EmailDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-email-dlq-${Environment}
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt EmailDLQ.QueueName
+      TreatMissingData: notBreaching
+
+  SyncDLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub spot-sync-dlq-${Environment}
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt SyncDLQ.QueueName
+      TreatMissingData: notBreaching
+
+  # ─── SES Bounce/Complaint Infrastructure ─────────────────────────────────
+  SESConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: !Sub spot-ses-config-${Environment}
+
+  SESBounceTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub spot-ses-bounces-${Environment}
+
+  SESComplaintTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub spot-ses-complaints-${Environment}
+
+  SESBounceEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SESConfigurationSet
+      EventDestination:
+        Name: BounceNotification
+        Enabled: true
+        MatchingEventTypes:
+          - bounce
+        SnsDestination:
+          TopicARN: !Ref SESBounceTopic
+
+  SESComplaintEventDestination:
+    Type: AWS::SES::ConfigurationSetEventDestination
+    Properties:
+      ConfigurationSetName: !Ref SESConfigurationSet
+      EventDestination:
+        Name: ComplaintNotification
+        Enabled: true
+        MatchingEventTypes:
+          - complaint
+        SnsDestination:
+          TopicARN: !Ref SESComplaintTopic
 
   # ─── CloudWatch Dashboard ────────────────────────────────────────────────
   SpotDashboard:
