@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.500.0",
     "stripe": "^17.0.0"
   }
 }

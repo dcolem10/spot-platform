@@ -1,12 +1,28 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
+const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
 const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
-const API_KEY = process.env.ANTHROPIC_API_KEY;
 const CACHE_TTL = 3600;
+
+// ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
+let _secrets = null;
+async function getSecrets() {
+  if (_secrets) return _secrets;
+  const { SecretString } = await smClient.send(
+    new GetSecretValueCommand({ SecretId: process.env.SECRETS_ARN })
+  );
+  _secrets = JSON.parse(SecretString);
+  return _secrets;
+}
+async function getApiKey() {
+  const s = await getSecrets();
+  return s.ANTHROPIC_API_KEY;
+}
 
 // H4: Rate limiting is enforced at two layers:
 // 1. API Gateway MethodSettings — stage-level throttle (50 burst / 20 sustained rps)
@@ -148,7 +164,8 @@ async function handleRecommendations(event) {
     });
   }
 
-  if (!API_KEY) {
+  const apiKey = await getApiKey();
+  if (!apiKey) {
     return respond(200, {
       recommendations: getFallbackRecommendations(query),
       cached: false,
@@ -166,7 +183,7 @@ async function handleRecommendations(event) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -243,7 +260,8 @@ async function handleContentIdeas(event) {
     }
   }
 
-  if (!API_KEY) {
+  const apiKey = await getApiKey();
+  if (!apiKey) {
     return respond(200, {
       ideas: [
         { title: 'New opening spotlight', description: 'Feature a restaurant that opened in the last 2 weeks', type: 'reel' },
@@ -264,7 +282,7 @@ async function handleContentIdeas(event) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -326,7 +344,8 @@ async function handleCampaignInsights(event) {
     }
   }
 
-  if (!API_KEY) {
+  const apiKey = await getApiKey();
+  if (!apiKey) {
     return respond(200, {
       insights: [
         'Campaigns with Reels as the primary deliverable see 40% higher engagement than Stories-only packages.',
@@ -346,7 +365,7 @@ async function handleCampaignInsights(event) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({

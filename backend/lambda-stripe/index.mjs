@@ -6,19 +6,41 @@ import {
   UpdateCommand,
   QueryCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import Stripe from 'stripe';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
+const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
 const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-12-18.acacia',
-  timeout: 10000, // 10 second timeout
-});
+// ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
+let _secrets = null;
+async function getSecrets() {
+  if (_secrets) return _secrets;
+  const { SecretString } = await smClient.send(
+    new GetSecretValueCommand({ SecretId: process.env.SECRETS_ARN })
+  );
+  _secrets = JSON.parse(SecretString);
+  return _secrets;
+}
 
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+let _stripe = null;
+async function getStripe() {
+  if (_stripe) return _stripe;
+  const secrets = await getSecrets();
+  _stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia',
+    timeout: 10000,
+  });
+  return _stripe;
+}
+
+async function getWebhookSecret() {
+  const secrets = await getSecrets();
+  return secrets.STRIPE_WEBHOOK_SECRET;
+}
 
 // Allowed price IDs — hardcoded to prevent abuse (max 3)
 const ALLOWED_PRICES = new Set([
@@ -101,7 +123,8 @@ async function createCheckoutSession(event) {
     }
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const stripeClient = await getStripe();
+    const session = await stripeClient.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [
@@ -144,7 +167,9 @@ async function handleWebhook(event) {
 
   let stripeEvent;
   try {
-    stripeEvent = stripe.webhooks.constructEvent(rawBody, sig, WEBHOOK_SECRET);
+    const stripeClient = await getStripe();
+    const webhookSecret = await getWebhookSecret();
+    stripeEvent = stripeClient.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return respond(400, { error: 'Invalid signature' });
@@ -188,7 +213,8 @@ async function handleCheckoutSessionCompleted(session) {
 
   try {
     // Get subscription details
-    const subscription = await stripe.subscriptions.retrieve(session.subscription);
+    const stripeClient = await getStripe();
+    const subscription = await stripeClient.subscriptions.retrieve(session.subscription);
 
     const now = new Date().toISOString();
 
@@ -445,7 +471,8 @@ async function createPortalSession(event) {
     }
 
     // Create portal session
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const stripeClient = await getStripe();
+    const portalSession = await stripeClient.billingPortal.sessions.create({
       customer: subRes.Item.stripeCustomerId,
       return_url: `${ORIGIN}/dashboard`,
     });

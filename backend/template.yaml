@@ -25,13 +25,9 @@ Parameters:
   CognitoUserPoolId:
     Type: String
     Description: Cognito User Pool ID for API authorization
-  AnthropicApiKey:
+  SecretsArn:
     Type: String
-    Default: ''
-    NoEcho: true
-    Description: >-
-      Anthropic API key for AI features.
-      NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
+    Description: ARN of the Secrets Manager secret containing API keys (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY)
   GooglePlacesApiKey:
     Type: String
     Default: ''
@@ -39,16 +35,6 @@ Parameters:
     Description: >-
       Google Places API key for restaurant data sync.
       NOTE: For production, migrate to AWS Secrets Manager and retrieve at runtime.
-  StripeSecretKey:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: Stripe secret key for payment processing
-  StripeWebhookSecret:
-    Type: String
-    Default: ''
-    NoEcho: true
-    Description: Stripe webhook signing secret
   FromEmail:
     Type: String
     Default: 'networth589@gmail.com'
@@ -241,10 +227,14 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           ALLOWED_ORIGIN: !Ref AllowedOrigin
-          ANTHROPIC_API_KEY: !Ref AnthropicApiKey
+          SECRETS_ARN: !Ref SecretsArn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SecretsArn
       Events:
         AiProxy:
           Type: Api
@@ -298,11 +288,14 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           ALLOWED_ORIGIN: !Ref AllowedOrigin
-          STRIPE_SECRET_KEY: !Ref StripeSecretKey
-          STRIPE_WEBHOOK_SECRET: !Ref StripeWebhookSecret
+          SECRETS_ARN: !Ref SecretsArn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref SecretsArn
       Events:
         StripeProxy:
           Type: Api
