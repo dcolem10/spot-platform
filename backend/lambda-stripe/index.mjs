@@ -15,15 +15,32 @@ const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
 const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
-// ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
+// ─── Secrets (cached with TTL for key rotation support) ──────────────────────
 let _secrets = null;
+let _secretsLoadedAt = 0;
+const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+
 async function getSecrets() {
-  if (_secrets) return _secrets;
-  const { SecretString } = await smClient.send(
-    new GetSecretValueCommand({ SecretId: process.env.SECRETS_ARN })
-  );
-  _secrets = JSON.parse(SecretString);
-  return _secrets;
+  const now = Date.now();
+  if (_secrets && (now - _secretsLoadedAt < SECRETS_CACHE_TTL)) return _secrets;
+  const arn = process.env.SECRETS_ARN;
+  if (!arn) { console.warn('SECRETS_ARN not configured'); return {}; }
+  try {
+    const { SecretString } = await smClient.send(
+      new GetSecretValueCommand({ SecretId: arn })
+    );
+    _secrets = JSON.parse(SecretString);
+    _secretsLoadedAt = now;
+    return _secrets;
+  } catch (err) {
+    const code = err.name || err.code || 'Unknown';
+    console.error(`Secrets Manager error [${code}]: ${err.message}`);
+    if (code === 'AccessDeniedException') console.error('IAM policy missing secretsmanager:GetSecretValue');
+    if (code === 'ResourceNotFoundException') console.error('Secret ARN does not exist');
+    // Return stale cache if available (critical for financial operations)
+    if (_secrets) { console.warn('Using stale cached secrets'); return _secrets; }
+    return {};
+  }
 }
 
 let _stripe = null;
@@ -173,6 +190,35 @@ async function handleWebhook(event) {
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return respond(400, { error: 'Invalid signature' });
+  }
+
+  // ─── Idempotency Check ───────────────────────────────────────────────────
+  // Prevent duplicate processing of the same Stripe event.
+  // Uses DynamoDB conditional write + 30-day TTL for automatic cleanup.
+  const eventId = stripeEvent.id;
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: `WEBHOOK#${eventId}`,
+          SK: 'EVENT',
+          eventType: stripeEvent.type,
+          processedAt: new Date().toISOString(),
+          ttl: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30-day TTL
+        },
+        ConditionExpression: 'attribute_not_exists(PK)',
+      })
+    );
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      console.log(`Duplicate webhook skipped: ${eventId}`);
+      return respond(200, { received: true, duplicate: true });
+    }
+    // Fail CLOSED: if idempotency check fails, reject the webhook.
+    // Stripe will retry, and we avoid processing duplicates.
+    console.error(`Idempotency check failed (fail-closed): ${err.name} ${err.message}`);
+    return respond(500, { error: 'Webhook processing temporarily unavailable' });
   }
 
   try {

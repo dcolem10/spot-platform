@@ -77,11 +77,13 @@ export const handler = async () => {
 
 /**
  * Get all creator profiles from DynamoDB
- * Scans for items where PK starts with USER# and SK = PROFILE
+ * Scans for items where PK starts with USER# and SK = PROFILE.
+ * Safety cap prevents runaway scan costs if table grows unexpectedly.
  */
 async function getAllCreators() {
   const items = [];
   let lastKey;
+  const SCAN_CAP = MAX_CREATORS_PER_RUN * 2; // Safety margin for filtered scans
 
   do {
     const result = await ddb.send(new ScanCommand({
@@ -96,6 +98,11 @@ async function getAllCreators() {
 
     if (result.Items) items.push(...result.Items);
     lastKey = result.LastEvaluatedKey;
+
+    if (items.length >= SCAN_CAP) {
+      console.warn(`Hit scan safety cap (${SCAN_CAP}). Stopping pagination.`);
+      break;
+    }
   } while (lastKey);
 
   return items;

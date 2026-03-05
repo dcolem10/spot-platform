@@ -40,11 +40,18 @@ interface FormData {
   followerCount: number;
 }
 
+const CHECKLIST_ITEMS = [
+  { id: 'campaign', label: 'Create your first campaign', description: 'Set up a campaign to track how your content drives restaurant visits.', link: '/app/campaigns/new' },
+  { id: 'partner', label: 'Add a restaurant partner', description: 'Connect with a restaurant you love — our wizard makes it quick.', link: '/app/restaurants/add' },
+  { id: 'offer', label: 'Share your first offer', description: 'Create an offer code your audience can redeem in real time.', link: '/app/offers/new' },
+];
+
 export default function CreatorOnboarding() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // Start at welcome (step 0)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [completedChecklist, setCompletedChecklist] = useState<string[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
     displayName: '',
@@ -111,6 +118,8 @@ export default function CreatorOnboarding() {
     setFormData(prev => ({ ...prev, followerCount: value }));
   };
 
+  const totalFormSteps = 5; // 0=welcome, 1-4=form, 5=complete
+
   const handleNext = () => {
     if (step === 1) {
       if (!formData.displayName.trim()) {
@@ -119,7 +128,11 @@ export default function CreatorOnboarding() {
       }
     }
     setError(null);
-    setStep(step + 1);
+    if (step === 4) {
+      handleSubmit();
+    } else {
+      setStep(step + 1);
+    }
   };
 
   const handleBack = () => {
@@ -146,10 +159,18 @@ export default function CreatorOnboarding() {
       }
     }
 
-    navigate('/app/dashboard');
+    setIsSubmitting(false);
+    setStep(5); // Go to completion step
   };
 
-  const progressPercent = (step / 4) * 100;
+  const handleChecklistItem = (id: string, link: string) => {
+    setCompletedChecklist(prev =>
+      prev.includes(id) ? prev : [...prev, id]
+    );
+    navigate(link);
+  };
+
+  const progressPercent = step === 0 ? 0 : step >= 5 ? 100 : (step / totalFormSteps) * 100;
 
   const containerStyle: React.CSSProperties = {
     minHeight: '100vh',
@@ -378,23 +399,66 @@ export default function CreatorOnboarding() {
           <div style={progressFillStyle} />
         </div>
 
+        {/* Step indicators */}
+        {step > 0 && step < 5 && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '24px' }}>
+            {[1, 2, 3, 4].map(s => (
+              <div key={s} style={{
+                width: '8px', height: '8px', borderRadius: '50%',
+                backgroundColor: s === step ? '#E8673C' : s < step ? '#f9a882' : '#e5e7eb',
+                transition: 'all 0.3s',
+              }} />
+            ))}
+          </div>
+        )}
+
         <h1 style={titleStyle}>
+          {step === 0 && 'Welcome to Spot Platform'}
           {step === 1 && 'Tell us about yourself'}
           {step === 2 && 'Where do you create?'}
           {step === 3 && 'Your food style'}
           {step === 4 && 'Connect your channels'}
+          {step === 5 && "You're all set!"}
         </h1>
 
         <p style={subtitleStyle}>
+          {step === 0 && "We help food creators prove ROI to restaurant partners through closed-loop attribution. Let's set up your profile in under 2 minutes."}
           {step === 1 && "Let's start with the basics to build your creator profile."}
           {step === 2 && "Tell us about your favorite neighborhoods to feature."}
           {step === 3 && "What cuisines do you love to create content about?"}
           {step === 4 && "Add your social media handles and follower count."}
+          {step === 5 && "Your profile is ready. Here are three things to do next to start tracking your impact."}
         </p>
 
         {error && <div style={errorStyle}>{error}</div>}
 
         <div style={stepContentStyle}>
+          {/* Step 0: Welcome */}
+          {step === 0 && (
+            <>
+              <div style={{ backgroundColor: '#f0f7ff', borderRadius: '12px', padding: '24px', marginBottom: '24px', border: '1px solid #bfdbfe' }}>
+                <div style={{ fontSize: '14px', color: '#1B2838', lineHeight: '1.7' }}>
+                  <div style={{ marginBottom: '16px', fontWeight: '600', fontSize: '16px' }}>What you'll unlock:</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '20px', flexShrink: 0 }}>1.</span>
+                    <span><strong>Campaign tracking</strong> — See exactly how your content drives restaurant visits through QR scans and offer redemptions.</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '20px', flexShrink: 0 }}>2.</span>
+                    <span><strong>AI content ideas</strong> — Get personalized post angles and campaign suggestions based on your performance data.</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ fontSize: '20px', flexShrink: 0 }}>3.</span>
+                    <span><strong>ROI reports</strong> — Show restaurants the dollar value of your partnerships with one-click attribution reports.</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'center', fontSize: '13px', color: '#9ca3af' }}>
+                Takes about 2 minutes to complete
+              </div>
+            </>
+          )}
+
           {/* Step 1: Tell us about yourself */}
           {step === 1 && (
             <>
@@ -561,11 +625,63 @@ export default function CreatorOnboarding() {
               </div>
             </>
           )}
+
+          {/* Step 5: Completion checklist */}
+          {step === 5 && (
+            <>
+              <div style={{ marginBottom: '8px' }}>
+                {CHECKLIST_ITEMS.map((item) => {
+                  const isDone = completedChecklist.includes(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '16px',
+                        padding: '16px', marginBottom: '12px',
+                        backgroundColor: isDone ? '#f0fdf4' : '#f9fafb',
+                        border: isDone ? '1px solid #86efac' : '1px solid #e5e7eb',
+                        borderRadius: '8px', cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                      onClick={() => handleChecklistItem(item.id, item.link)}
+                    >
+                      <div style={{
+                        width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                        border: isDone ? '2px solid #22c55e' : '2px solid #d1d5db',
+                        backgroundColor: isDone ? '#22c55e' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: 'white', fontSize: '12px', fontWeight: '700', marginTop: '2px',
+                      }}>
+                        {isDone ? '\u2713' : ''}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#1B2838', marginBottom: '4px' }}>
+                          {item.label}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#6B7280', lineHeight: '1.4' }}>
+                          {item.description}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Buttons */}
         <div style={buttonGroupStyle}>
-          {step > 1 && (
+          {step === 0 && (
+            <button
+              style={{ ...completeButtonStyle }}
+              onClick={() => setStep(1)}
+              type="button"
+            >
+              Get Started
+            </button>
+          )}
+          {step > 0 && step < 5 && step > 1 && (
             <button
               style={backButtonStyle}
               onClick={handleBack}
@@ -574,22 +690,23 @@ export default function CreatorOnboarding() {
               Back
             </button>
           )}
-          {step < 4 ? (
+          {step >= 1 && step < 5 && (
             <button
               style={{ ...nextButtonStyle, ...(step === 1 ? { marginLeft: 'auto' } : {}) }}
               onClick={handleNext}
-              type="button"
-            >
-              Next
-            </button>
-          ) : (
-            <button
-              style={completeButtonStyle}
-              onClick={handleSubmit}
               disabled={isSubmitting}
               type="button"
             >
-              {isSubmitting ? 'Setting up...' : 'Complete Setup'}
+              {step === 4 ? (isSubmitting ? 'Setting up...' : 'Complete Setup') : 'Next'}
+            </button>
+          )}
+          {step === 5 && (
+            <button
+              style={{ ...completeButtonStyle, backgroundColor: '#1B2838' }}
+              onClick={() => navigate('/app/dashboard')}
+              type="button"
+            >
+              Go to Dashboard
             </button>
           )}
         </div>

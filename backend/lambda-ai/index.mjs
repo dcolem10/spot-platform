@@ -9,15 +9,32 @@ const TABLE = process.env.TABLE_NAME;
 const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const CACHE_TTL = 3600;
 
-// ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
+// ─── Secrets (cached with TTL for key rotation support) ──────────────────────
 let _secrets = null;
+let _secretsLoadedAt = 0;
+const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+
 async function getSecrets() {
-  if (_secrets) return _secrets;
-  const { SecretString } = await smClient.send(
-    new GetSecretValueCommand({ SecretId: process.env.SECRETS_ARN })
-  );
-  _secrets = JSON.parse(SecretString);
-  return _secrets;
+  const now = Date.now();
+  if (_secrets && (now - _secretsLoadedAt < SECRETS_CACHE_TTL)) return _secrets;
+  const arn = process.env.SECRETS_ARN;
+  if (!arn) { console.warn('SECRETS_ARN not configured'); return {}; }
+  try {
+    const { SecretString } = await smClient.send(
+      new GetSecretValueCommand({ SecretId: arn })
+    );
+    _secrets = JSON.parse(SecretString);
+    _secretsLoadedAt = now;
+    return _secrets;
+  } catch (err) {
+    const code = err.name || err.code || 'Unknown';
+    console.error(`Secrets Manager error [${code}]: ${err.message}`);
+    if (code === 'AccessDeniedException') console.error('IAM policy missing secretsmanager:GetSecretValue');
+    if (code === 'ResourceNotFoundException') console.error('Secret ARN does not exist');
+    // Return stale cache if available
+    if (_secrets) { console.warn('Using stale cached secrets'); return _secrets; }
+    return {};
+  }
 }
 async function getApiKey() {
   const s = await getSecrets();
@@ -119,10 +136,10 @@ async function checkRateLimit(userId) {
       resetAt: (windowKey + 1) * RATE_LIMIT_WINDOW,
     };
   } catch (err) {
-    // If rate limit check fails, allow the request (fail open)
-    // but log the error for monitoring
-    console.error('Rate limit check failed:', err.message);
-    return { allowed: true, remaining: -1 };
+    // Fail CLOSED: if rate limit check fails, deny the request.
+    // This prevents unbounded AI API calls (and costs) if DynamoDB is unavailable.
+    console.error('Rate limit check failed (fail-closed):', err.message);
+    return { allowed: false, reason: 'Rate limit service temporarily unavailable. Please try again.' };
   }
 }
 

@@ -1,10 +1,39 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
+const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
-const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY;
+
+// ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
+let _syncSecrets = null;
+let _syncSecretsLoadedAt = 0;
+const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+
+async function getGoogleKey() {
+  const now = Date.now();
+  if (_syncSecrets && (now - _syncSecretsLoadedAt < SECRETS_CACHE_TTL)) {
+    return _syncSecrets.GOOGLE_PLACES_API_KEY;
+  }
+  const arn = process.env.SECRETS_ARN;
+  if (!arn) return null;
+  try {
+    const { SecretString } = await smClient.send(
+      new GetSecretValueCommand({ SecretId: arn })
+    );
+    _syncSecrets = JSON.parse(SecretString);
+    _syncSecretsLoadedAt = now;
+    return _syncSecrets.GOOGLE_PLACES_API_KEY;
+  } catch (err) {
+    const code = err.name || err.code || 'Unknown';
+    console.error(`Secrets Manager error [${code}]: ${err.message}`);
+    // Return cached key if available
+    if (_syncSecrets) { console.warn('Using stale cached secrets'); return _syncSecrets.GOOGLE_PLACES_API_KEY; }
+    return null;
+  }
+}
 
 // ─── Google Places Validation ────────────────────────────────────────────────
 // Only validates that the place_id is still valid. Does NOT store Google content
@@ -12,15 +41,17 @@ const GOOGLE_KEY = process.env.GOOGLE_PLACES_API_KEY;
 // with a 24hr DynamoDB cache to comply with Google Places ToS.
 
 async function validateGooglePlaceId(restaurant) {
-  if (!GOOGLE_KEY || !restaurant.googlePlaceId) return false;
+  const googleKey = await getGoogleKey();
+  if (!googleKey || !restaurant.googlePlaceId) return false;
 
   try {
+    // Request only 'id' (IDs Only SKU = free tier) since we only need existence check
     const res = await fetch(
-      `https://places.googleapis.com/v1/places/${restaurant.googlePlaceId}?fields=displayName`,
+      `https://places.googleapis.com/v1/places/${restaurant.googlePlaceId}`,
       {
         headers: {
-          'X-Goog-Api-Key': GOOGLE_KEY,
-          'X-Goog-FieldMask': 'displayName',
+          'X-Goog-Api-Key': googleKey,
+          'X-Goog-FieldMask': 'id',
         },
       }
     );
@@ -60,10 +91,13 @@ async function refreshRestaurant(restaurant) {
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 
+/** Safety cap: max restaurants to process per invocation to prevent runaway API costs */
+const MAX_RESTAURANTS = 1000;
+
 export const handler = async () => {
   console.log('Starting daily restaurant validation sync...');
 
-  // Paginate through all restaurants
+  // Paginate through all restaurants (with safety cap)
   const restaurants = [];
   let exclusiveStartKey = undefined;
 
@@ -81,9 +115,19 @@ export const handler = async () => {
     const result = await ddb.send(new QueryCommand(queryParams));
     restaurants.push(...(result.Items || []));
     exclusiveStartKey = result.LastEvaluatedKey;
+
+    if (restaurants.length >= MAX_RESTAURANTS) {
+      console.warn(`Hit restaurant safety cap (${MAX_RESTAURANTS}). Stopping pagination.`);
+      break;
+    }
   } while (exclusiveStartKey);
 
-  console.log(`Found ${restaurants.length} restaurants to validate`);
+  // Trim to cap in case last page pushed over
+  if (restaurants.length > MAX_RESTAURANTS) {
+    restaurants.length = MAX_RESTAURANTS;
+  }
+
+  console.log(`Found ${restaurants.length} restaurants to validate (cap: ${MAX_RESTAURANTS})`);
 
   // Process in batches of 5 to respect API rate limits
   const BATCH_SIZE = 5;

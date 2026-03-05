@@ -7,13 +7,43 @@ import {
   DeleteCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { randomUUID } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS } from './helpers.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
+const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
 const ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+// ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
+let _apiSecrets = null;
+let _apiSecretsLoadedAt = 0;
+const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+
+async function getApiSecrets() {
+  const now = Date.now();
+  if (_apiSecrets && (now - _apiSecretsLoadedAt < SECRETS_CACHE_TTL)) return _apiSecrets;
+  const arn = process.env.SECRETS_ARN;
+  if (!arn) { console.warn('SECRETS_ARN not configured'); return {}; }
+  try {
+    const { SecretString } = await smClient.send(
+      new GetSecretValueCommand({ SecretId: arn })
+    );
+    _apiSecrets = JSON.parse(SecretString);
+    _apiSecretsLoadedAt = now;
+    return _apiSecrets;
+  } catch (err) {
+    const code = err.name || err.code || 'Unknown';
+    console.error(`Secrets Manager error [${code}]: ${err.message}`);
+    if (code === 'AccessDeniedException') console.error('IAM policy missing secretsmanager:GetSecretValue');
+    if (code === 'ResourceNotFoundException') console.error('Secret ARN does not exist');
+    // Return cached secrets if available (stale is better than nothing), otherwise empty
+    if (_apiSecrets) { console.warn('Using stale cached secrets'); return _apiSecrets; }
+    return {};
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -896,7 +926,8 @@ async function getGoogleDetails(restaurantId) {
   }
 
   // Fetch fresh from Google Places API
-  const googleKey = process.env.GOOGLE_PLACES_API_KEY;
+  const secrets = await getApiSecrets();
+  const googleKey = secrets.GOOGLE_PLACES_API_KEY;
   if (!googleKey) return respond(503, { error: 'Google Places not configured' });
 
   const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos,websiteUri,nationalPhoneNumber';

@@ -138,13 +138,15 @@ Unsubscribe: https://spot-platform.com/unsubscribe`;
  */
 function getOfferAlertTemplate(data) {
   const { userName = 'there', restaurantName = 'a restaurant', offerTitle = 'your offer', action = 'scanned' } = data;
+  const safeAction = escapeHtml(action);
+  const capitalAction = safeAction.charAt(0).toUpperCase() + safeAction.slice(1);
 
   const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Offer ${action.charAt(0).toUpperCase() + action.slice(1)}</title>
+  <title>Offer ${capitalAction}</title>
   <style>
     body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; }
     .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
@@ -163,18 +165,18 @@ function getOfferAlertTemplate(data) {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Offer ${action.charAt(0).toUpperCase() + action.slice(1)}</h1>
+      <h1>Offer ${capitalAction}</h1>
     </div>
     <div class="alert-box">
-      <p>Your offer at ${escapeHtml(restaurantName)} was ${action}!</p>
+      <p>Your offer at ${escapeHtml(restaurantName)} was ${safeAction}!</p>
     </div>
     <div class="content">
       <p>Hi ${escapeHtml(userName)},</p>
-      <p>Great news! Your offer has been ${action}.</p>
+      <p>Great news! Your offer has been ${safeAction}.</p>
       <div class="details">
         <p><strong>Restaurant:</strong> ${escapeHtml(restaurantName)}</p>
         <p><strong>Offer:</strong> ${escapeHtml(offerTitle)}</p>
-        <p><strong>Status:</strong> ${action.charAt(0).toUpperCase() + action.slice(1)}</p>
+        <p><strong>Status:</strong> ${capitalAction}</p>
       </div>
       <p>Thank you for using Spot Platform!</p>
     </div>
@@ -186,15 +188,15 @@ function getOfferAlertTemplate(data) {
 </body>
 </html>`;
 
-  const text = `Offer ${action.charAt(0).toUpperCase() + action.slice(1)}
+  const text = `Offer ${capitalAction}
 
 Hi ${userName},
 
-Great news! Your offer has been ${action}.
+Great news! Your offer has been ${safeAction}.
 
 Restaurant: ${restaurantName}
 Offer: ${offerTitle}
-Status: ${action.charAt(0).toUpperCase() + action.slice(1)}
+Status: ${capitalAction}
 
 Thank you for using Spot Platform!
 
@@ -203,7 +205,7 @@ Spot Platform • Creator-powered Restaurant Discovery
 Unsubscribe: https://spot-platform.com/unsubscribe`;
 
   return {
-    subject: `Offer ${action.charAt(0).toUpperCase() + action.slice(1)}: ${restaurantName}`,
+    subject: `Offer ${capitalAction}: ${escapeHtml(restaurantName)}`,
     html,
     text,
   };
