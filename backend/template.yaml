@@ -102,6 +102,7 @@ Resources:
         AllowOrigin: !Sub "'${AllowedOrigin}'"
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
@@ -152,6 +153,15 @@ Resources:
             RestApiId: !Ref SpotApi
             Path: /api/{proxy+}
             Method: ANY
+        # CORS preflight — must bypass Cognito authorizer
+        ProxyOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/{proxy+}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
         # Public endpoints — no auth required
         OfferScan:
           Type: Api
@@ -242,6 +252,14 @@ Resources:
             RestApiId: !Ref SpotApi
             Path: /api/ai/{proxy+}
             Method: ANY
+        AiOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/ai/{proxy+}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
 
   # ─── Background Sync Lambda ──────────────────────────────────────────────
   SyncFunction:
@@ -292,6 +310,14 @@ Resources:
             RestApiId: !Ref SpotApi
             Path: /api/stripe/{proxy+}
             Method: ANY
+        StripeOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/stripe/{proxy+}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
         StripeWebhook:
           Type: Api
           Properties:

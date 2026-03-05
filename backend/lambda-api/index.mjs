@@ -1408,6 +1408,18 @@ export const handler = async (event) => {
   const pathParts = path.split('/').filter(Boolean);
 
   try {
+    // CORS preflight — return immediately with proper headers
+    if (method === 'OPTIONS') {
+      return {
+        statusCode: 200,
+        headers: {
+          ...headers,
+          'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+        },
+        body: '',
+      };
+    }
+
     // Global guard: reject oversized request bodies (100 KB max)
     if (event.body && event.body.length > 102400) {
       return respond(413, { error: 'Request body too large' });

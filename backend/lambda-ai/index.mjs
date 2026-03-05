@@ -410,7 +410,7 @@ export const handler = async (event) => {
   const path = event.path || '';
 
   try {
-    if (method === 'OPTIONS') return respond(200, {});
+    if (method === 'OPTIONS') return respond(200, {}, { 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS' });
 
     if (path.includes('/ai/recommendations') && method === 'POST')
       return handleRecommendations(event);
