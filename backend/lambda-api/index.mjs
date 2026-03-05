@@ -983,6 +983,28 @@ async function subscribe(event) {
   return respond(201, { message: 'Subscribed' });
 }
 
+async function unsubscribe(event) {
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+  const email = sanitize(body.email, 200).toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return respond(400, { error: 'Invalid email' });
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: 'SUBSCRIBERS', SK: `EMAIL#${email}` },
+      UpdateExpression: 'SET unsubscribedAt = :now, #s = :status',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':now': new Date().toISOString(),
+        ':status': 'unsubscribed',
+      },
+    })
+  );
+
+  return respond(200, { message: 'Unsubscribed successfully' });
+}
+
 // ─── Creator Profile ────────────────────────────────────────────────────────
 
 async function getProfile(event) {
@@ -1736,9 +1758,11 @@ export const handler = async (event) => {
     if (path.match(/\/api\/restaurants\/[^/]+\/google-details$/) && method === 'GET')
       return getGoogleDetails(pathParts[pathParts.length - 2]);
 
-    // Subscribe
+    // Subscribe / Unsubscribe
     if (path.match(/\/api\/subscribe$/) && method === 'POST')
       return subscribe(event);
+    if (path.match(/\/api\/unsubscribe$/) && method === 'POST')
+      return unsubscribe(event);
 
     // Profile
     if (path.match(/\/api\/profile$/) && method === 'GET') return getProfile(event);

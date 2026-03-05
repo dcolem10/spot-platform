@@ -170,6 +170,14 @@ Resources:
             Method: POST
             Auth:
               Authorizer: NONE
+        Unsubscribe:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/unsubscribe
+            Method: POST
+            Auth:
+              Authorizer: NONE
         InsiderDeals:
           Type: Api
           Properties:
@@ -274,7 +282,7 @@ Resources:
           Properties:
             Schedule: rate(1 day)
             Description: Daily restaurant data refresh
-            Enabled: false
+            Enabled: true
 
   # ─── Stripe Subscription Lambda ───────────────────────────────────────────
   StripeFunction:

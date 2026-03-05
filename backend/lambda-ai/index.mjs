@@ -323,6 +323,7 @@ async function handleRecommendations(event) {
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: AbortSignal.timeout(50000),
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
@@ -449,6 +450,7 @@ async function handleContentIdeas(event) {
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: AbortSignal.timeout(50000),
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
@@ -543,6 +545,7 @@ async function handleCampaignInsights(event) {
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      signal: AbortSignal.timeout(50000),
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,

@@ -123,9 +123,12 @@ async function processCreator(creator, now) {
   const daysSinceSignup = Math.floor((now - signupDate) / (1000 * 60 * 60 * 24));
   const lastSent = lastLifecycleEmail || '';
 
-  // Find the milestone that matches today (±0 buffer — runs daily)
+  // Find the highest milestone the creator has reached but hasn't received yet.
+  // Uses >= instead of === to handle edge cases where the Lambda misses a day
+  // (e.g., CloudWatch delay, Lambda timeout). Milestones are sorted ascending
+  // so we iterate forward and send only the first unsent one.
   for (const milestone of MILESTONES) {
-    if (daysSinceSignup !== milestone) continue;
+    if (daysSinceSignup < milestone) continue;
 
     const templateType = MILESTONE_TEMPLATES[milestone];
 

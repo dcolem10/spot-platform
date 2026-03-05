@@ -49,6 +49,7 @@ async function validateGooglePlaceId(restaurant) {
     const res = await fetch(
       `https://places.googleapis.com/v1/places/${restaurant.googlePlaceId}`,
       {
+        signal: AbortSignal.timeout(10000),
         headers: {
           'X-Goog-Api-Key': googleKey,
           'X-Goog-FieldMask': 'id',
