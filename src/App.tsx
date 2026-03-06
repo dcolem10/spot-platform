@@ -20,6 +20,10 @@ const LandingPage = lazy(() => import('./features/landing/LandingPage'));
 // Auth
 const AuthPage = lazy(() => import('./features/auth/AuthPage'));
 
+// Legal
+const PrivacyPolicy = lazy(() => import('./features/legal/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./features/legal/TermsOfService'));
+
 // Onboarding
 const CreatorOnboarding = lazy(() => import('./features/onboarding/CreatorOnboarding'));
 
@@ -154,6 +158,10 @@ export default function App() {
                 <Route path="saved" element={<FeatureGate flag="membership"><SavedList /></FeatureGate>} />
                 <Route path="deals" element={<FeatureGate flag="membership"><DealsHub /></FeatureGate>} />
               </Route>
+
+              {/* Legal */}
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
 
               {/* Catch-all */}
               <Route path="*" element={<Navigate to="/" replace />} />

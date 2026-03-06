@@ -598,7 +598,7 @@ export default function LandingPage() {
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="landing-footer">
         <div className="landing-footer-inner">
-          <span>Spot &mdash; Creator tools for food influencers.</span>
+          <span>&copy; {new Date().getFullYear()} Spot Platform. All rights reserved.</span>
           <div className="landing-footer-links">
             <a href="#pricing" className="landing-footer-link">Pricing</a>
             <button
@@ -608,6 +608,8 @@ export default function LandingPage() {
             >
               Try Demo
             </button>
+            <a href="/privacy" className="landing-footer-link">Privacy</a>
+            <a href="/terms" className="landing-footer-link">Terms</a>
           </div>
         </div>
       </footer>

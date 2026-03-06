@@ -327,6 +327,27 @@
   color: var(--color-textPrimary);
 }
 
+/* ─── Legal Links ──────────────────────────────────────────────────────────── */
+
+.auth-legal {
+  text-align: center;
+  margin-top: var(--space-5);
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+  line-height: 1.5;
+}
+
+.auth-legal-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.auth-legal-link:hover {
+  color: var(--color-accentHover);
+  text-decoration: underline;
+}
+
 /* ─── Responsive ────────────────────────────────────────────────────────────── */
 
 @media (max-width: 480px) {

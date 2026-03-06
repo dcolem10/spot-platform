@@ -410,6 +410,14 @@ export default function AuthPage() {
             <button className="auth-link-btn" onClick={() => switchMode('signIn')}>Back to sign in</button>
           )}
         </div>
+
+        {/* Legal links */}
+        <div className="auth-legal">
+          By continuing, you agree to our{' '}
+          <Link to="/terms" className="auth-legal-link">Terms of Service</Link>
+          {' '}and{' '}
+          <Link to="/privacy" className="auth-legal-link">Privacy Policy</Link>.
+        </div>
       </div>
     </div>
   );
