@@ -76,6 +76,18 @@ function useCountUp(target: number, duration = 1200) {
   return { value, ref };
 }
 
+/* ─── Floating Orbs — Ambient background motion ──────────────────────────── */
+
+function FloatingOrbs() {
+  return (
+    <div className="floating-orbs" aria-hidden="true">
+      <div className="floating-orb floating-orb--1" />
+      <div className="floating-orb floating-orb--2" />
+      <div className="floating-orb floating-orb--3" />
+    </div>
+  );
+}
+
 /* ─── BentoCard with mouse-tracking spotlight ────────────────────────────── */
 
 function BentoCard({
@@ -258,6 +270,7 @@ function MiniQROffer() {
             className={`mini-qr-dot${v === 0 ? ' mini-qr-dot--empty' : v === 2 ? ' mini-qr-dot--accent' : v === 1 && (i < 7 || i % 7 === 0) ? ' mini-qr-dot--bright' : ''}`}
           />
         ))}
+        <div className="mini-qr-scanline" />
       </div>
       <div className="mini-offer-stats">
         <div className="mini-offer-stat">
@@ -359,6 +372,7 @@ export default function LandingPage() {
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="landing-hero">
+        <FloatingOrbs />
         <div className="landing-hero-badge">
           <span className="landing-hero-badge-dot" />
           Built for food creators
@@ -372,12 +386,14 @@ export default function LandingPage() {
           prove ROI to restaurants, and give your audience a discovery app they&rsquo;ll actually use.
         </p>
         <div className="landing-hero-actions">
-          <button
-            onClick={() => enterDemo('/app/dashboard')}
-            className="btn btn-gradient btn-lg"
-          >
-            I&rsquo;m a Creator
-          </button>
+          <div className="cta-pulse-wrap">
+            <button
+              onClick={() => enterDemo('/app/dashboard')}
+              className="btn btn-gradient btn-lg"
+            >
+              I&rsquo;m a Creator
+            </button>
+          </div>
           <button
             onClick={() => enterDemo('/app/discover')}
             className="btn btn-secondary btn-lg"

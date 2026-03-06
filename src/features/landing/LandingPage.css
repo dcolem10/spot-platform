@@ -25,6 +25,68 @@
 .reveal-stagger.visible > *:nth-child(4) { transition-delay: 360ms; opacity: 1; transform: translateY(0); }
 .reveal-stagger.visible > *:nth-child(5) { transition-delay: 480ms; opacity: 1; transform: translateY(0); }
 
+/* ─── Floating Orbs — Ambient hero motion ─────────────────────────────────── */
+
+.floating-orbs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.floating-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+}
+
+.floating-orb--1 {
+  width: 400px;
+  height: 400px;
+  top: -10%;
+  left: 15%;
+  background: rgba(249, 115, 22, 0.12);
+  animation: orbit-1 18s ease-in-out infinite;
+}
+
+.floating-orb--2 {
+  width: 300px;
+  height: 300px;
+  top: 10%;
+  right: 10%;
+  background: rgba(236, 72, 153, 0.08);
+  animation: orbit-2 22s ease-in-out infinite;
+}
+
+.floating-orb--3 {
+  width: 250px;
+  height: 250px;
+  bottom: 5%;
+  left: 40%;
+  background: rgba(139, 92, 246, 0.08);
+  animation: orbit-3 25s ease-in-out infinite;
+}
+
+/* ─── CTA Pulse Ring ──────────────────────────────────────────────────────── */
+
+.cta-pulse-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.cta-pulse-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  border: 2px solid var(--color-accent);
+  animation: pulse-soft 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
 /* ─── Floating Glassmorphic Navbar ────────────────────────────────────────── */
 
 .landing-nav {
@@ -237,6 +299,24 @@
   font-weight: 500;
 }
 
+/* Divider dots between stats */
+.landing-stat + .landing-stat {
+  position: relative;
+}
+
+.landing-stat + .landing-stat::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-6));
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-textMuted);
+  opacity: 0.5;
+}
+
 /* ─── Bento Grid ──────────────────────────────────────────────────────────── */
 
 .landing-bento {
@@ -422,6 +502,11 @@
 .mini-pipeline-item--blue   { border-left-color: var(--color-info); }
 .mini-pipeline-item--orange { border-left-color: var(--color-accent); }
 
+/* Ambient float on pipeline items — staggered */
+.reveal-stagger.visible .mini-pipeline-item:nth-child(1) { animation: float-slow 4s ease-in-out 0.6s infinite; }
+.reveal-stagger.visible .mini-pipeline-item:nth-child(2) { animation: float-alt 5s ease-in-out 1.2s infinite; }
+.reveal-stagger.visible .mini-pipeline-item:nth-child(3) { animation: float-slow 4.5s ease-in-out 0.3s infinite; }
+
 /* ─── Mini SVG Chart ──────────────────────────────────────────────────────── */
 
 .mini-chart-svg {
@@ -444,6 +529,18 @@
 @keyframes barGrow {
   from { transform: scaleY(0); }
   to   { transform: scaleY(1); }
+}
+
+/* After grow-in, tallest bars breathe subtly */
+.reveal-stagger.visible .mini-chart-svg rect:nth-child(4),
+.reveal-stagger.visible .mini-chart-svg rect:nth-child(7) {
+  animation: barGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             barBreathe 3s ease-in-out 1.5s infinite;
+}
+
+@keyframes barBreathe {
+  0%, 100% { opacity: var(--bar-opacity, 1); }
+  50%      { opacity: 1; }
 }
 
 /* ─── Mini Calendar ───────────────────────────────────────────────────────── */
@@ -478,6 +575,7 @@
   color: #fff;
   font-weight: 600;
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  animation: breathe 3s ease-in-out infinite;
 }
 
 /* ─── Mini Photos ─────────────────────────────────────────────────────────── */
@@ -500,6 +598,14 @@
 .bento-card:hover .mini-photo:nth-child(odd) {
   transform: scale(1.03);
 }
+
+/* Ambient float on photos — staggered */
+.reveal-stagger.visible .mini-photo:nth-child(1) { animation: float-slow 5s ease-in-out 0.2s infinite; }
+.reveal-stagger.visible .mini-photo:nth-child(2) { animation: float-alt 4s ease-in-out 0.8s infinite; }
+.reveal-stagger.visible .mini-photo:nth-child(3) { animation: float-slow 4.5s ease-in-out 0.5s infinite; }
+.reveal-stagger.visible .mini-photo:nth-child(4) { animation: float-alt 5.5s ease-in-out 1s infinite; }
+.reveal-stagger.visible .mini-photo:nth-child(5) { animation: float-slow 4s ease-in-out 0.1s infinite; }
+.reveal-stagger.visible .mini-photo:nth-child(6) { animation: float-alt 5s ease-in-out 0.6s infinite; }
 
 .mini-photo-badge {
   position: absolute;
@@ -527,6 +633,8 @@
   gap: 3px;
   width: 80px;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 .mini-qr-dot {
@@ -538,6 +646,19 @@
 .mini-qr-dot--empty   { background: transparent; }
 .mini-qr-dot--accent  { background: var(--color-accent); }
 .mini-qr-dot--bright  { background: var(--color-textPrimary); }
+
+/* Animated scan line across QR code */
+.mini-qr-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  box-shadow: 0 0 8px var(--color-accent);
+  animation: scanline 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
 
 .mini-offer-stats {
   display: flex;
@@ -588,6 +709,11 @@
   background: var(--color-bgHover);
 }
 
+/* Staggered slide-in animation on restaurant rows */
+.reveal-stagger.visible .mini-restaurant-row:nth-child(1) { animation: slide-in-left 0.5s ease-out 0.3s both; }
+.reveal-stagger.visible .mini-restaurant-row:nth-child(2) { animation: slide-in-left 0.5s ease-out 0.5s both; }
+.reveal-stagger.visible .mini-restaurant-row:nth-child(3) { animation: slide-in-left 0.5s ease-out 0.7s both; }
+
 .mini-restaurant-avatar {
   width: 36px;
   height: 36px;
@@ -633,6 +759,24 @@
   pointer-events: none;
 }
 
+/* Shimmer sweep across deal card */
+.mini-deal-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(249, 115, 22, 0.06),
+    transparent
+  );
+  animation: card-shimmer 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
 .mini-deal-pct {
   font-family: var(--font-display);
   font-size: var(--font-4xl);
@@ -672,6 +816,12 @@
   flex-wrap: wrap;
 }
 
+/* Tags float at staggered timing */
+.save-tags .badge:nth-child(1) { animation: float-slow 4s ease-in-out 0s infinite; }
+.save-tags .badge:nth-child(2) { animation: float-alt 3.5s ease-in-out 0.5s infinite; }
+.save-tags .badge:nth-child(3) { animation: float-slow 4.5s ease-in-out 1s infinite; }
+.save-tags .badge:nth-child(4) { animation: float-alt 4s ease-in-out 0.8s infinite; }
+
 /* ─── Pricing ──────────────────────────────────────────────────────────────── */
 
 .pricing-grid {
@@ -701,6 +851,23 @@
 
 .pricing-card--highlighted:hover {
   box-shadow: var(--shadow-glow-lg);
+}
+
+/* Animated gradient border on highlighted pricing */
+.pricing-card--highlighted::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-accent), #ec4899, #8b5cf6, var(--color-accent));
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: gradientShift 4s ease infinite;
+  pointer-events: none;
+  opacity: 0.6;
 }
 
 /* ─── Section Layout ──────────────────────────────────────────────────────── */
