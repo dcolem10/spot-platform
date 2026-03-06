@@ -158,7 +158,16 @@ export default function CreatorOnboarding() {
         return;
       }
     } else {
-      // Mark demo user as having completed onboarding
+      // Persist onboarding data and mark demo user as onboarded
+      store.setDemoProfile({
+        displayName: formData.displayName,
+        city: formData.city,
+        neighborhoods: formData.neighborhoods,
+        cuisinePreferences: formData.cuisinePreferences,
+        creatorType: formData.creatorType,
+        followerCount: formData.followerCount,
+        socialLinks: formData.socialLinks,
+      });
       store.setDemoOnboarded(true);
     }
 

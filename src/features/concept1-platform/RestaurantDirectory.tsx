@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
-import { isDemoMode, DEMO_RESTAURANTS } from '../../data/demoData';
+import { isDemoMode, DEMO_RESTAURANTS_BY_CITY } from '../../data/demoData';
+import { useAuthStore } from '../../store/authStore';
 import type { Restaurant, RestaurantFilters, CreatorProfile } from '../../types';
 
 const CITY_OPTIONS = [
@@ -11,8 +12,6 @@ const CITY_OPTIONS = [
   'Baltimore, MD',
   'Arlington, VA',
   'Alexandria, VA',
-  'Richmond, VA',
-  'Philadelphia, PA',
   'New York, NY',
   'Atlanta, GA',
   'Chicago, IL',
@@ -61,7 +60,12 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export default function RestaurantDirectory() {
-  const [selectedCity, setSelectedCity] = useState('Washington, DC');
+  const demoProfile = useAuthStore((s) => s.demoProfile);
+
+  // Default to user's onboarded city, or DC as fallback
+  const userCity = demoProfile?.city || 'Washington, DC';
+  const [selectedCity, setSelectedCity] = useState(userCity);
+  const [filtersInitialized, setFiltersInitialized] = useState(false);
   const [filters, setFilters] = useState<RestaurantFilters>({
     search: '',
     cuisine: [],
@@ -70,11 +74,14 @@ export default function RestaurantDirectory() {
     isPartner: undefined,
   });
 
-  // Fetch creator profile to get home city
+  // Fetch creator profile to get home city (real mode)
   const { data: profile } = useQuery({
     queryKey: ['creatorProfile'],
     queryFn: async () => {
-      if (isDemoMode()) return { city: 'Washington, DC' } as CreatorProfile;
+      if (isDemoMode()) {
+        // Use the persisted demo profile city
+        return { city: demoProfile?.city || 'Washington, DC' } as CreatorProfile;
+      }
       const res = await api.get<CreatorProfile>('/api/profile');
       return res.data ?? null;
     },
@@ -85,13 +92,22 @@ export default function RestaurantDirectory() {
     if (profile?.city) setSelectedCity(profile.city);
   }, [profile?.city]);
 
+  // Pre-select cuisine and neighborhood filters from onboarding prefs (demo mode, once)
+  useEffect(() => {
+    if (filtersInitialized || !demoProfile) return;
+    setFilters((prev) => ({
+      ...prev,
+      cuisine: demoProfile.cuisinePreferences.length > 0 ? demoProfile.cuisinePreferences.slice(0, 3) : [],
+      neighborhood: demoProfile.neighborhoods.length > 0 ? demoProfile.neighborhoods.slice(0, 2) : [],
+    }));
+    setFiltersInitialized(true);
+  }, [demoProfile, filtersInitialized]);
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['restaurants', selectedCity],
     queryFn: async () => {
       if (isDemoMode()) {
-        // Demo restaurants are all DC-area — show them for DC, empty for other cities
-        if (selectedCity === 'Washington, DC') return DEMO_RESTAURANTS;
-        return [];
+        return DEMO_RESTAURANTS_BY_CITY[selectedCity] ?? [];
       }
       const params = selectedCity ? `?city=${encodeURIComponent(selectedCity)}` : '';
       const res = await api.get<Restaurant[]>(`/api/restaurants${params}`);
@@ -235,10 +251,16 @@ export default function RestaurantDirectory() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <label style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', whiteSpace: 'nowrap' }}>City:</label>
+          <label style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', whiteSpace: 'nowrap' }}>
+            {selectedCity === userCity ? 'Your City:' : 'City:'}
+          </label>
           <select
             value={selectedCity}
-            onChange={(e) => setSelectedCity(e.target.value)}
+            onChange={(e) => {
+              setSelectedCity(e.target.value);
+              // Reset filters when changing cities since neighborhoods differ
+              setFilters((prev) => ({ ...prev, neighborhood: [] }));
+            }}
             style={{
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-md)',
@@ -249,9 +271,20 @@ export default function RestaurantDirectory() {
               cursor: 'pointer',
             }}
           >
-            {CITY_OPTIONS.map((city) => (
-              <option key={city} value={city}>{city}</option>
-            ))}
+            {/* User's city first, then the rest */}
+            {userCity !== 'Washington, DC' && CITY_OPTIONS.indexOf(userCity) === -1 && (
+              <option key={userCity} value={userCity}>{userCity}</option>
+            )}
+            {CITY_OPTIONS
+              .slice()
+              .sort((a, b) => {
+                if (a === userCity) return -1;
+                if (b === userCity) return 1;
+                return 0;
+              })
+              .map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
           </select>
         </div>
       </div>

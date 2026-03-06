@@ -55,8 +55,10 @@ export const DEMO_CREATOR_PROFILE: CreatorProfile = {
 
 /* ─── Restaurants ──────────────────────────────────────────────────────────── */
 
-// Example restaurant data for demonstration — real data loaded from API when backend is deployed.
-export const DEMO_RESTAURANTS: Restaurant[] = [
+// City-keyed restaurant data — every supported city has recognizable restaurants.
+// Real data is loaded from API when the backend is deployed; these are for demo only.
+
+const DC_RESTAURANTS: Restaurant[] = [
   { restaurantId: 'r1', name: 'Rasika', address: '633 D St NW', neighborhood: 'Penn Quarter', coords: { lat: 38.8949, lng: -77.0218 }, cuisine: ['Indian', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 3, spotRating: 4.8, isPartner: true, photos: [], reservationUrl: 'https://rasika.com', createdAt: demoISO(-90), updatedAt: demoISO(-5) },
   { restaurantId: 'r2', name: 'Bad Saint', address: '3226 11th St NW', neighborhood: 'Columbia Heights', coords: { lat: 38.9314, lng: -77.0257 }, cuisine: ['Filipino'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-80), updatedAt: demoISO(-10) },
   { restaurantId: 'r3', name: 'The Dabney', address: '122 Blagden Alley NW', neighborhood: 'Shaw', coords: { lat: 38.9088, lng: -77.0221 }, cuisine: ['American', 'Mid-Atlantic'], vibes: ['Date Night'], priceLevel: 4, spotRating: 4.9, isPartner: true, photos: [], reservationUrl: 'https://thedabney.com', createdAt: demoISO(-85), updatedAt: demoISO(-3) },
@@ -76,6 +78,84 @@ export const DEMO_RESTAURANTS: Restaurant[] = [
   { restaurantId: 'r17', name: 'Chloe', address: '1331 4th St SE', neighborhood: 'Navy Yard', coords: { lat: 38.8756, lng: -77.0001 }, cuisine: ['American', 'Modern'], vibes: ['Brunch', 'Outdoor'], priceLevel: 3, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-15), updatedAt: demoISO(-16) },
   { restaurantId: 'r18', name: 'Chercher', address: '1334 9th St NW', neighborhood: 'Shaw', coords: { lat: 38.9082, lng: -77.0232 }, cuisine: ['Ethiopian'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-1) },
 ];
+
+const NYC_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'ny1', name: 'Carbone', address: '181 Thompson St', neighborhood: 'Greenwich Village', coords: { lat: 40.7271, lng: -74.0003 }, cuisine: ['Italian', 'American'], vibes: ['Special Occasion', 'Date Night'], priceLevel: 4, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-60), updatedAt: demoISO(-2) },
+  { restaurantId: 'ny2', name: 'Tatiana', address: '10 Hudson Yards', neighborhood: 'Hudson Yards', coords: { lat: 40.7536, lng: -74.0022 }, cuisine: ['American', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 4, spotRating: 4.9, isPartner: true, photos: [], createdAt: demoISO(-55), updatedAt: demoISO(-3) },
+  { restaurantId: 'ny3', name: "L'Artusi", address: '228 W 10th St', neighborhood: 'West Village', coords: { lat: 40.7339, lng: -74.0027 }, cuisine: ['Italian', 'Modern'], vibes: ['Date Night', 'Group Friendly'], priceLevel: 3, spotRating: 4.6, isPartner: false, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-5) },
+  { restaurantId: 'ny4', name: "Di An Di", address: '68 Greenpoint Ave', neighborhood: 'Greenpoint', coords: { lat: 40.7296, lng: -73.9583 }, cuisine: ['Vietnamese'], vibes: ['Casual', 'Brunch'], priceLevel: 2, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-45), updatedAt: demoISO(-7) },
+  { restaurantId: 'ny5', name: 'Dhamaka', address: '119 First Ave', neighborhood: 'East Village', coords: { lat: 40.7266, lng: -73.9854 }, cuisine: ['Indian'], vibes: ['Group Friendly', 'Special Occasion'], priceLevel: 3, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-4) },
+  { restaurantId: 'ny6', name: 'Thai Diner', address: '186 Mott St', neighborhood: 'Nolita', coords: { lat: 40.7213, lng: -73.9959 }, cuisine: ['Thai', 'American'], vibes: ['Casual', 'Brunch'], priceLevel: 2, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-35), updatedAt: demoISO(-8) },
+  { restaurantId: 'ny7', name: 'Lilia', address: '567 Union Ave', neighborhood: 'Williamsburg', coords: { lat: 40.7133, lng: -73.9513 }, cuisine: ['Italian', 'Pasta'], vibes: ['Date Night'], priceLevel: 3, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-1) },
+  { restaurantId: 'ny8', name: 'Los Tacos No.1', address: '75 9th Ave', neighborhood: 'Chelsea Market', coords: { lat: 40.7425, lng: -74.0060 }, cuisine: ['Mexican'], vibes: ['Casual', 'Quick Bite'], priceLevel: 1, spotRating: 4.6, isPartner: false, photos: [], createdAt: demoISO(-25), updatedAt: demoISO(-10) },
+  { restaurantId: 'ny9', name: "Jua", address: '36 E 1st St', neighborhood: 'East Village', coords: { lat: 40.7249, lng: -73.9907 }, cuisine: ['Korean', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 4, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-20), updatedAt: demoISO(-6) },
+  { restaurantId: 'ny10', name: 'Russ & Daughters Cafe', address: '127 Orchard St', neighborhood: 'Lower East Side', coords: { lat: 40.7194, lng: -73.9892 }, cuisine: ['Jewish', 'American'], vibes: ['Brunch', 'Casual'], priceLevel: 2, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-15), updatedAt: demoISO(-12) },
+];
+
+const ATL_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'atl1', name: 'Bacchanalia', address: '1460 Ellsworth Industrial Blvd', neighborhood: 'Westside', coords: { lat: 33.7951, lng: -84.4253 }, cuisine: ['American', 'Modern'], vibes: ['Special Occasion', 'Date Night'], priceLevel: 4, spotRating: 4.9, isPartner: true, photos: [], createdAt: demoISO(-80), updatedAt: demoISO(-2) },
+  { restaurantId: 'atl2', name: 'Fox Bros. Bar-B-Q', address: '1238 DeKalb Ave NE', neighborhood: 'Candler Park', coords: { lat: 33.7667, lng: -84.3346 }, cuisine: ['BBQ', 'American'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-70), updatedAt: demoISO(-5) },
+  { restaurantId: 'atl3', name: 'Gunshow', address: '924 Garrett St SE', neighborhood: 'Glenwood Park', coords: { lat: 33.7382, lng: -84.3458 }, cuisine: ['American', 'Modern'], vibes: ['Group Friendly', 'Special Occasion'], priceLevel: 3, spotRating: 4.7, isPartner: false, photos: [], createdAt: demoISO(-60), updatedAt: demoISO(-8) },
+  { restaurantId: 'atl4', name: 'Busy Bee Cafe', address: '810 Martin Luther King Jr Dr', neighborhood: 'Vine City', coords: { lat: 33.7553, lng: -84.4089 }, cuisine: ['Southern', 'Soul Food'], vibes: ['Casual', 'Group Friendly'], priceLevel: 1, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-3) },
+  { restaurantId: 'atl5', name: 'Staplehouse', address: '541 Edgewood Ave SE', neighborhood: 'Old Fourth Ward', coords: { lat: 33.7557, lng: -84.3676 }, cuisine: ['American', 'Farm-to-Table'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 4, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-1) },
+  { restaurantId: 'atl6', name: 'Hattie B\'s Hot Chicken', address: '299 N Highland Ave NE', neighborhood: 'Inman Park', coords: { lat: 33.7676, lng: -84.3534 }, cuisine: ['Southern', 'American'], vibes: ['Casual'], priceLevel: 2, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-10) },
+  { restaurantId: 'atl7', name: 'Lazy Betty', address: '1530 DeKalb Ave NE', neighborhood: 'Candler Park', coords: { lat: 33.7695, lng: -84.3253 }, cuisine: ['American', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 4, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-20), updatedAt: demoISO(-4) },
+  { restaurantId: 'atl8', name: 'BuHi', address: '5000 Buford Hwy NE', neighborhood: 'Buford Highway', coords: { lat: 33.8518, lng: -84.3105 }, cuisine: ['Vietnamese', 'Chinese'], vibes: ['Casual', 'Group Friendly'], priceLevel: 1, spotRating: 4.3, isPartner: false, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-6) },
+];
+
+const CHI_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'chi1', name: 'Alinea', address: '1723 N Halsted St', neighborhood: 'Lincoln Park', coords: { lat: 41.9134, lng: -87.6484 }, cuisine: ['American', 'Molecular'], vibes: ['Special Occasion'], priceLevel: 4, spotRating: 4.9, isPartner: true, photos: [], createdAt: demoISO(-85), updatedAt: demoISO(-1) },
+  { restaurantId: 'chi2', name: 'Girl & The Goat', address: '809 W Randolph St', neighborhood: 'West Loop', coords: { lat: 41.8843, lng: -87.6477 }, cuisine: ['American', 'Modern'], vibes: ['Group Friendly', 'Date Night'], priceLevel: 3, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-70), updatedAt: demoISO(-3) },
+  { restaurantId: 'chi3', name: 'Portillo\'s', address: '100 W Ontario St', neighborhood: 'River North', coords: { lat: 41.8934, lng: -87.6320 }, cuisine: ['American', 'Fast Casual'], vibes: ['Casual', 'Group Friendly'], priceLevel: 1, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-60), updatedAt: demoISO(-8) },
+  { restaurantId: 'chi4', name: 'Virtue', address: '1462 E 53rd St', neighborhood: 'Hyde Park', coords: { lat: 41.7997, lng: -87.5873 }, cuisine: ['Southern', 'American'], vibes: ['Brunch', 'Date Night'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-5) },
+  { restaurantId: 'chi5', name: 'Kasama', address: '1001 N Winchester Ave', neighborhood: 'Ukrainian Village', coords: { lat: 41.9002, lng: -87.6737 }, cuisine: ['Filipino', 'French'], vibes: ['Brunch', 'Special Occasion'], priceLevel: 3, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-2) },
+  { restaurantId: 'chi6', name: 'Birrieria Zaragoza', address: '4852 S Pulaski Rd', neighborhood: 'Archer Heights', coords: { lat: 41.8048, lng: -87.7222 }, cuisine: ['Mexican'], vibes: ['Casual'], priceLevel: 1, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-7) },
+  { restaurantId: 'chi7', name: 'Parachute', address: '3500 N Elston Ave', neighborhood: 'Avondale', coords: { lat: 41.9454, lng: -87.7084 }, cuisine: ['Korean', 'American'], vibes: ['Date Night'], priceLevel: 3, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-20), updatedAt: demoISO(-4) },
+  { restaurantId: 'chi8', name: 'Au Cheval', address: '800 W Randolph St', neighborhood: 'West Loop', coords: { lat: 41.8843, lng: -87.6474 }, cuisine: ['American', 'Diner'], vibes: ['Casual', 'Late Night'], priceLevel: 2, spotRating: 4.6, isPartner: false, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-9) },
+];
+
+const LA_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'la1', name: 'Bestia', address: '2121 E 7th Pl', neighborhood: 'Arts District', coords: { lat: 34.0336, lng: -118.2290 }, cuisine: ['Italian', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 3, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-80), updatedAt: demoISO(-1) },
+  { restaurantId: 'la2', name: 'Guerrilla Tacos', address: '2000 E 7th St', neighborhood: 'Arts District', coords: { lat: 34.0336, lng: -118.2320 }, cuisine: ['Mexican', 'Modern'], vibes: ['Casual', 'Quick Bite'], priceLevel: 2, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-65), updatedAt: demoISO(-4) },
+  { restaurantId: 'la3', name: 'Republique', address: '624 S La Brea Ave', neighborhood: 'Mid-Wilshire', coords: { lat: 34.0613, lng: -118.3443 }, cuisine: ['French', 'American'], vibes: ['Brunch', 'Date Night'], priceLevel: 3, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-55), updatedAt: demoISO(-3) },
+  { restaurantId: 'la4', name: 'Jitlada', address: '5233 Sunset Blvd', neighborhood: 'Thai Town', coords: { lat: 34.0978, lng: -118.3050 }, cuisine: ['Thai'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-45), updatedAt: demoISO(-6) },
+  { restaurantId: 'la5', name: 'Sushi Ginza Onodera', address: '609 La Cienega Blvd', neighborhood: 'West Hollywood', coords: { lat: 34.0793, lng: -118.3765 }, cuisine: ['Japanese', 'Sushi'], vibes: ['Special Occasion', 'Date Night'], priceLevel: 4, spotRating: 4.9, isPartner: true, photos: [], createdAt: demoISO(-35), updatedAt: demoISO(-2) },
+  { restaurantId: 'la6', name: 'Howlin\' Ray\'s', address: '727 N Broadway', neighborhood: 'Chinatown', coords: { lat: 34.0619, lng: -118.2397 }, cuisine: ['Southern', 'American'], vibes: ['Casual'], priceLevel: 2, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-25), updatedAt: demoISO(-8) },
+  { restaurantId: 'la7', name: 'Gjelina', address: '1429 Abbot Kinney Blvd', neighborhood: 'Venice', coords: { lat: 33.9924, lng: -118.4677 }, cuisine: ['American', 'Mediterranean'], vibes: ['Brunch', 'Outdoor'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-15), updatedAt: demoISO(-5) },
+  { restaurantId: 'la8', name: 'Bavel', address: '500 Mateo St', neighborhood: 'Arts District', coords: { lat: 34.0361, lng: -118.2322 }, cuisine: ['Middle Eastern', 'Mediterranean'], vibes: ['Date Night', 'Group Friendly'], priceLevel: 3, spotRating: 4.7, isPartner: false, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-7) },
+];
+
+const MIA_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'mia1', name: 'Ariete', address: '3540 Main Hwy', neighborhood: 'Coconut Grove', coords: { lat: 25.7281, lng: -80.2409 }, cuisine: ['American', 'Latin'], vibes: ['Date Night', 'Brunch'], priceLevel: 3, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-70), updatedAt: demoISO(-2) },
+  { restaurantId: 'mia2', name: 'Versailles', address: '3555 SW 8th St', neighborhood: 'Little Havana', coords: { lat: 25.7652, lng: -80.2455 }, cuisine: ['Cuban'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-60), updatedAt: demoISO(-5) },
+  { restaurantId: 'mia3', name: 'KYU', address: '251 NW 25th St', neighborhood: 'Wynwood', coords: { lat: 25.7983, lng: -80.1994 }, cuisine: ['Asian', 'BBQ'], vibes: ['Date Night', 'Group Friendly'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-3) },
+  { restaurantId: 'mia4', name: 'Joe\'s Stone Crab', address: '11 Washington Ave', neighborhood: 'South Beach', coords: { lat: 25.7693, lng: -80.1348 }, cuisine: ['Seafood', 'American'], vibes: ['Special Occasion'], priceLevel: 4, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-1) },
+  { restaurantId: 'mia5', name: 'Zak the Baker', address: '405 NW 26th St', neighborhood: 'Wynwood', coords: { lat: 25.7996, lng: -80.2007 }, cuisine: ['American', 'Bakery'], vibes: ['Brunch', 'Casual'], priceLevel: 2, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-7) },
+  { restaurantId: 'mia6', name: 'Cvi.che 105', address: '105 NE 3rd Ave', neighborhood: 'Downtown', coords: { lat: 25.7745, lng: -80.1900 }, cuisine: ['Peruvian'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-20), updatedAt: demoISO(-4) },
+  { restaurantId: 'mia7', name: 'Mandolin Aegean Bistro', address: '4312 NE 2nd Ave', neighborhood: 'Design District', coords: { lat: 25.8149, lng: -80.1919 }, cuisine: ['Mediterranean', 'Greek'], vibes: ['Date Night', 'Outdoor'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-6) },
+];
+
+const BALT_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'balt1', name: 'Ekiben', address: '1622 Eastern Ave', neighborhood: 'Fells Point', coords: { lat: 39.2846, lng: -76.5917 }, cuisine: ['Asian', 'Fusion'], vibes: ['Casual', 'Quick Bite'], priceLevel: 2, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-3) },
+  { restaurantId: 'balt2', name: 'Thames Street Oyster House', address: '1728 Thames St', neighborhood: 'Fells Point', coords: { lat: 39.2822, lng: -76.5927 }, cuisine: ['Seafood', 'American'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 3, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-1) },
+  { restaurantId: 'balt3', name: 'LP Steamers', address: '1100 E Fort Ave', neighborhood: 'Locust Point', coords: { lat: 39.2698, lng: -76.5879 }, cuisine: ['Seafood'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-5) },
+  { restaurantId: 'balt4', name: 'Alma Cocina Latina', address: '2400 Boston St', neighborhood: 'Canton', coords: { lat: 39.2812, lng: -76.5761 }, cuisine: ['Latin', 'Venezuelan'], vibes: ['Brunch', 'Date Night'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-20), updatedAt: demoISO(-4) },
+  { restaurantId: 'balt5', name: 'Dylan\'s Oyster Cellar', address: '3823 Chestnut Ave', neighborhood: 'Hampden', coords: { lat: 39.3307, lng: -76.6357 }, cuisine: ['Seafood', 'American'], vibes: ['Casual', 'Date Night'], priceLevel: 2, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-8) },
+];
+
+/** City-keyed map of all demo restaurants. */
+export const DEMO_RESTAURANTS_BY_CITY: Record<string, Restaurant[]> = {
+  'Washington, DC': DC_RESTAURANTS,
+  'New York, NY': NYC_RESTAURANTS,
+  'Atlanta, GA': ATL_RESTAURANTS,
+  'Chicago, IL': CHI_RESTAURANTS,
+  'Los Angeles, CA': LA_RESTAURANTS,
+  'Miami, FL': MIA_RESTAURANTS,
+  'Baltimore, MD': BALT_RESTAURANTS,
+};
+
+/** Flat list of all demo restaurants (for backwards compat with campaigns/offers). */
+export const DEMO_RESTAURANTS: Restaurant[] = DC_RESTAURANTS;
 
 /* ─── Campaigns ────────────────────────────────────────────────────────────── */
 

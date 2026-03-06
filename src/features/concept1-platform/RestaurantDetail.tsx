@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
-import { isDemoMode, DEMO_RESTAURANTS, DEMO_CAMPAIGNS, DEMO_OFFERS } from '../../data/demoData';
+import { isDemoMode, DEMO_RESTAURANTS_BY_CITY, DEMO_CAMPAIGNS, DEMO_OFFERS } from '../../data/demoData';
 import type { Restaurant, Campaign, Offer } from '../../types';
 
 const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
@@ -32,7 +32,12 @@ export default function RestaurantDetail() {
     queryKey: ['restaurant', id],
     queryFn: async () => {
       if (isDemoMode()) {
-        return DEMO_RESTAURANTS.find((r) => r.restaurantId === id) ?? null;
+        // Search all city lists for this restaurant ID
+        for (const list of Object.values(DEMO_RESTAURANTS_BY_CITY)) {
+          const found = list.find((r) => r.restaurantId === id);
+          if (found) return found;
+        }
+        return null;
       }
       const res = await api.get<Restaurant>(`/api/restaurants/${id}`);
       return res.data ?? null;
