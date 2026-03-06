@@ -192,8 +192,8 @@ export default function DashboardShell() {
               marginLeft: 'auto',
               transition: 'color 0.2s',
             }}
-            onMouseOver={(e) => { (e.target as HTMLElement).style.color = '#E8673C'; }}
-            onMouseOut={(e) => { (e.target as HTMLElement).style.color = 'var(--color-textMuted, #999)'; }}
+            onMouseOver={(e) => { (e.target as HTMLElement).style.color = 'var(--color-accent)'; }}
+            onMouseOut={(e) => { (e.target as HTMLElement).style.color = 'var(--color-textMuted)'; }}
           >
             {isDemoMode ? 'Exit Demo' : 'Sign Out'}
           </button>

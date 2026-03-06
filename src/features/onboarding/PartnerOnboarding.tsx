@@ -219,7 +219,7 @@ export default function PartnerOnboarding() {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'var(--color-bgSurface)',
     padding: '20px',
   };
 
@@ -234,7 +234,7 @@ export default function PartnerOnboarding() {
 
   const progressBarStyle: React.CSSProperties = {
     height: '4px',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: 'var(--color-bgElevated)',
     borderRadius: '2px',
     marginBottom: '40px',
     overflow: 'hidden',
@@ -242,7 +242,7 @@ export default function PartnerOnboarding() {
 
   const progressFillStyle: React.CSSProperties = {
     height: '100%',
-    backgroundColor: '#E8673C',
+    backgroundColor: 'var(--color-accent)',
     width: `${progressPercent}%`,
     transition: 'width 0.3s ease',
   };
@@ -250,13 +250,13 @@ export default function PartnerOnboarding() {
   const titleStyle: React.CSSProperties = {
     fontSize: '24px',
     fontWeight: '600',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '12px',
   };
 
   const subtitleStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--color-textSecondary)',
     marginBottom: '32px',
     lineHeight: '1.5',
   };
@@ -269,7 +269,7 @@ export default function PartnerOnboarding() {
     display: 'block',
     fontSize: '14px',
     fontWeight: '500',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '8px',
   };
 
@@ -298,7 +298,7 @@ export default function PartnerOnboarding() {
 
   const charCounterStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: '#9ca3af',
+    color: 'var(--color-textMuted)',
     marginTop: '4px',
     textAlign: 'right',
   };
@@ -341,8 +341,8 @@ export default function PartnerOnboarding() {
     fontSize: '13px',
     fontWeight: '500',
     border: 'none',
-    backgroundColor: selected ? '#E8673C' : '#e5e7eb',
-    color: selected ? 'white' : '#1B2838',
+    backgroundColor: selected ? 'var(--color-accent)' : 'var(--color-bgElevated)',
+    color: selected ? 'white' : 'var(--color-textPrimary)',
     transition: 'all 0.2s',
   });
 
@@ -354,11 +354,11 @@ export default function PartnerOnboarding() {
 
   const radioOptionStyle = (selected: boolean): React.CSSProperties => ({
     padding: '12px',
-    border: selected ? '2px solid #E8673C' : '2px solid #d1d5db',
+    border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
     borderRadius: '8px',
     cursor: 'pointer',
     textAlign: 'center',
-    backgroundColor: selected ? '#FEF3EF' : '#f9fafb',
+    backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgSurface)',
     transition: 'all 0.2s',
   });
 
@@ -366,12 +366,12 @@ export default function PartnerOnboarding() {
     display: 'block',
     fontSize: '14px',
     fontWeight: '500',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     cursor: 'pointer',
   };
 
   const qrCodeBoxStyle: React.CSSProperties = {
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'var(--color-bgSurface)',
     border: '2px dashed #d1d5db',
     borderRadius: '8px',
     padding: '20px',
@@ -383,18 +383,18 @@ export default function PartnerOnboarding() {
     fontFamily: 'monospace',
     fontSize: '18px',
     fontWeight: '600',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '8px',
     letterSpacing: '2px',
   };
 
   const qrCodeLabelStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: '#6B7280',
+    color: 'var(--color-textSecondary)',
   };
 
   const reviewBoxStyle: React.CSSProperties = {
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'var(--color-bgSurface)',
     border: '1px solid #d1d5db',
     borderRadius: '8px',
     padding: '20px',
@@ -418,13 +418,13 @@ export default function PartnerOnboarding() {
 
   const reviewLabelStyle: React.CSSProperties = {
     fontSize: '13px',
-    color: '#6B7280',
+    color: 'var(--color-textSecondary)',
     fontWeight: '500',
   };
 
   const reviewValueStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     fontWeight: '600',
   };
 
@@ -440,7 +440,7 @@ export default function PartnerOnboarding() {
     padding: '12px 24px',
     border: '2px solid #d1d5db',
     backgroundColor: 'white',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     borderRadius: '8px',
     fontSize: '14px',
     fontWeight: '500',
@@ -451,7 +451,7 @@ export default function PartnerOnboarding() {
   const nextButtonStyle: React.CSSProperties = {
     flex: 1,
     padding: '12px 24px',
-    backgroundColor: '#E8673C',
+    backgroundColor: 'var(--color-accent)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -464,7 +464,7 @@ export default function PartnerOnboarding() {
   const launchButtonStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px 24px',
-    backgroundColor: '#E8673C',
+    backgroundColor: 'var(--color-accent)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -476,8 +476,8 @@ export default function PartnerOnboarding() {
 
   const errorStyle: React.CSSProperties = {
     padding: '12px',
-    backgroundColor: '#fee2e2',
-    color: '#991b1b',
+    backgroundColor: 'var(--color-errorMuted)',
+    color: 'var(--color-error)',
     borderRadius: '8px',
     fontSize: '14px',
     marginBottom: '20px',
@@ -497,7 +497,7 @@ export default function PartnerOnboarding() {
         }
         input:focus, textarea:focus, select:focus {
           outline: none;
-          border-color: #E8673C !important;
+          border-color: var(--color-accent) !important;
         }
         button:hover:not(:disabled) {
           opacity: 0.9;
@@ -524,7 +524,7 @@ export default function PartnerOnboarding() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: #E8673C;
+          background: var(--color-accent);
           cursor: pointer;
           transition: background 0.2s;
         }
@@ -535,7 +535,7 @@ export default function PartnerOnboarding() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: #E8673C;
+          background: var(--color-accent);
           cursor: pointer;
           border: none;
           transition: background 0.2s;
@@ -668,7 +668,7 @@ export default function PartnerOnboarding() {
                     style={sliderStyle}
                   />
                 </div>
-                <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '8px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--color-textSecondary)', marginTop: '8px' }}>
                   10% - 50% off
                 </div>
               </div>
@@ -708,7 +708,7 @@ export default function PartnerOnboarding() {
           {step === 3 && (
             <>
               <div style={reviewBoxStyle}>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1B2838', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-textPrimary)', marginBottom: '16px' }}>
                   Restaurant Details
                 </h3>
                 <div style={reviewRowStyle}>
@@ -734,7 +734,7 @@ export default function PartnerOnboarding() {
               </div>
 
               <div style={reviewBoxStyle}>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#1B2838', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-textPrimary)', marginBottom: '16px' }}>
                   Offer Details
                 </h3>
                 <div style={reviewRowStyle}>

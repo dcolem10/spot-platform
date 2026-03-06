@@ -150,13 +150,13 @@ const styles = {
   title: {
     fontSize: '32px',
     fontWeight: 700,
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '8px',
   } as React.CSSProperties,
 
   subtitle: {
     fontSize: '16px',
-    color: '#666',
+    color: 'var(--color-textSecondary)',
   } as React.CSSProperties,
 
   card: {
@@ -193,20 +193,20 @@ const styles = {
   tierName: {
     fontSize: '24px',
     fontWeight: 700,
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '8px',
   } as React.CSSProperties,
 
   tierDescription: {
     fontSize: '14px',
-    color: '#999',
+    color: 'var(--color-textMuted)',
     marginBottom: '24px',
   } as React.CSSProperties,
 
   progressBar: {
     width: '100%',
     height: '8px',
-    background: '#e8e8e8',
+    background: 'var(--color-bgElevated)',
     borderRadius: '4px',
     overflow: 'hidden',
     marginBottom: '12px',
@@ -221,7 +221,7 @@ const styles = {
 
   progressText: {
     fontSize: '12px',
-    color: '#666',
+    color: 'var(--color-textSecondary)',
     fontWeight: 500,
   } as React.CSSProperties,
 
@@ -234,14 +234,14 @@ const styles = {
 
   metricBox: {
     padding: '16px',
-    background: '#f9f9f9',
+    background: 'var(--color-bgSurface)',
     borderRadius: '8px',
     border: '1px solid #e8e8e8',
   } as React.CSSProperties,
 
   metricLabel: {
     fontSize: '12px',
-    color: '#999',
+    color: 'var(--color-textMuted)',
     fontWeight: 600,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.5px',
@@ -251,13 +251,13 @@ const styles = {
   metricValue: {
     fontSize: '28px',
     fontWeight: 700,
-    color: '#E8673C',
+    color: 'var(--color-accent)',
   } as React.CSSProperties,
 
   sectionTitle: {
     fontSize: '18px',
     fontWeight: 700,
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '16px',
     marginTop: '32px',
   } as React.CSSProperties,
@@ -275,12 +275,12 @@ const styles = {
     borderRadius: '8px',
     fontSize: '14px',
     fontFamily: 'monospace',
-    background: '#f9f9f9',
+    background: 'var(--color-bgSurface)',
   } as React.CSSProperties,
 
   copyButton: {
     padding: '12px 20px',
-    background: '#E8673C',
+    background: 'var(--color-accent)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -290,7 +290,7 @@ const styles = {
   } as React.CSSProperties,
 
   copyButtonHover: {
-    background: '#d45a2a',
+    background: 'var(--color-accentHover)',
   } as React.CSSProperties,
 
   referralsList: {
@@ -314,18 +314,18 @@ const styles = {
   referralUserName: {
     fontSize: '14px',
     fontWeight: 600,
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
   } as React.CSSProperties,
 
   referralDate: {
     fontSize: '12px',
-    color: '#999',
+    color: 'var(--color-textMuted)',
   } as React.CSSProperties,
 
   emptyState: {
     textAlign: 'center' as const,
     padding: '32px 24px',
-    color: '#999',
+    color: 'var(--color-textMuted)',
   } as React.CSSProperties,
 
   emptyStateIcon: {
@@ -339,7 +339,7 @@ const styles = {
 
   generateButton: {
     padding: '12px 20px',
-    background: '#E8673C',
+    background: 'var(--color-accent)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -353,15 +353,15 @@ const styles = {
     width: '16px',
     height: '16px',
     border: '2px solid #e8e8e8',
-    borderTopColor: '#E8673C',
+    borderTopColor: 'var(--color-accent)',
     borderRadius: '50%',
     animation: 'spin 0.8s linear infinite',
   } as React.CSSProperties,
 
   errorMessage: {
     padding: '12px 16px',
-    background: '#fce4e4',
-    color: '#c33',
+    background: 'var(--color-errorMuted)',
+    color: 'var(--color-error)',
     borderRadius: '8px',
     fontSize: '14px',
     marginBottom: '16px',
@@ -369,8 +369,8 @@ const styles = {
 
   successMessage: {
     padding: '12px 16px',
-    background: '#e4f5e4',
-    color: '#2d5f2d',
+    background: 'var(--color-successMuted)',
+    color: 'var(--color-success)',
     borderRadius: '8px',
     fontSize: '14px',
     marginBottom: '16px',
@@ -435,10 +435,10 @@ function ReferralLinkShare({
         disabled={isGenerating}
         style={styles.generateButton}
         onMouseEnter={(e) => {
-          if (!isGenerating) (e.currentTarget as HTMLButtonElement).style.background = '#d45a2a';
+          if (!isGenerating) (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-accentHover)';
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = '#E8673C';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-accent)';
         }}
       >
         {isGenerating ? (
@@ -464,10 +464,10 @@ function ReferralLinkShare({
         onClick={handleCopy}
         style={styles.copyButton}
         onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = '#d45a2a';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-accentHover)';
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = '#E8673C';
+          (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-accent)';
         }}
       >
         {copied ? 'Copied!' : 'Copy'}
@@ -500,7 +500,7 @@ function ReferralsList({ referrals }: { referrals: Referral[] }) {
             <div style={styles.referralUserName}>{ref.referredUserId}</div>
             <div style={styles.referralDate}>{formatDate(ref.createdAt)}</div>
           </div>
-          <div style={{ fontSize: '12px', color: '#999' }}>Joined</div>
+          <div style={{ fontSize: '12px', color: 'var(--color-textMuted)' }}>Joined</div>
         </div>
       ))}
     </div>
@@ -652,7 +652,7 @@ export default function AmbassadorDashboard() {
 
       <div style={styles.card}>
         <div style={styles.sectionTitle}>How It Works</div>
-        <div style={{ lineHeight: '1.8', color: '#666', fontSize: '14px' }}>
+        <div style={{ lineHeight: '1.8', color: 'var(--color-textSecondary)', fontSize: '14px' }}>
           <p>
             Share your unique referral code with other creators. When they sign up using your code,
             you'll both earn rewards:

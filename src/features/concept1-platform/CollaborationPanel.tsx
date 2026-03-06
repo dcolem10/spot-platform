@@ -93,12 +93,12 @@ function InviteModal({ isOpen, onClose, onSubmit, isLoading }: InviteModalProps)
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#1B2838', fontSize: '18px', fontWeight: 600 }}>
+        <h3 style={{ marginTop: 0, marginBottom: '16px', color: 'var(--color-textPrimary)', fontSize: '18px', fontWeight: 600 }}>
           Invite Collaborator
         </h3>
 
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', color: '#1B2838', fontSize: '14px', fontWeight: 500 }}>
+          <label style={{ display: 'block', marginBottom: '6px', color: 'var(--color-textPrimary)', fontSize: '14px', fontWeight: 500 }}>
             Creator ID
           </label>
           <input
@@ -119,7 +119,7 @@ function InviteModal({ isOpen, onClose, onSubmit, isLoading }: InviteModalProps)
         </div>
 
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '6px', color: '#1B2838', fontSize: '14px', fontWeight: 500 }}>
+          <label style={{ display: 'block', marginBottom: '6px', color: 'var(--color-textPrimary)', fontSize: '14px', fontWeight: 500 }}>
             Revenue Share: {sharePercent}%
           </label>
           <input
@@ -133,7 +133,7 @@ function InviteModal({ isOpen, onClose, onSubmit, isLoading }: InviteModalProps)
               cursor: 'pointer',
             }}
           />
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--color-textSecondary)', marginTop: '4px' }}>
             Your share: {100 - sharePercent}%
           </div>
         </div>
@@ -162,7 +162,7 @@ function InviteModal({ isOpen, onClose, onSubmit, isLoading }: InviteModalProps)
               padding: '10px 16px',
               border: 'none',
               borderRadius: '6px',
-              backgroundColor: '#E8673C',
+              backgroundColor: 'var(--color-accent)',
               color: '#fff',
               cursor: creatorId.trim() && !isLoading ? 'pointer' : 'not-allowed',
               fontSize: '14px',
@@ -222,7 +222,7 @@ function RevenueSplitChart({ collaborators }: RevenueSplitChartProps) {
           backgroundColor: '#f9fafb',
           borderRadius: '6px',
           textAlign: 'center',
-          color: '#666',
+          color: 'var(--color-textSecondary)',
           fontSize: '14px',
         }}
       >
@@ -235,7 +235,7 @@ function RevenueSplitChart({ collaborators }: RevenueSplitChartProps) {
   const myShare = 100;
 
   const segments = [
-    { label: 'You', share: myShare, color: '#E8673C' },
+    { label: 'You', share: myShare, color: 'var(--color-accent)' },
     ...acceptedCollabs.map((c) => ({
       label: c.collaboratorId || 'Unknown',
       share: c.sharePercent,
@@ -247,7 +247,7 @@ function RevenueSplitChart({ collaborators }: RevenueSplitChartProps) {
 
   return (
     <div style={{ marginTop: '16px' }}>
-      <h4 style={{ margin: '0 0 12px 0', color: '#1B2838', fontSize: '14px', fontWeight: 600 }}>
+      <h4 style={{ margin: '0 0 12px 0', color: 'var(--color-textPrimary)', fontSize: '14px', fontWeight: 600 }}>
         Revenue Split (Active Collaborators)
       </h4>
       <div
@@ -275,7 +275,7 @@ function RevenueSplitChart({ collaborators }: RevenueSplitChartProps) {
         {segments.map((seg, idx) => (
           <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <div style={{ width: '12px', height: '12px', backgroundColor: seg.color, borderRadius: '2px' }} />
-            <span style={{ color: '#666' }}>
+            <span style={{ color: 'var(--color-textSecondary)' }}>
               {seg.label}: {seg.share}%
             </span>
           </div>
@@ -364,7 +364,7 @@ export default function CollaborationPanel() {
   if (!campaignId && activeTab === 'collaborators') {
     return (
       <div style={{ padding: '24px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
-        <p style={{ color: '#666', margin: 0 }}>Select a campaign to manage collaborations</p>
+        <p style={{ color: 'var(--color-textSecondary)', margin: 0 }}>Select a campaign to manage collaborations</p>
       </div>
     );
   }
@@ -380,8 +380,8 @@ export default function CollaborationPanel() {
             padding: '12px 16px',
             border: 'none',
             backgroundColor: 'transparent',
-            color: activeTab === 'collaborators' ? '#E8673C' : '#666',
-            borderBottom: activeTab === 'collaborators' ? '3px solid #E8673C' : 'none',
+            color: activeTab === 'collaborators' ? 'var(--color-accent)' : 'var(--color-textSecondary)',
+            borderBottom: activeTab === 'collaborators' ? '3px solid var(--color-accent)' : 'none',
             cursor: campaignId ? 'pointer' : 'not-allowed',
             fontSize: '14px',
             fontWeight: 600,
@@ -396,8 +396,8 @@ export default function CollaborationPanel() {
             padding: '12px 16px',
             border: 'none',
             backgroundColor: 'transparent',
-            color: activeTab === 'myCollabs' ? '#E8673C' : '#666',
-            borderBottom: activeTab === 'myCollabs' ? '3px solid #E8673C' : 'none',
+            color: activeTab === 'myCollabs' ? 'var(--color-accent)' : 'var(--color-textSecondary)',
+            borderBottom: activeTab === 'myCollabs' ? '3px solid var(--color-accent)' : 'none',
             cursor: 'pointer',
             fontSize: '14px',
             fontWeight: 600,
@@ -411,7 +411,7 @@ export default function CollaborationPanel() {
       {activeTab === 'collaborators' && campaignId && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, color: '#1B2838', fontSize: '16px', fontWeight: 600 }}>Collaborators</h3>
+            <h3 style={{ margin: 0, color: 'var(--color-textPrimary)', fontSize: '16px', fontWeight: 600 }}>Collaborators</h3>
             <button
               onClick={() => setShowInviteModal(true)}
               disabled={collabList.length >= 5}
@@ -419,7 +419,7 @@ export default function CollaborationPanel() {
                 padding: '8px 16px',
                 border: 'none',
                 borderRadius: '6px',
-                backgroundColor: '#E8673C',
+                backgroundColor: 'var(--color-accent)',
                 color: '#fff',
                 cursor: collabList.length >= 5 ? 'not-allowed' : 'pointer',
                 fontSize: '13px',
@@ -443,7 +443,7 @@ export default function CollaborationPanel() {
                 backgroundColor: '#f9fafb',
                 borderRadius: '6px',
                 textAlign: 'center',
-                color: '#666',
+                color: 'var(--color-textSecondary)',
               }}
             >
               No collaborators yet. Invite someone to get started.
@@ -464,10 +464,10 @@ export default function CollaborationPanel() {
                   }}
                 >
                   <div>
-                    <div style={{ color: '#1B2838', fontSize: '14px', fontWeight: 500 }}>
+                    <div style={{ color: 'var(--color-textPrimary)', fontSize: '14px', fontWeight: 500 }}>
                       {collab.collaboratorId || 'Unknown'}
                     </div>
-                    <div style={{ color: '#666', fontSize: '13px', marginTop: '4px' }}>
+                    <div style={{ color: 'var(--color-textSecondary)', fontSize: '13px', marginTop: '4px' }}>
                       Share: {collab.sharePercent}%
                     </div>
                   </div>
@@ -504,7 +504,7 @@ export default function CollaborationPanel() {
       {/* My Collaborations Tab */}
       {activeTab === 'myCollabs' && (
         <div>
-          <h3 style={{ margin: '0 0 16px 0', color: '#1B2838', fontSize: '16px', fontWeight: 600 }}>
+          <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-textPrimary)', fontSize: '16px', fontWeight: 600 }}>
             Campaigns I'm Collaborating On
           </h3>
 
@@ -520,7 +520,7 @@ export default function CollaborationPanel() {
                 backgroundColor: '#f9fafb',
                 borderRadius: '6px',
                 textAlign: 'center',
-                color: '#666',
+                color: 'var(--color-textSecondary)',
               }}
             >
               No collaborations yet
@@ -539,10 +539,10 @@ export default function CollaborationPanel() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#1B2838', fontSize: '14px', fontWeight: 600 }}>
+                      <div style={{ color: 'var(--color-textPrimary)', fontSize: '14px', fontWeight: 600 }}>
                         {collab.campaignName || 'Unknown Campaign'}
                       </div>
-                      <div style={{ color: '#666', fontSize: '13px', marginTop: '4px' }}>
+                      <div style={{ color: 'var(--color-textSecondary)', fontSize: '13px', marginTop: '4px' }}>
                         Your share: {collab.sharePercent}%
                       </div>
                     </div>

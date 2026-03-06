@@ -177,7 +177,7 @@ export default function CreatorOnboarding() {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: 'var(--color-bgSurface)',
     padding: '20px',
   };
 
@@ -192,7 +192,7 @@ export default function CreatorOnboarding() {
 
   const progressBarStyle: React.CSSProperties = {
     height: '4px',
-    backgroundColor: '#e5e7eb',
+    backgroundColor: 'var(--color-bgElevated)',
     borderRadius: '2px',
     marginBottom: '40px',
     overflow: 'hidden',
@@ -200,7 +200,7 @@ export default function CreatorOnboarding() {
 
   const progressFillStyle: React.CSSProperties = {
     height: '100%',
-    backgroundColor: '#E8673C',
+    backgroundColor: 'var(--color-accent)',
     width: `${progressPercent}%`,
     transition: 'width 0.3s ease',
   };
@@ -208,13 +208,13 @@ export default function CreatorOnboarding() {
   const titleStyle: React.CSSProperties = {
     fontSize: '24px',
     fontWeight: '600',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '12px',
   };
 
   const subtitleStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--color-textSecondary)',
     marginBottom: '32px',
     lineHeight: '1.5',
   };
@@ -227,7 +227,7 @@ export default function CreatorOnboarding() {
     display: 'block',
     fontSize: '14px',
     fontWeight: '500',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     marginBottom: '8px',
   };
 
@@ -256,7 +256,7 @@ export default function CreatorOnboarding() {
 
   const charCounterStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: '#9ca3af',
+    color: 'var(--color-textMuted)',
     marginTop: '4px',
     textAlign: 'right',
   };
@@ -269,11 +269,11 @@ export default function CreatorOnboarding() {
 
   const radioOptionStyle = (selected: boolean): React.CSSProperties => ({
     padding: '12px',
-    border: selected ? '2px solid #E8673C' : '2px solid #d1d5db',
+    border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
     borderRadius: '8px',
     cursor: 'pointer',
     textAlign: 'center',
-    backgroundColor: selected ? '#FEF3EF' : '#f9fafb',
+    backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgSurface)',
     transition: 'all 0.2s',
   });
 
@@ -281,7 +281,7 @@ export default function CreatorOnboarding() {
     display: 'block',
     fontSize: '14px',
     fontWeight: '500',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     cursor: 'pointer',
   };
 
@@ -298,8 +298,8 @@ export default function CreatorOnboarding() {
     fontSize: '13px',
     fontWeight: '500',
     border: 'none',
-    backgroundColor: selected ? '#E8673C' : '#e5e7eb',
-    color: selected ? 'white' : '#1B2838',
+    backgroundColor: selected ? 'var(--color-accent)' : 'var(--color-bgElevated)',
+    color: selected ? 'white' : 'var(--color-textPrimary)',
     transition: 'all 0.2s',
   });
 
@@ -325,7 +325,7 @@ export default function CreatorOnboarding() {
     padding: '12px 24px',
     border: '2px solid #d1d5db',
     backgroundColor: 'white',
-    color: '#1B2838',
+    color: 'var(--color-textPrimary)',
     borderRadius: '8px',
     fontSize: '14px',
     fontWeight: '500',
@@ -336,7 +336,7 @@ export default function CreatorOnboarding() {
   const nextButtonStyle: React.CSSProperties = {
     flex: 1,
     padding: '12px 24px',
-    backgroundColor: '#E8673C',
+    backgroundColor: 'var(--color-accent)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -349,7 +349,7 @@ export default function CreatorOnboarding() {
   const completeButtonStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px 24px',
-    backgroundColor: '#E8673C',
+    backgroundColor: 'var(--color-accent)',
     color: 'white',
     border: 'none',
     borderRadius: '8px',
@@ -361,8 +361,8 @@ export default function CreatorOnboarding() {
 
   const errorStyle: React.CSSProperties = {
     padding: '12px',
-    backgroundColor: '#fee2e2',
-    color: '#991b1b',
+    backgroundColor: 'var(--color-errorMuted)',
+    color: 'var(--color-error)',
     borderRadius: '8px',
     fontSize: '14px',
     marginBottom: '20px',
@@ -382,7 +382,7 @@ export default function CreatorOnboarding() {
         }
         input:focus, textarea:focus, select:focus {
           outline: none;
-          border-color: #E8673C !important;
+          border-color: var(--color-accent) !important;
         }
         button:hover:not(:disabled) {
           opacity: 0.9;
@@ -405,7 +405,7 @@ export default function CreatorOnboarding() {
             {[1, 2, 3, 4].map(s => (
               <div key={s} style={{
                 width: '8px', height: '8px', borderRadius: '50%',
-                backgroundColor: s === step ? '#E8673C' : s < step ? '#f9a882' : '#e5e7eb',
+                backgroundColor: s === step ? 'var(--color-accent)' : s < step ? '#f9a882' : 'var(--color-bgElevated)',
                 transition: 'all 0.3s',
               }} />
             ))}
@@ -436,8 +436,8 @@ export default function CreatorOnboarding() {
           {/* Step 0: Welcome */}
           {step === 0 && (
             <>
-              <div style={{ backgroundColor: '#f0f7ff', borderRadius: '12px', padding: '24px', marginBottom: '24px', border: '1px solid #bfdbfe' }}>
-                <div style={{ fontSize: '14px', color: '#1B2838', lineHeight: '1.7' }}>
+              <div style={{ backgroundColor: 'var(--color-bgSurface)', borderRadius: '12px', padding: '24px', marginBottom: '24px', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: '14px', color: 'var(--color-textPrimary)', lineHeight: '1.7' }}>
                   <div style={{ marginBottom: '16px', fontWeight: '600', fontSize: '16px' }}>What you'll unlock:</div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
                     <span style={{ fontSize: '20px', flexShrink: 0 }}>1.</span>
@@ -453,7 +453,7 @@ export default function CreatorOnboarding() {
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'center', fontSize: '13px', color: '#9ca3af' }}>
+              <div style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-textMuted)' }}>
                 Takes about 2 minutes to complete
               </div>
             </>
@@ -562,7 +562,7 @@ export default function CreatorOnboarding() {
               <div style={formGroupStyle}>
                 <label style={labelStyle}>Instagram</label>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span style={{ marginRight: '8px', color: '#6B7280' }}>@</span>
+                  <span style={{ marginRight: '8px', color: 'var(--color-textSecondary)' }}>@</span>
                   <input
                     type="text"
                     style={{ ...inputStyle, flex: 1 }}
@@ -576,7 +576,7 @@ export default function CreatorOnboarding() {
               <div style={formGroupStyle}>
                 <label style={labelStyle}>TikTok</label>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span style={{ marginRight: '8px', color: '#6B7280' }}>@</span>
+                  <span style={{ marginRight: '8px', color: 'var(--color-textSecondary)' }}>@</span>
                   <input
                     type="text"
                     style={{ ...inputStyle, flex: 1 }}
@@ -638,7 +638,7 @@ export default function CreatorOnboarding() {
                       style={{
                         display: 'flex', alignItems: 'flex-start', gap: '16px',
                         padding: '16px', marginBottom: '12px',
-                        backgroundColor: isDone ? '#f0fdf4' : '#f9fafb',
+                        backgroundColor: isDone ? 'var(--color-successMuted)' : 'var(--color-bgSurface)',
                         border: isDone ? '1px solid #86efac' : '1px solid #e5e7eb',
                         borderRadius: '8px', cursor: 'pointer',
                         transition: 'all 0.2s',
@@ -648,17 +648,17 @@ export default function CreatorOnboarding() {
                       <div style={{
                         width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
                         border: isDone ? '2px solid #22c55e' : '2px solid #d1d5db',
-                        backgroundColor: isDone ? '#22c55e' : 'transparent',
+                        backgroundColor: isDone ? 'var(--color-success)' : 'transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: 'white', fontSize: '12px', fontWeight: '700', marginTop: '2px',
                       }}>
                         {isDone ? '\u2713' : ''}
                       </div>
                       <div>
-                        <div style={{ fontWeight: '600', color: '#1B2838', marginBottom: '4px' }}>
+                        <div style={{ fontWeight: '600', color: 'var(--color-textPrimary)', marginBottom: '4px' }}>
                           {item.label}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#6B7280', lineHeight: '1.4' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--color-textSecondary)', lineHeight: '1.4' }}>
                           {item.description}
                         </div>
                       </div>
@@ -702,7 +702,7 @@ export default function CreatorOnboarding() {
           )}
           {step === 5 && (
             <button
-              style={{ ...completeButtonStyle, backgroundColor: '#1B2838' }}
+              style={{ ...completeButtonStyle, backgroundColor: 'var(--color-textPrimary)' }}
               onClick={() => navigate('/app/dashboard')}
               type="button"
             >

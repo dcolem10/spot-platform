@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import './AuthPage.css';
 
 type AuthMode = 'signIn' | 'signUp' | 'confirm' | 'forgotPassword' | 'resetPassword';
 
@@ -239,6 +240,18 @@ export default function AuthPage() {
     }
   };
 
+  const handleDemoMode = () => {
+    setDemoMode(true);
+    setAuth({
+      userId: 'demo-user',
+      email: 'demo@spot.app',
+      name: 'Demo Creator',
+      role: 'creator',
+      groups: ['creator'],
+    });
+    navigate('/app/dashboard', { replace: true });
+  };
+
   const switchMode = (newMode: AuthMode) => {
     setErrors({});
     setMessage('');
@@ -261,102 +274,100 @@ export default function AuthPage() {
     resetPassword: `Enter the code sent to ${email}`,
   };
 
-  const s = styles;
-
   return (
-    <div style={s.page}>
-      <div style={s.container}>
-        <Link to="/" style={s.logoLink}>
-          <div style={s.logoCircle}>S</div>
-          <span style={s.logoText}>Spot</span>
+    <div className="auth-page">
+      <div className="auth-container">
+        <Link to="/" className="auth-logo">
+          <div className="auth-logo-circle">S</div>
+          <span className="auth-logo-text">Spot</span>
         </Link>
 
-        <h1 style={s.title}>{titles[mode]}</h1>
-        <p style={s.subtitle}>{subtitles[mode]}</p>
+        <h1 className="auth-title">{titles[mode]}</h1>
+        <p className="auth-subtitle">{subtitles[mode]}</p>
 
-        {message && <div style={s.successBanner}>{message}</div>}
-        {errors.general && <div style={s.errorBanner}>{errors.general}</div>}
+        {message && <div className="auth-banner auth-banner--success">{message}</div>}
+        {errors.general && <div className="auth-banner auth-banner--error">{errors.general}</div>}
 
-        <form onSubmit={handleSubmit} style={s.form}>
+        <form onSubmit={handleSubmit} className="auth-form">
           {mode === 'signUp' && (
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Full Name *</label>
+            <div className="auth-field">
+              <label className="auth-label">Full Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your full name"
-                style={errors.name ? { ...s.input, ...s.inputError } : s.input}
+                className={`auth-input${errors.name ? ' auth-input--error' : ''}`}
                 autoComplete="name"
               />
-              {errors.name && <span style={s.fieldError}>{errors.name}</span>}
+              {errors.name && <span className="auth-field-error">{errors.name}</span>}
             </div>
           )}
 
           {(mode === 'signIn' || mode === 'signUp' || mode === 'forgotPassword') && (
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Email *</label>
+            <div className="auth-field">
+              <label className="auth-label">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                style={errors.email ? { ...s.input, ...s.inputError } : s.input}
+                className={`auth-input${errors.email ? ' auth-input--error' : ''}`}
                 autoComplete="email"
               />
-              {errors.email && <span style={s.fieldError}>{errors.email}</span>}
+              {errors.email && <span className="auth-field-error">{errors.email}</span>}
             </div>
           )}
 
           {(mode === 'signIn' || mode === 'signUp' || mode === 'resetPassword') && (
-            <div style={s.fieldGroup}>
-              <label style={s.label}>
-                {mode === 'resetPassword' ? 'New Password *' : 'Password *'}
+            <div className="auth-field">
+              <label className="auth-label">
+                {mode === 'resetPassword' ? 'New Password' : 'Password'}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === 'signUp' ? 'Min 8 chars, upper, lower, number, symbol' : 'Your password'}
-                style={errors.password ? { ...s.input, ...s.inputError } : s.input}
+                className={`auth-input${errors.password ? ' auth-input--error' : ''}`}
                 autoComplete={mode === 'signUp' ? 'new-password' : 'current-password'}
               />
-              {errors.password && <span style={s.fieldError}>{errors.password}</span>}
+              {errors.password && <span className="auth-field-error">{errors.password}</span>}
             </div>
           )}
 
           {mode === 'signUp' && (
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Confirm Password *</label>
+            <div className="auth-field">
+              <label className="auth-label">Confirm Password</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter your password"
-                style={errors.confirmPassword ? { ...s.input, ...s.inputError } : s.input}
+                className={`auth-input${errors.confirmPassword ? ' auth-input--error' : ''}`}
                 autoComplete="new-password"
               />
-              {errors.confirmPassword && <span style={s.fieldError}>{errors.confirmPassword}</span>}
+              {errors.confirmPassword && <span className="auth-field-error">{errors.confirmPassword}</span>}
             </div>
           )}
 
           {(mode === 'confirm' || mode === 'resetPassword') && (
-            <div style={s.fieldGroup}>
-              <label style={s.label}>Verification Code *</label>
+            <div className="auth-field">
+              <label className="auth-label">Verification Code</label>
               <input
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="6-digit code"
-                style={errors.code ? { ...s.input, ...s.inputError } : s.input}
+                className={`auth-input${errors.code ? ' auth-input--error' : ''}`}
                 inputMode="numeric"
                 autoComplete="one-time-code"
               />
-              {errors.code && <span style={s.fieldError}>{errors.code}</span>}
+              {errors.code && <span className="auth-field-error">{errors.code}</span>}
             </div>
           )}
 
-          <button type="submit" disabled={loading} style={loading ? { ...s.submitBtn, opacity: 0.7 } : s.submitBtn}>
+          <button type="submit" disabled={loading} className="auth-submit">
             {loading ? 'Please wait...' : {
               signIn: 'Sign In',
               signUp: 'Create Account',
@@ -367,169 +378,39 @@ export default function AuthPage() {
           </button>
         </form>
 
-        <div style={s.footer}>
+        {(mode === 'signIn' || mode === 'signUp') && (
+          <>
+            <div className="auth-divider">
+              <span className="auth-divider-text">or</span>
+            </div>
+            <button className="auth-demo-btn" onClick={handleDemoMode}>
+              Try Demo Mode — No Account Needed
+            </button>
+          </>
+        )}
+
+        <div className="auth-footer">
           {mode === 'signIn' && (
             <>
-              <button style={s.linkBtn} onClick={() => switchMode('forgotPassword')}>Forgot password?</button>
-              <span style={s.footerDivider}>|</span>
-              <button style={s.linkBtn} onClick={() => switchMode('signUp')}>Create an account</button>
+              <button className="auth-link-btn" onClick={() => switchMode('forgotPassword')}>Forgot password?</button>
+              <span className="auth-footer-divider">|</span>
+              <button className="auth-link-btn" onClick={() => switchMode('signUp')}>Create an account</button>
             </>
           )}
           {mode === 'signUp' && (
             <>
-              <span style={s.footerText}>Already have an account?</span>{' '}
-              <button style={s.linkBtn} onClick={() => switchMode('signIn')}>Sign in</button>
+              <span className="auth-footer-text">Already have an account?</span>
+              <button className="auth-link-btn" onClick={() => switchMode('signIn')}>Sign in</button>
             </>
           )}
           {mode === 'confirm' && (
-            <button style={s.linkBtn} onClick={handleResendCode}>Resend verification code</button>
+            <button className="auth-link-btn" onClick={handleResendCode}>Resend verification code</button>
           )}
           {(mode === 'forgotPassword' || mode === 'resetPassword') && (
-            <button style={s.linkBtn} onClick={() => switchMode('signIn')}>Back to sign in</button>
+            <button className="auth-link-btn" onClick={() => switchMode('signIn')}>Back to sign in</button>
           )}
         </div>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(135deg, #1B2838 0%, #2d3e50 100%)',
-    padding: 20,
-  },
-  container: {
-    width: '100%',
-    maxWidth: 420,
-    background: '#fff',
-    borderRadius: 16,
-    padding: 40,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-  },
-  logoLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    textDecoration: 'none',
-    marginBottom: 32,
-    justifyContent: 'center',
-  },
-  logoCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: '50%',
-    background: '#E8673C',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: 20,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: '#1B2838',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: '#1B2838',
-    textAlign: 'center' as const,
-    margin: '0 0 8px',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center' as const,
-    margin: '0 0 24px',
-  },
-  successBanner: {
-    background: '#d4edda',
-    color: '#155724',
-    border: '1px solid #c3e6cb',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  errorBanner: {
-    background: '#f8d7da',
-    color: '#721c24',
-    border: '1px solid #f5c6cb',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 16,
-  },
-  fieldGroup: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 4,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#1B2838',
-  },
-  input: {
-    padding: '10px 14px',
-    fontSize: 15,
-    border: '1px solid #ddd',
-    borderRadius: 8,
-    outline: 'none',
-    transition: 'border-color 0.2s',
-    width: '100%',
-    boxSizing: 'border-box' as const,
-  },
-  inputError: {
-    borderColor: '#dc3545',
-  },
-  fieldError: {
-    fontSize: 12,
-    color: '#dc3545',
-  },
-  submitBtn: {
-    padding: '12px 20px',
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#fff',
-    background: '#E8673C',
-    border: 'none',
-    borderRadius: 8,
-    cursor: 'pointer',
-    transition: 'background 0.2s',
-    marginTop: 8,
-  },
-  footer: {
-    textAlign: 'center' as const,
-    marginTop: 20,
-    fontSize: 14,
-  },
-  footerText: {
-    color: '#666',
-  },
-  footerDivider: {
-    color: '#ccc',
-    margin: '0 8px',
-  },
-  linkBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#E8673C',
-    cursor: 'pointer',
-    fontSize: 14,
-    fontWeight: 500,
-    padding: 0,
-    textDecoration: 'underline',
-  },
-};
