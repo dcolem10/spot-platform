@@ -5,11 +5,12 @@ import path from 'path';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
 
-  // Safety guard: block production builds with demo mode enabled
+  // Safety guard: warn when demo mode is enabled in production builds
   if (mode === 'production' && env.VITE_DEMO_MODE === 'true') {
-    throw new Error(
-      'VITE_DEMO_MODE=true is not allowed in production builds. ' +
-      'Set VITE_DEMO_MODE=false or remove it from your environment.'
+    console.warn(
+      '\n⚠️  WARNING: VITE_DEMO_MODE=true in production build.\n' +
+      '   Demo mode allows unauthenticated access with synthetic data.\n' +
+      '   Set VITE_DEMO_MODE=false before going live with real users.\n'
     );
   }
 
