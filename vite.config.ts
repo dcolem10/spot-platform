@@ -4,6 +4,15 @@ import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+
+  // Safety guard: block production builds with demo mode enabled
+  if (mode === 'production' && env.VITE_DEMO_MODE === 'true') {
+    throw new Error(
+      'VITE_DEMO_MODE=true is not allowed in production builds. ' +
+      'Set VITE_DEMO_MODE=false or remove it from your environment.'
+    );
+  }
+
   return {
     plugins: [react()],
     resolve: {

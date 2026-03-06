@@ -234,7 +234,7 @@ Resources:
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           SECRETS_ARN: !Ref SecretsArn
       Policies:
-        - DynamoDBCrudPolicy:
+        - DynamoDBReadPolicy:
             TableName: !Ref DataTable
         - Statement:
             - Effect: Allow
@@ -342,7 +342,7 @@ Resources:
         Variables:
           EMAIL_FUNCTION_NAME: !Ref EmailFunction
       Policies:
-        - DynamoDBCrudPolicy:
+        - DynamoDBReadPolicy:
             TableName: !Ref DataTable
         - Statement:
             - Effect: Allow

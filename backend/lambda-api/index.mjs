@@ -54,6 +54,8 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'X-Content-Type-Options': 'nosniff',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
 };
 
 const respond = (statusCode, body) => ({
@@ -231,6 +233,19 @@ async function listMyRestaurants(event) {
 
 async function updateRestaurant(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Ownership check — only the creator who added this restaurant can update it
+  const existing = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
+    })
+  );
+  if (!existing.Item) return respond(404, { error: 'Restaurant not found' });
+  if (existing.Item.creatorId !== userId) return respond(403, { error: 'Forbidden' });
+
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
   const names = {};
@@ -699,12 +714,40 @@ async function redeemOffer(code, event) {
     const check = validateOffer(offer);
     if (!check.valid) return respond(410, { error: check.error });
 
+    // Idempotent redemption — deduplicate by IP + day to prevent attribution fraud
+    const ip = event.requestContext?.identity?.sourceIp || 'unknown';
+    const day = new Date().toISOString().slice(0, 10);
+    const redeemKey = `REDEEM#${offer.offerId}#${ip}#${day}`;
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE,
+          Item: {
+            PK: redeemKey,
+            SK: 'IDEMPOTENCY',
+            offerId: offer.offerId,
+            ip,
+            redeemedAt: new Date().toISOString(),
+            ttl: Math.floor(Date.now() / 1000) + 86400 * 30, // 30-day TTL
+          },
+          ConditionExpression: 'attribute_not_exists(PK)',
+        })
+      );
+    } catch (err) {
+      if (err.name === 'ConditionalCheckFailedException') {
+        // Already redeemed today from this IP — still return success but don't double-count
+        console.log(`Duplicate redemption skipped: code=${code}, ip=${ip}`);
+        return respond(200, { message: 'Already redeemed', offerId: offer.offerId });
+      }
+      throw err;
+    }
+
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-        UpdateExpression: 'SET redemptions = redemptions + :inc',
-        ExpressionAttributeValues: { ':inc': 1 },
+        UpdateExpression: 'SET redemptions = redemptions + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc',
+        ExpressionAttributeValues: { ':inc': 1, ':zero': 0 },
       })
     );
 
@@ -753,6 +796,7 @@ async function listSaves(event) {
         ':pk': `AUDIENCE#${userId}`,
         ':sk': 'SAVE#',
       },
+      Limit: 100, // Cap to prevent unbounded reads
     })
   );
   return respond(200, stripAll(result.Items || []));
@@ -837,6 +881,7 @@ async function listDeals() {
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
       ExpressionAttributeValues: { ':pk': 'DEALS' },
+      Limit: 50, // Cap to prevent unbounded reads
     })
   );
 
@@ -921,10 +966,15 @@ async function updateSaveNotes(restaurantId, event) {
 
 // ─── Google Places JIT ───────────────────────────────────────────────────────
 
-async function getGoogleDetails(restaurantId) {
+async function getGoogleDetails(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
 
-  // Get restaurant to find googlePlaceId
+  // Rate limit — stricter than default (10 req / 5 min per IP) to protect paid API
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
+  // Get restaurant to find googlePlaceId — only allow lookups for known restaurants
   const restaurant = await ddb.send(
     new GetCommand({
       TableName: TABLE,
@@ -983,6 +1033,11 @@ async function getGoogleDetails(restaurantId) {
 // ─── Email Subscribe ──────────────────────────────────────────────────────────
 
 async function subscribe(event) {
+  // Rate limit public endpoint
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
   const email = sanitize(body.email, 200).toLowerCase();
@@ -1004,6 +1059,11 @@ async function subscribe(event) {
 }
 
 async function unsubscribe(event) {
+  // Rate limit public endpoint
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
   const email = sanitize(body.email, 200).toLowerCase();
@@ -1774,9 +1834,9 @@ export const handler = async (event) => {
     if (path.match(/\/api\/insider\/saved\/[^/]+$/) && method === 'PUT')
       return updateSaveNotes(pathParts[pathParts.length - 1], event);
 
-    // Google Places JIT
+    // Google Places JIT (rate-limited to protect paid API)
     if (path.match(/\/api\/restaurants\/[^/]+\/google-details$/) && method === 'GET')
-      return getGoogleDetails(pathParts[pathParts.length - 2]);
+      return getGoogleDetails(pathParts[pathParts.length - 2], event);
 
     // Subscribe / Unsubscribe
     if (path.match(/\/api\/subscribe$/) && method === 'POST')
