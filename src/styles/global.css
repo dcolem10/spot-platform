@@ -12,6 +12,7 @@ html {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -42,21 +43,27 @@ input, select, textarea {
   font-size: var(--font-base);
 }
 
+/* Headlines use display font */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
 /* ─── Form Inputs ─────────────────────────────────────────────────────────── */
 
 .form-input {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--color-bgElevated);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--color-textPrimary);
   font-size: var(--font-sm);
   outline: none;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .form-input:focus {
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accentMuted);
 }
 
 /* ─── Utility Classes ──────────────────────────────────────────────────────── */
@@ -72,10 +79,12 @@ input, select, textarea {
 }
 
 .page-title {
+  font-family: var(--font-display);
   font-size: var(--font-3xl);
   font-weight: 700;
   color: var(--color-textPrimary);
   margin-bottom: var(--space-2);
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
@@ -83,18 +92,36 @@ input, select, textarea {
   color: var(--color-textSecondary);
 }
 
+/* ─── Cards ───────────────────────────────────────────────────────────────── */
+
 .card {
   background: var(--color-bgSecondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: transform var(--transition-spring), border-color var(--transition-fast), box-shadow var(--transition-slow);
 }
 
 .card:hover {
   border-color: var(--color-borderHover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* Glassmorphic card variant */
+.card-glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition: transform var(--transition-spring), border-color var(--transition-fast), box-shadow var(--transition-slow);
+}
+
+.card-glass:hover {
+  border-color: var(--color-borderHover);
+  box-shadow: var(--shadow-glow);
 }
 
 .card-grid {
@@ -102,6 +129,8 @@ input, select, textarea {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-5);
 }
+
+/* ─── Badges ──────────────────────────────────────────────────────────────── */
 
 .badge {
   display: inline-flex;
@@ -120,6 +149,15 @@ input, select, textarea {
 .badge--error { background: var(--color-errorMuted); color: var(--color-error); }
 .badge--info { background: var(--color-infoMuted); color: var(--color-info); }
 
+/* Gradient badge for premium feel */
+.badge--gradient {
+  background: var(--gradient-accent);
+  color: #fff;
+  border: none;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -127,18 +165,39 @@ input, select, textarea {
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   border-radius: var(--radius-md);
+  font-family: var(--font-display);
   font-size: var(--font-sm);
   font-weight: 600;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-primary {
   background: var(--color-accent);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
 }
 .btn-primary:hover {
   background: var(--color-accentHover);
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.35);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+/* Gradient CTA button */
+.btn-gradient {
+  background: var(--gradient-accent);
+  background-size: 200% 200%;
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(249, 115, 22, 0.3);
+}
+.btn-gradient:hover {
+  animation: gradientShift 3s ease infinite;
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4);
+  transform: translateY(-1px);
   text-decoration: none;
 }
 
@@ -162,6 +221,15 @@ input, select, textarea {
   text-decoration: none;
 }
 
+/* Large button variant */
+.btn-lg {
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--font-base);
+  border-radius: var(--radius-lg);
+}
+
+/* ─── Empty State ─────────────────────────────────────────────────────────── */
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -173,26 +241,37 @@ input, select, textarea {
 }
 
 .empty-state h3 {
+  font-family: var(--font-display);
   font-size: var(--font-lg);
   color: var(--color-textSecondary);
   margin-bottom: var(--space-2);
 }
 
+/* ─── Skeleton Loading ────────────────────────────────────────────────────── */
+
 .skeleton {
-  background: var(--color-bgElevated);
+  background: linear-gradient(
+    90deg,
+    var(--color-bgElevated) 25%,
+    var(--color-bgHover) 50%,
+    var(--color-bgElevated) 75%
+  );
+  background-size: 200% 100%;
   border-radius: var(--radius-md);
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* ─── Stagger Children ────────────────────────────────────────────────────── */
+
 .stagger-children > * {
-  animation: fadeSlideIn 0.3s ease both;
+  animation: fadeSlideIn 0.4s ease both;
 }
 .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
 
 /* ─── Bento Grid ──────────────────────────────────────────────────────────── */
 
@@ -222,7 +301,7 @@ input, select, textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: transform var(--transition-spring), border-color var(--transition-fast), box-shadow var(--transition-slow);
 }
 
 .section-card:hover {
@@ -239,6 +318,7 @@ input, select, textarea {
 }
 
 .section-card-title {
+  font-family: var(--font-display);
   font-size: var(--font-lg);
   font-weight: 600;
   color: var(--color-textPrimary);
@@ -248,6 +328,24 @@ input, select, textarea {
 .section-card-subtitle {
   font-size: var(--font-sm);
   color: var(--color-textMuted);
+}
+
+/* ─── Gradient Text ──────────────────────────────────────────────────────── */
+
+.text-gradient {
+  background: var(--gradient-hero);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 6s ease infinite;
+}
+
+.text-gradient-warm {
+  background: var(--gradient-warm);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ─── Container Queries ───────────────────────────────────────────────────── */

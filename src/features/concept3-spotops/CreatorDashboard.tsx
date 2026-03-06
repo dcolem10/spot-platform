@@ -63,10 +63,12 @@ const styles = {
     marginBottom: 'var(--space-8)',
   } as React.CSSProperties,
   metricValue: {
+    fontFamily: 'var(--font-display)',
     fontSize: 'var(--font-3xl)',
-    fontWeight: 700,
+    fontWeight: 800,
     color: 'var(--color-textPrimary)',
     lineHeight: 1.2,
+    letterSpacing: '-0.02em',
   } as React.CSSProperties,
   metricLabel: {
     fontSize: 'var(--font-sm)',
@@ -92,10 +94,12 @@ const styles = {
     marginTop: 'var(--space-2)',
   } as React.CSSProperties,
   sectionTitle: {
+    fontFamily: 'var(--font-display)',
     fontSize: 'var(--font-lg)',
     fontWeight: 600,
     color: 'var(--color-textPrimary)',
     marginBottom: 'var(--space-4)',
+    letterSpacing: '-0.01em',
   } as React.CSSProperties,
   twoCol: {
     marginTop: 'var(--space-6)',
@@ -173,6 +177,7 @@ const styles = {
     marginBottom: 'var(--space-1)',
   } as React.CSSProperties,
   actionLabel: {
+    fontFamily: 'var(--font-display)',
     fontSize: 'var(--font-sm)',
     fontWeight: 600,
     color: 'var(--color-textPrimary)',

@@ -24,7 +24,7 @@ function useScrollReveal() {
           }
         });
       },
-      { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+      { threshold: 0.12, rootMargin: '0px 0px -60px 0px' }
     );
 
     targets.forEach((t) => io.observe(t));
@@ -32,6 +32,16 @@ function useScrollReveal() {
   }, []);
 
   return ref;
+}
+
+function useScrolledNav() {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return scrolled;
 }
 
 function useCountUp(target: number, duration = 1200) {
@@ -157,11 +167,11 @@ function MiniChartSVG() {
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="1" />
-          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.15" />
         </linearGradient>
         <linearGradient id="chartGradBright" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="1" />
-          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.4" />
         </linearGradient>
       </defs>
       {bars.map((bar, i) => (
@@ -171,7 +181,7 @@ function MiniChartSVG() {
           y={80 - bar.h}
           width={barW}
           height={bar.h}
-          rx={4}
+          rx={5}
           fill={bar.opacity >= 0.8 ? 'url(#chartGradBright)' : 'url(#chartGrad)'}
           opacity={bar.opacity}
           style={{ '--bar-i': i } as React.CSSProperties}
@@ -294,6 +304,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setDemoMode = useAuthStore((s) => s.setDemoMode);
+  const navScrolled = useScrolledNav();
 
   const enterDemo = useCallback(async (path: string) => {
     // Clear any stale Cognito session so demo mode doesn't conflict
@@ -314,127 +325,85 @@ export default function LandingPage() {
     navigate(path);
   }, [setDemoMode, setAuth, navigate]);
 
+  // Count-up stats for social proof
+  const creators = useCountUp(500, 1600);
+  const restaurants = useCountUp(2400, 1800);
+  const revenue = useCountUp(1.2, 2000);
+
   return (
     <div ref={rootRef} style={{ minHeight: '100vh', background: 'var(--color-bgPrimary)' }}>
-      {/* Header */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--space-4) var(--space-6)',
-          maxWidth: 1200,
-          margin: '0 auto',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 'var(--radius-full)',
-              background: 'var(--color-accent)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 'var(--font-base)',
-              color: '#fff',
-            }}
-          >
-            S
-          </div>
-          <span style={{ fontWeight: 700, fontSize: 'var(--font-lg)' }}>Spot</span>
+      {/* ── Floating Glassmorphic Navbar ─────────────────────────────────── */}
+      <nav className={`landing-nav${navScrolled ? ' landing-nav--scrolled' : ''}`}>
+        <div className="landing-nav-logo">
+          <div className="landing-nav-logo-mark">S</div>
+          <span className="landing-nav-logo-text">Spot</span>
         </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <Link
-            to="/auth"
-            style={{
-              fontSize: 'var(--font-sm)',
-              padding: '8px 20px',
-              color: '#1B2838',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
-            Sign In
-          </Link>
-          <Link
-            to="/auth"
-            className="btn btn-primary"
-            style={{ fontSize: 'var(--font-sm)', padding: '8px 24px' }}
-          >
-            Get Started
-          </Link>
+        <div className="landing-nav-actions">
+          <Link to="/auth" className="landing-nav-link">Sign In</Link>
           <button
             onClick={() => enterDemo('/app/dashboard')}
-            style={{
-              fontSize: 'var(--font-sm)',
-              padding: '8px 16px',
-              color: '#666',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              borderLeft: '1px solid #ddd',
-              marginLeft: 4,
-              paddingLeft: 16,
-            }}
+            className="landing-nav-link"
+            style={{ color: 'var(--color-textMuted)' }}
           >
             Demo
           </button>
+          <Link
+            to="/auth"
+            className="btn btn-primary"
+            style={{ padding: '8px 20px', fontSize: 'var(--font-sm)' }}
+          >
+            Get Started
+          </Link>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="landing-hero">
-        <div
-          className="badge badge--accent"
-          style={{ marginBottom: 'var(--space-4)', display: 'inline-flex' }}
-        >
+        <div className="landing-hero-badge">
+          <span className="landing-hero-badge-dot" />
           Built for food creators
         </div>
-        <h1
-          style={{
-            fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-            fontWeight: 700,
-            lineHeight: 1.15,
-            marginBottom: 'var(--space-5)',
-          }}
-        >
+        <h1>
           Stop running your business on{' '}
-          <span style={{ color: 'var(--color-accent)' }}>spreadsheets and DMs</span>
+          <span className="text-gradient">spreadsheets and DMs</span>
         </h1>
-        <p
-          style={{
-            fontSize: 'var(--font-lg)',
-            color: 'var(--color-textSecondary)',
-            maxWidth: 600,
-            margin: '0 auto var(--space-8)',
-            lineHeight: 1.7,
-          }}
-        >
+        <p className="landing-hero-desc">
           Spot replaces your scattered tools with one platform: track partnerships, schedule content,
           prove ROI to restaurants, and give your audience a discovery app they&rsquo;ll actually use.
         </p>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="landing-hero-actions">
           <button
             onClick={() => enterDemo('/app/dashboard')}
-            className="btn btn-primary"
-            style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
+            className="btn btn-gradient btn-lg"
           >
             I&rsquo;m a Creator
           </button>
           <button
             onClick={() => enterDemo('/app/discover')}
-            className="btn btn-secondary"
-            style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
+            className="btn btn-secondary btn-lg"
           >
             Explore Restaurants
           </button>
         </div>
       </section>
 
-      {/* ── Creator Features Bento ──────────────────────────────────────────── */}
+      {/* ── Social Proof Stats ───────────────────────────────────────────── */}
+      <section className="landing-stats reveal">
+        <div className="landing-stat">
+          <div className="landing-stat-value"><span ref={creators.ref}>{creators.value}</span>+</div>
+          <div className="landing-stat-label">Creators</div>
+        </div>
+        <div className="landing-stat">
+          <div className="landing-stat-value"><span ref={restaurants.ref}>{restaurants.value.toLocaleString()}</span>+</div>
+          <div className="landing-stat-label">Restaurant Partners</div>
+        </div>
+        <div className="landing-stat">
+          <div className="landing-stat-value">$<span ref={revenue.ref}>{revenue.value}</span>M+</div>
+          <div className="landing-stat-label">Creator Revenue</div>
+        </div>
+      </section>
+
+      {/* ── Creator Features Bento ──────────────────────────────────────── */}
       <section className="landing-section">
         <div className="landing-section-header reveal">
           <h2>Everything you need to run your creator business</h2>
@@ -481,7 +450,7 @@ export default function LandingPage() {
           </BentoCard>
 
           {/* Offer Tracking — count-up stats */}
-          <BentoCard className="bento-card--third bento-card--glow-orange">
+          <BentoCard className="bento-card--third bento-card--glow-gold">
             <h3>QR Codes &amp; Offer Tracking</h3>
             <p>Promo codes and QR links that attribute every scan and redemption back to you.</p>
             <MiniQROffer />
@@ -489,7 +458,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── For Foodies ─────────────────────────────────────────────────────── */}
+      {/* ── For Foodies ─────────────────────────────────────────────────── */}
       <section className="landing-section landing-section--alt">
         <div className="landing-section-header reveal">
           <h2>Follow food creators? This is for you.</h2>
@@ -522,7 +491,7 @@ export default function LandingPage() {
           </BentoCard>
 
           {/* Deals */}
-          <BentoCard className="bento-card--medium bento-card--glow-orange">
+          <BentoCard className="bento-card--medium bento-card--glow-coral">
             <h3>Exclusive Deals</h3>
             <p>Discounts and offers you won&rsquo;t find on any other app.</p>
             <div className="mini-deal-card">
@@ -548,19 +517,18 @@ export default function LandingPage() {
           </BentoCard>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-8)' }} className="reveal">
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
           <button
             onClick={() => enterDemo('/app/discover')}
-            className="btn btn-primary"
-            style={{ padding: '14px 36px', fontSize: 'var(--font-base)' }}
+            className="btn btn-primary btn-lg"
           >
             Explore Restaurants
           </button>
         </div>
       </section>
 
-      {/* ── Pricing ─────────────────────────────────────────────────────────── */}
-      <section id="pricing" className="landing-section landing-section--alt">
+      {/* ── Pricing ─────────────────────────────────────────────────────── */}
+      <section id="pricing" className="landing-section">
         <div className="landing-section-header reveal">
           <h2>Simple, transparent pricing</h2>
           <p>Start free with the demo. Upgrade when you&rsquo;re ready.</p>
@@ -572,37 +540,37 @@ export default function LandingPage() {
               key={tier.name}
               className={`card pricing-card${tier.highlighted ? ' pricing-card--highlighted' : ''}`}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-                <h3 style={{ fontSize: 'var(--font-xl)', fontWeight: 700 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-xl)', fontWeight: 700, letterSpacing: '-0.01em' }}>
                   {tier.name}
                 </h3>
                 {tier.highlighted && (
-                  <span className="badge badge--accent">
-                    Recommended
+                  <span className="badge badge--gradient">
+                    Most Popular
                   </span>
                 )}
               </div>
-              <div style={{ marginBottom: 'var(--space-3)' }}>
-                <span style={{ fontSize: 'var(--font-3xl)', fontWeight: 700, color: 'var(--color-accent)' }}>
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-4xl)', fontWeight: 800, color: 'var(--color-accent)', letterSpacing: '-0.03em' }}>
                   {tier.price}
                 </span>
-                <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)' }}>/mo</span>
+                <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginLeft: 4 }}>/mo</span>
               </div>
-              <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-6)' }}>
+              <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-6)', lineHeight: 1.6 }}>
                 {tier.description}
               </p>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
+              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-8)' }}>
                 {tier.features.map((f) => (
                   <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                    <span style={{ color: 'var(--color-success)' }}>&#x2713;</span>
+                    <span style={{ color: 'var(--color-success)', fontSize: 'var(--font-base)' }}>&#x2713;</span>
                     {f}
                   </li>
                 ))}
               </ul>
               <button
                 onClick={() => enterDemo('/app/dashboard')}
-                className={`btn ${tier.highlighted ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ width: '100%', textAlign: 'center', display: 'block' }}
+                className={`btn ${tier.highlighted ? 'btn-gradient' : 'btn-secondary'}`}
+                style={{ width: '100%', textAlign: 'center', display: 'block', padding: 'var(--space-3) var(--space-5)' }}
               >
                 Try Creator Demo
               </button>
@@ -611,17 +579,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer
-        style={{
-          borderTop: '1px solid var(--color-border)',
-          padding: 'var(--space-6)',
-          textAlign: 'center',
-          color: 'var(--color-textMuted)',
-          fontSize: 'var(--font-sm)',
-        }}
-      >
-        Spot &mdash; Creator tools for food influencers.
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      <footer className="landing-footer">
+        <div className="landing-footer-inner">
+          <span>Spot &mdash; Creator tools for food influencers.</span>
+          <div className="landing-footer-links">
+            <a href="#pricing" className="landing-footer-link">Pricing</a>
+            <button
+              onClick={() => enterDemo('/app/dashboard')}
+              className="landing-footer-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Try Demo
+            </button>
+          </div>
+        </div>
       </footer>
     </div>
   );

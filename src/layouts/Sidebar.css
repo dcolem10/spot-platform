@@ -1,4 +1,4 @@
-/* ─── Sidebar ──────────────────────────────────────────────────────────────── */
+/* ─── Sidebar — 2026 Refresh ────────────────────────────────────────────────── */
 
 .sidebar {
   width: 240px;
@@ -12,6 +12,24 @@
   flex-direction: column;
   z-index: 100;
   overflow-y: auto;
+}
+
+/* Subtle top gradient accent */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.04) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sidebar-logo {
@@ -32,21 +50,24 @@
 .sidebar-logo-circle {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--gradient-accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 800;
   font-size: var(--font-sm);
   color: #fff;
   flex-shrink: 0;
 }
 
 .sidebar-logo-text {
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--font-lg);
   color: var(--color-textPrimary);
+  letter-spacing: -0.02em;
 }
 
 .sidebar-nav {
@@ -59,11 +80,12 @@
 }
 
 .sidebar-group-label {
+  font-family: var(--font-display);
   font-size: var(--font-xs);
   font-weight: 600;
   color: var(--color-textMuted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   padding: 0 var(--space-3) var(--space-2);
 }
 
@@ -91,6 +113,7 @@
   background: var(--color-accentMuted);
   color: var(--color-accent);
   font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .sidebar-link-icon {
@@ -176,8 +199,10 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--color-bgSecondary);
-  border-top: 1px solid var(--color-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-top: 1px solid var(--glass-border);
   z-index: 100;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
