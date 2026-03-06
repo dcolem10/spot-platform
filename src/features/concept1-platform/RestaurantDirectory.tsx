@@ -88,7 +88,11 @@ export default function RestaurantDirectory() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['restaurants', selectedCity],
     queryFn: async () => {
-      if (isDemoMode()) return DEMO_RESTAURANTS;
+      if (isDemoMode()) {
+        // Demo restaurants are all DC-area — show them for DC, empty for other cities
+        if (selectedCity === 'Washington, DC') return DEMO_RESTAURANTS;
+        return [];
+      }
       const params = selectedCity ? `?city=${encodeURIComponent(selectedCity)}` : '';
       const res = await api.get<Restaurant[]>(`/api/restaurants${params}`);
       if (res.error) throw new Error(res.error);
@@ -96,7 +100,7 @@ export default function RestaurantDirectory() {
     },
   });
 
-  const restaurants = data?.length ? data : (isDemoMode() ? DEMO_RESTAURANTS : []);
+  const restaurants = data ?? [];
 
   // Derive unique neighborhoods from data
   const neighborhoods = useMemo(() => {

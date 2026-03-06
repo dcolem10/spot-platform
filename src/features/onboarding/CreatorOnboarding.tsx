@@ -41,9 +41,9 @@ interface FormData {
 }
 
 const CHECKLIST_ITEMS = [
-  { id: 'campaign', label: 'Create your first campaign', description: 'Set up a campaign to track how your content drives restaurant visits.', link: '/app/campaigns/new' },
-  { id: 'partner', label: 'Add a restaurant partner', description: 'Connect with a restaurant you love — our wizard makes it quick.', link: '/app/restaurants/add' },
-  { id: 'offer', label: 'Share your first offer', description: 'Create an offer code your audience can redeem in real time.', link: '/app/offers/new' },
+  { id: 'campaign', label: 'Create your first campaign', description: 'Set up a campaign to track how your content drives restaurant visits.', link: '/app/campaigns' },
+  { id: 'partner', label: 'Browse restaurant partners', description: 'Discover restaurants in your area and pitch a partnership.', link: '/app/restaurants' },
+  { id: 'offer', label: 'Explore your offers', description: 'Create offer codes your audience can redeem in real time.', link: '/app/offers' },
 ];
 
 export default function CreatorOnboarding() {
@@ -141,9 +141,9 @@ export default function CreatorOnboarding() {
   };
 
   const handleSubmit = async () => {
-    const isDemoMode = useAuthStore.getState().isDemoMode;
+    const store = useAuthStore.getState();
 
-    if (!isDemoMode) {
+    if (!store.isDemoMode) {
       setIsSubmitting(true);
       try {
         const response = await api.post('/api/profile', formData);
@@ -157,6 +157,9 @@ export default function CreatorOnboarding() {
         setIsSubmitting(false);
         return;
       }
+    } else {
+      // Mark demo user as having completed onboarding
+      store.setDemoOnboarded(true);
     }
 
     setIsSubmitting(false);

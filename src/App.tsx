@@ -25,6 +25,7 @@ const CreatorOnboarding = lazy(() => import('./features/onboarding/CreatorOnboar
 
 // Partnerships & Restaurants
 const RestaurantDirectory = lazy(() => import('./features/concept1-platform/RestaurantDirectory'));
+const RestaurantDetail = lazy(() => import('./features/concept1-platform/RestaurantDetail'));
 const CampaignManager = lazy(() => import('./features/concept1-platform/CampaignManager'));
 const PartnerPortal = lazy(() => import('./features/concept1-platform/PartnerPortal'));
 const OfferManager = lazy(() => import('./features/concept1-platform/OfferManager'));
@@ -61,9 +62,17 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
+  const demoOnboarded = useAuthStore((s) => s.demoOnboarded);
 
   useEffect(() => {
-    if (storeIsDemoMode) { setChecking(false); return; }
+    if (storeIsDemoMode) {
+      // Demo users still need to go through onboarding once
+      if (!demoOnboarded) {
+        setNeedsOnboarding(true);
+      }
+      setChecking(false);
+      return;
+    }
 
     api.get('/api/profile').then(res => {
       if (res.status === 'error' && res.statusCode === 404) {
@@ -71,7 +80,7 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
       }
       setChecking(false);
     });
-  }, []);
+  }, [storeIsDemoMode, demoOnboarded]);
 
   if (checking) return <AppFallback />;
   if (needsOnboarding) return <Navigate to="/onboarding" replace />;
@@ -115,7 +124,7 @@ export default function App() {
 
                 {/* Partnerships & Restaurants */}
                 <Route path="restaurants" element={<FeatureGate flag="restaurantPortal"><RestaurantDirectory /></FeatureGate>} />
-                <Route path="restaurants/:id" element={<FeatureGate flag="restaurantPortal"><RestaurantDirectory /></FeatureGate>} />
+                <Route path="restaurants/:id" element={<FeatureGate flag="restaurantPortal"><RestaurantDetail /></FeatureGate>} />
                 <Route path="campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
                 <Route path="offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
                 <Route path="reports" element={<FeatureGate flag="restaurantPortal"><ROIReporter /></FeatureGate>} />
