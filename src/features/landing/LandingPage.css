@@ -177,6 +177,47 @@
   overflow: hidden;
 }
 
+/* Split hero: text left, 3D right */
+.landing-hero--split {
+  max-width: 1200px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 600px;
+}
+
+.landing-hero-content {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.landing-hero-3d {
+  flex: 1;
+  min-width: 0;
+  height: 500px;
+  position: relative;
+  z-index: 2;
+}
+
+/* The Spotlight positions itself absolutely within .landing-hero--split */
+.hero-spotlight {
+  z-index: 1;
+}
+
+/* In split mode, left-align actions */
+.landing-hero--split .landing-hero-actions {
+  justify-content: flex-start;
+}
+
+/* In split mode, remove centering from desc */
+.landing-hero--split .landing-hero-desc {
+  margin-left: 0;
+  margin-right: 0;
+}
+
 /* Ambient gradient orb behind hero */
 .landing-hero::before {
   content: '';
@@ -969,6 +1010,26 @@
   }
 }
 
+@media (max-width: 900px) {
+  .landing-hero--split {
+    flex-direction: column-reverse;
+    text-align: center;
+    min-height: auto;
+    gap: var(--space-4);
+  }
+  .landing-hero-3d {
+    height: 320px;
+    width: 100%;
+  }
+  .landing-hero--split .landing-hero-actions {
+    justify-content: center;
+  }
+  .landing-hero--split .landing-hero-desc {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
 @media (max-width: 640px) {
   .landing-bento {
     grid-template-columns: 1fr;
@@ -980,6 +1041,9 @@
   }
   .landing-hero {
     padding: calc(var(--space-16) + 40px) var(--space-4) var(--space-10);
+  }
+  .landing-hero-3d {
+    height: 260px;
   }
   .landing-hero::before {
     width: 500px;

@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuthStore } from '../../store/authStore';
+import { SplineScene } from '../../components/ui/SplineScene';
+import { Spotlight } from '../../components/ui/Spotlight';
 import './LandingPage.css';
 
 /* ─── Hooks ──────────────────────────────────────────────────────────────── */
@@ -370,36 +372,56 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="landing-hero">
+      {/* ── Hero — Split Layout: Copy Left + 3D Right ──────────────────── */}
+      <section className="landing-hero landing-hero--split">
         <FloatingOrbs />
-        <div className="landing-hero-badge">
-          <span className="landing-hero-badge-dot" />
-          Built for food creators
-        </div>
-        <h1>
-          Stop running your business on{' '}
-          <span className="text-gradient">spreadsheets and DMs</span>
-        </h1>
-        <p className="landing-hero-desc">
-          Spot replaces your scattered tools with one platform: track partnerships, schedule content,
-          prove ROI to restaurants, and give your audience a discovery app they&rsquo;ll actually use.
-        </p>
-        <div className="landing-hero-actions">
-          <div className="cta-pulse-wrap">
+        <Spotlight
+          className="hero-spotlight"
+          size={400}
+          fill="rgba(249, 115, 22, 0.12)"
+          springOptions={{ bounce: 0, duration: 0.6 }}
+        />
+
+        {/* Left: Text content */}
+        <div className="landing-hero-content">
+          <div className="landing-hero-badge">
+            <span className="landing-hero-badge-dot" />
+            Built for food creators
+          </div>
+          <h1>
+            Stop running your business on{' '}
+            <span className="text-gradient">spreadsheets and DMs</span>
+          </h1>
+          <p className="landing-hero-desc">
+            Spot replaces your scattered tools with one platform: track partnerships, schedule content,
+            prove ROI to restaurants, and give your audience a discovery app they&rsquo;ll actually use.
+          </p>
+          <div className="landing-hero-actions">
+            <div className="cta-pulse-wrap">
+              <button
+                onClick={() => enterDemo('/app/dashboard')}
+                className="btn btn-gradient btn-lg"
+              >
+                I&rsquo;m a Creator
+              </button>
+            </div>
             <button
-              onClick={() => enterDemo('/app/dashboard')}
-              className="btn btn-gradient btn-lg"
+              onClick={() => enterDemo('/app/discover')}
+              className="btn btn-secondary btn-lg"
             >
-              I&rsquo;m a Creator
+              Explore Restaurants
             </button>
           </div>
-          <button
-            onClick={() => enterDemo('/app/discover')}
-            className="btn btn-secondary btn-lg"
-          >
-            Explore Restaurants
-          </button>
+        </div>
+
+        {/* Right: Interactive 3D Spline Scene */}
+        <div className="landing-hero-3d">
+          {import.meta.env.VITE_SPLINE_HERO_SCENE && (
+            <SplineScene
+              scene={import.meta.env.VITE_SPLINE_HERO_SCENE}
+              style={{ width: '100%', height: '100%' }}
+            />
+          )}
         </div>
       </section>
 
