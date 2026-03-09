@@ -6,17 +6,63 @@ import type { Restaurant, Campaign } from '../../types';
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
 
-const PACKAGE_OPTIONS = [
-  { value: 'Spotlight', label: 'Spotlight', desc: 'Single post or story feature' },
-  { value: 'Feature', label: 'Feature', desc: 'In-depth review or video' },
-  { value: 'Series', label: 'Series', desc: 'Multi-part content series' },
-  { value: 'Takeover', label: 'Takeover', desc: 'Full social media takeover' },
-  { value: 'Custom', label: 'Custom', desc: 'Build your own package' },
+// Campaign types from the creator's perspective — what are you actually doing?
+const CAMPAIGN_TYPES = [
+  {
+    value: 'visit_post',
+    label: 'Visit & Post',
+    desc: 'Visit the restaurant, create content from the experience',
+    icon: '📍',
+    suggestedDeliverables: ['Instagram Reel', 'Instagram Carousel', 'Story Set'],
+    budgetHint: '$150 – $2,000',
+  },
+  {
+    value: 'menu_highlight',
+    label: 'Menu Highlight',
+    desc: 'Feature specific dishes, a new menu, or seasonal items',
+    icon: '🍽',
+    suggestedDeliverables: ['Instagram Reel', 'TikTok', 'Instagram Carousel'],
+    budgetHint: '$200 – $2,500',
+  },
+  {
+    value: 'event_coverage',
+    label: 'Event Coverage',
+    desc: 'Cover an opening, tasting event, or special dinner',
+    icon: '🎉',
+    suggestedDeliverables: ['Story Set', 'Instagram Reel', 'TikTok'],
+    budgetHint: '$300 – $3,000',
+  },
+  {
+    value: 'behind_scenes',
+    label: 'Behind the Scenes',
+    desc: 'Kitchen access, chef interview, sourcing story',
+    icon: '🎬',
+    suggestedDeliverables: ['Instagram Reel', 'YouTube Short', 'TikTok'],
+    budgetHint: '$400 – $4,000',
+  },
+  {
+    value: 'ongoing',
+    label: 'Ongoing Partnership',
+    desc: 'Multi-visit deal — become a regular voice for this spot',
+    icon: '🤝',
+    suggestedDeliverables: ['Instagram Reel', 'Story Set', 'TikTok', 'Instagram Carousel'],
+    budgetHint: '$400 – $4,000/mo',
+  },
 ];
 
+// Real content formats creators actually produce
 const DELIVERABLE_OPTIONS = [
-  '1 Reel', '2 Reels', '1 TikTok', '2 TikToks',
-  '1 Story Set', '2 Story Sets', '1 Blog Post', 'Photo Set', '1 YouTube Short',
+  'Instagram Reel', 'Instagram Carousel', 'Instagram Photo',
+  'TikTok', 'YouTube Short',
+  'Story Set', 'Blog Post',
+];
+
+// How the creator gets compensated
+const COMPENSATION_MODELS = [
+  { value: 'flat_fee', label: 'Flat Fee', desc: 'Fixed cash payment for deliverables' },
+  { value: 'comp_plus_fee', label: 'Comp + Fee', desc: 'Complimentary dining + reduced cash fee' },
+  { value: 'performance', label: 'Performance', desc: 'Base fee + bonus tied to views or redemptions' },
+  { value: 'comp_only', label: 'Comp Only', desc: 'Complimentary dining, no cash' },
 ];
 
 const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
@@ -34,6 +80,7 @@ export interface RestaurantContext {
 
 interface WizardForm {
   package: string;
+  compensationModel: string;
   budget: string;
   goal: string;
   startDate: string;
@@ -52,6 +99,7 @@ interface CampaignWizardProps {
 
 const emptyForm: WizardForm = {
   package: '',
+  compensationModel: '',
   budget: '',
   goal: '',
   startDate: '',
@@ -104,25 +152,25 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
   // If no restaurant: steps are Restaurant(1) → Package(2) → Timeline(3) → Review(4)
   const getStepLabel = (s: number): string => {
     if (hasRestaurant) {
-      if (s === 1) return 'Campaign Package';
-      if (s === 2) return 'Timeline & Deliverables';
+      if (s === 1) return 'What Are You Creating?';
+      if (s === 2) return 'Content & Timeline';
       return 'Review & Launch';
     }
     if (s === 1) return 'Select Restaurant';
-    if (s === 2) return 'Campaign Package';
-    if (s === 3) return 'Timeline & Deliverables';
+    if (s === 2) return 'What Are You Creating?';
+    if (s === 3) return 'Content & Timeline';
     return 'Review & Launch';
   };
 
   const getStepSubtitle = (s: number): string => {
     if (hasRestaurant) {
-      if (s === 1) return 'Choose how you want to feature this restaurant.';
-      if (s === 2) return 'Set your campaign timeline and content deliverables.';
+      if (s === 1) return 'Pick the type of campaign and how you want to get paid.';
+      if (s === 2) return 'Choose your content deliverables and set the timeline.';
       return 'Review everything before launching your campaign.';
     }
     if (s === 1) return 'Search and select a restaurant to partner with.';
-    if (s === 2) return 'Choose how you want to feature this restaurant.';
-    if (s === 3) return 'Set your campaign timeline and content deliverables.';
+    if (s === 2) return 'Pick the type of campaign and how you want to get paid.';
+    if (s === 3) return 'Choose your content deliverables and set the timeline.';
     return 'Review everything before launching your campaign.';
   };
 
@@ -164,8 +212,9 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
       if (!selectedRestaurant) { setError('Please select a restaurant'); return false; }
     }
     if (isPackageStep) {
-      if (!form.package) { setError('Please select a campaign package'); return false; }
-      if (!form.budget.trim()) { setError('Budget is required'); return false; }
+      if (!form.package) { setError('Please select a campaign type'); return false; }
+      if (!form.compensationModel) { setError('Please select how you want to get paid'); return false; }
+      if (form.compensationModel !== 'comp_only' && !form.budget.trim()) { setError('Budget is required for paid campaigns'); return false; }
     }
     if (isTimelineStep) {
       if (!form.startDate) { setError('Start date is required'); return false; }
@@ -190,7 +239,8 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
       restaurantId: selectedRestaurant.restaurantId,
       restaurantName: selectedRestaurant.restaurantName,
       package: form.package,
-      budget: Number(form.budget),
+      compensationModel: form.compensationModel || undefined,
+      budget: form.budget ? Number(form.budget) : 0,
       goal: form.goal || undefined,
       startDate: form.startDate || undefined,
       endDate: form.endDate || undefined,
@@ -430,61 +480,124 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
           </div>
         )}
 
-        {/* Step: Campaign Package */}
+        {/* Step: Campaign Type + Compensation */}
         {isPackageStep && (
           <div>
+            {/* Campaign type selection */}
             <div style={{ marginBottom: 'var(--space-6)' }}>
               <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-3)' }}>
-                Package Type <span style={{ color: 'var(--color-error)' }}>*</span>
+                Campaign Type <span style={{ color: 'var(--color-error)' }}>*</span>
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
-                {PACKAGE_OPTIONS.map((pkg) => (
-                  <button
-                    key={pkg.value}
-                    onClick={() => handleFieldChange('package', pkg.value)}
-                    style={{
-                      padding: 'var(--space-4)',
-                      border: form.package === pkg.value ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      backgroundColor: form.package === pkg.value ? 'var(--color-accentMuted)' : 'var(--color-bgElevated)',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', marginBottom: '2px' }}>
-                      {pkg.label}
-                    </div>
-                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
-                      {pkg.desc}
-                    </div>
-                  </button>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                {CAMPAIGN_TYPES.map((ct) => {
+                  const selected = form.package === ct.value;
+                  return (
+                    <button
+                      key={ct.value}
+                      onClick={() => {
+                        handleFieldChange('package', ct.value);
+                        // Auto-suggest deliverables for this campaign type
+                        if (!form.contentDeliverables.length) {
+                          setForm((prev) => ({ ...prev, contentDeliverables: ct.suggestedDeliverables.slice(0, 2) }));
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-4)',
+                        padding: 'var(--space-4)',
+                        border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgElevated)',
+                        transition: 'all 0.2s',
+                        width: '100%',
+                      }}
+                    >
+                      <span style={{ fontSize: 'var(--font-xl)', flexShrink: 0 }}>{ct.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', marginBottom: '2px' }}>
+                          {ct.label}
+                        </div>
+                        <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', lineHeight: 1.4 }}>
+                          {ct.desc}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-accent)', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {ct.budgetHint}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
+            {/* Compensation model */}
             <div style={{ marginBottom: 'var(--space-6)' }}>
-              <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
-                Budget ($) <span style={{ color: 'var(--color-error)' }}>*</span>
+              <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-3)' }}>
+                How do you want to get paid? <span style={{ color: 'var(--color-error)' }}>*</span>
               </label>
-              <input
-                type="number"
-                className="form-input"
-                placeholder="e.g. 2500"
-                value={form.budget}
-                onChange={(e) => handleFieldChange('budget', e.target.value)}
-                min="0"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)' }}>
+                {COMPENSATION_MODELS.map((cm) => {
+                  const selected = form.compensationModel === cm.value;
+                  return (
+                    <button
+                      key={cm.value}
+                      onClick={() => handleFieldChange('compensationModel', cm.value)}
+                      style={{
+                        padding: 'var(--space-3)',
+                        border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgElevated)',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 'var(--font-xs)', color: 'var(--color-textPrimary)', marginBottom: '2px' }}>
+                        {cm.label}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-textMuted)' }}>
+                        {cm.desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
+            {/* Budget — only show if not comp-only */}
+            {form.compensationModel && form.compensationModel !== 'comp_only' && (
+              <div style={{ marginBottom: 'var(--space-6)' }}>
+                <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
+                  {form.compensationModel === 'performance' ? 'Base Fee ($)' : 'Budget ($)'} <span style={{ color: 'var(--color-error)' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder={form.package ? (CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.budgetHint ?? 'e.g. 1000') : 'e.g. 1000'}
+                  value={form.budget}
+                  onChange={(e) => handleFieldChange('budget', e.target.value)}
+                  min="0"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+                {form.package && (
+                  <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: '4px' }}>
+                    Typical range for {CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.label}: {CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.budgetHint}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Campaign goal */}
             <div>
               <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
-                Campaign Goal
+                What do you want to highlight?
               </label>
               <textarea
                 className="form-input"
-                placeholder="What do you want to achieve with this campaign? e.g. Drive weekend brunch traffic, promote new menu launch..."
+                placeholder="What's interesting about this spot? e.g. Their new tasting menu, the chef's story, a signature cocktail, brunch vibes..."
                 value={form.goal}
                 onChange={(e) => handleFieldChange('goal', e.target.value.slice(0, 300))}
                 rows={3}
@@ -593,9 +706,10 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                   Edit
                 </button>
               </div>
-              <ReviewRow label="Package" value={form.package} />
-              <ReviewRow label="Budget" value={`$${Number(form.budget).toLocaleString()}`} />
-              {form.goal && <ReviewRow label="Goal" value={form.goal} isLast={!form.startDate} />}
+              <ReviewRow label="Type" value={CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.label ?? form.package} />
+              <ReviewRow label="Compensation" value={COMPENSATION_MODELS.find((cm) => cm.value === form.compensationModel)?.label ?? form.compensationModel} />
+              {form.budget && <ReviewRow label={form.compensationModel === 'performance' ? 'Base Fee' : 'Budget'} value={`$${Number(form.budget).toLocaleString()}`} />}
+              {form.goal && <ReviewRow label="Highlight" value={form.goal} isLast={!form.startDate} />}
             </div>
 
             <div style={{
