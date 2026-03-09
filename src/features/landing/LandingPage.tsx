@@ -363,7 +363,7 @@ export default function LandingPage() {
             Demo
           </button>
           <Link
-            to="/auth"
+            to="/auth?mode=signUp"
             className="btn btn-primary"
             style={{ padding: '8px 20px', fontSize: 'var(--font-sm)' }}
           >

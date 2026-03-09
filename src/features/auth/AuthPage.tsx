@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import './AuthPage.css';
 
 type AuthMode = 'signIn' | 'signUp' | 'confirm' | 'forgotPassword' | 'resetPassword';
+
+const VALID_MODES: AuthMode[] = ['signIn', 'signUp', 'confirm', 'forgotPassword', 'resetPassword'];
 
 interface FormErrors {
   name?: string;
@@ -15,7 +17,12 @@ interface FormErrors {
 }
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<AuthMode>('signIn');
+  // Support ?mode=signUp from "Get Started" links
+  const [searchParams] = useSearchParams();
+  const initialMode = VALID_MODES.includes(searchParams.get('mode') as AuthMode)
+    ? (searchParams.get('mode') as AuthMode)
+    : 'signIn';
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
