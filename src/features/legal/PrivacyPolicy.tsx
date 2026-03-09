@@ -55,7 +55,7 @@ export default function PrivacyPolicy() {
               'Follower count range (self-reported)',
               'Restaurant partner information: restaurant name, address, phone number, cuisine types, and neighborhood',
               'Offer details: discount types, descriptions, and expiration dates',
-              'Campaign data: partnership details, deliverables, budgets, and notes',
+              'Campaign data: restaurant campaigns, content deliverables, deal details, and notes',
             ]} />
           </SubSection>
 
@@ -90,7 +90,7 @@ export default function PrivacyPolicy() {
           <P>We use the information we collect to:</P>
           <BulletList items={[
             'Provide the Service: create your profile, display restaurants, manage campaigns, and track attribution',
-            'Generate analytics: calculate campaign performance, engagement rates, and ROI reports',
+            'Generate analytics: calculate campaign performance, engagement rates, and attribution reports',
             'Power AI features: provide content insights and recommendations (your data is sent to Anthropic\'s Claude API for analysis; see Section 5)',
             'Process payments: manage your subscription through Stripe',
             'Communicate with you: send transactional emails about your account, campaigns, and offers (via Amazon SES)',
