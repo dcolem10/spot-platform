@@ -212,7 +212,7 @@ export default function RestaurantDetail() {
                 No campaigns yet with {restaurant.name}.
               </p>
               <Link
-                to={`/app/campaigns?restaurantId=${restaurant.restaurantId}&restaurantName=${encodeURIComponent(restaurant.name)}&restaurantPhoto=${encodeURIComponent(restaurant.photos?.[0] ?? '')}&restaurantCuisine=${encodeURIComponent(restaurant.cuisine.join(','))}&restaurantNeighborhood=${encodeURIComponent(restaurant.neighborhood)}&restaurantPrice=${restaurant.priceLevel}`}
+                to={`/app/campaigns?restaurantId=${restaurant.restaurantId}&restaurantName=${encodeURIComponent(restaurant.name)}&restaurantPhoto=${encodeURIComponent(restaurant.photos?.[0] ?? '')}&restaurantCuisine=${encodeURIComponent(restaurant.cuisine.join(','))}&restaurantNeighborhood=${encodeURIComponent(restaurant.neighborhood)}&restaurantPrice=${restaurant.priceLevel}&restaurantPhone=${encodeURIComponent(restaurant.phone ?? '')}&restaurantWebsite=${encodeURIComponent(restaurant.website ?? '')}`}
                 className="btn btn-primary"
                 style={{ fontSize: 'var(--font-sm)', textDecoration: 'none' }}
               >

@@ -162,20 +162,184 @@ async function runValidation() {
   };
 }
 
+// ─── Contact Hydration ──────────────────────────────────────────────────────
+// Fetches phone & website from Google Places for restaurants missing contact data.
+// Uses Place Details (Basic) — $0.017 per request.
+
+async function hydrateContacts(options = {}) {
+  const googleKey = await getGoogleKey();
+  if (!googleKey) return { error: 'Google Places API key not found' };
+
+  const dryRun = options.dryRun || false;
+  const maxRequests = options.maxRequests || 200; // safety cap
+  const targetCities = options.cities || null; // null = all cities
+
+  console.log(`Starting contact hydration (dryRun=${dryRun}, cap=${maxRequests})`);
+
+  // Fetch all restaurants
+  const restaurants = [];
+  let exclusiveStartKey = undefined;
+
+  do {
+    const params = {
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': 'RESTAURANTS' },
+    };
+    if (exclusiveStartKey) params.ExclusiveStartKey = exclusiveStartKey;
+
+    const result = await ddb.send(new QueryCommand(params));
+    restaurants.push(...(result.Items || []));
+    exclusiveStartKey = result.LastEvaluatedKey;
+
+    if (restaurants.length >= 2000) break; // hard safety cap
+  } while (exclusiveStartKey);
+
+  // Filter to restaurants missing contact info + have googlePlaceId
+  let needsHydration = restaurants.filter(
+    (r) => r.googlePlaceId && (!r.phone || !r.website)
+  );
+
+  // Optionally filter by city
+  if (targetCities) {
+    needsHydration = needsHydration.filter((r) => targetCities.includes(r.city));
+  }
+
+  console.log(`${needsHydration.length} restaurants need contact hydration (of ${restaurants.length} total)`);
+
+  if (needsHydration.length === 0) {
+    return { action: 'hydrate', total: restaurants.length, hydrated: 0, skipped: 0, failed: 0 };
+  }
+
+  // Cap requests
+  const toProcess = needsHydration.slice(0, maxRequests);
+  let hydrated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  // Process in batches of 5 (rate limiting)
+  const BATCH_SIZE = 5;
+
+  for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
+    const batch = toProcess.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (r) => {
+        try {
+          const res = await fetch(
+            `https://places.googleapis.com/v1/places/${r.googlePlaceId}`,
+            {
+              signal: AbortSignal.timeout(8000),
+              headers: {
+                'X-Goog-Api-Key': googleKey,
+                'X-Goog-FieldMask': 'nationalPhoneNumber,websiteUri',
+              },
+            }
+          );
+
+          if (!res.ok) {
+            console.warn(`Google API ${res.status} for ${r.name} (${r.googlePlaceId})`);
+            return 'failed';
+          }
+
+          const data = await res.json();
+          const phone = data.nationalPhoneNumber || null;
+          const website = data.websiteUri || null;
+
+          if (!phone && !website) {
+            console.log(`No contact data available from Google for: ${r.name}`);
+            return 'skipped';
+          }
+
+          if (dryRun) {
+            console.log(`[DRY RUN] Would update ${r.name}: phone=${phone}, website=${website}`);
+            return 'hydrated';
+          }
+
+          // Build update expression dynamically
+          const updates = [];
+          const names = {};
+          const values = { ':updatedAt': new Date().toISOString() };
+
+          updates.push('#updatedAt = :updatedAt');
+          names['#updatedAt'] = 'updatedAt';
+
+          if (phone) {
+            updates.push('#phone = :phone');
+            names['#phone'] = 'phone';
+            values[':phone'] = phone;
+          }
+          if (website) {
+            updates.push('#website = :website');
+            names['#website'] = 'website';
+            values[':website'] = website;
+          }
+
+          await ddb.send(
+            new UpdateCommand({
+              TableName: TABLE,
+              Key: { PK: r.PK, SK: r.SK },
+              UpdateExpression: `SET ${updates.join(', ')}`,
+              ExpressionAttributeNames: names,
+              ExpressionAttributeValues: values,
+            })
+          );
+
+          console.log(`Hydrated: ${r.name} — phone=${phone}, website=${website}`);
+          return 'hydrated';
+        } catch (err) {
+          console.error(`Error hydrating ${r.name}: ${err.message}`);
+          return 'failed';
+        }
+      })
+    );
+
+    results.forEach((r) => {
+      const val = r.status === 'fulfilled' ? r.value : 'failed';
+      if (val === 'hydrated') hydrated++;
+      else if (val === 'skipped') skipped++;
+      else failed++;
+    });
+
+    // Rate limit delay between batches
+    if (i + BATCH_SIZE < toProcess.length) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+
+  const summary = {
+    action: 'hydrate',
+    dryRun,
+    total: restaurants.length,
+    needsHydration: needsHydration.length,
+    processed: toProcess.length,
+    hydrated,
+    skipped,
+    failed,
+    estimatedCost: `$${(toProcess.length * 0.017).toFixed(2)}`,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.log('Hydration complete:', JSON.stringify(summary, null, 2));
+  return summary;
+}
+
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 //
 // Event-driven routing:
 //   - No event / scheduled event → daily validation (existing behavior)
 //   - { action: "seed" }         → seed restaurants from Google Places
 //   - { action: "seed", cities: ["Washington, DC"], dryRun: true } → targeted dry run
+//   - { action: "hydrate" }      → backfill phone/website from Google Places
+//   - { action: "hydrate", dryRun: true } → preview what would be hydrated
 //
-// To trigger a seed manually from CLI:
+// To trigger hydration from CLI:
 //   aws lambda invoke --function-name spot-sync-dev \
-//     --payload '{"action":"seed"}' /dev/stdout
+//     --payload '{"action":"hydrate"}' /dev/stdout
 //
-// To do a dry run for one city:
+// Dry run first:
 //   aws lambda invoke --function-name spot-sync-dev \
-//     --payload '{"action":"seed","cities":["Washington, DC"],"dryRun":true}' /dev/stdout
+//     --payload '{"action":"hydrate","dryRun":true}' /dev/stdout
 
 export const handler = async (event = {}) => {
   const action = event.action || 'validate';
@@ -194,6 +358,15 @@ export const handler = async (event = {}) => {
       cities: event.cities || undefined,      // array of city names, or all
       cuisines: event.cuisines || undefined,   // array of cuisine names, or all
       dryRun: event.dryRun || false,
+    });
+  }
+
+  if (action === 'hydrate') {
+    console.log('Contact hydration triggered');
+    return await hydrateContacts({
+      dryRun: event.dryRun || false,
+      maxRequests: event.maxRequests || 200,
+      cities: event.cities || null,
     });
   }
 

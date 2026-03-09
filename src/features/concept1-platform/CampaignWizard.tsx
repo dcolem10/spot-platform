@@ -86,6 +86,8 @@ export interface RestaurantContext {
   restaurantCuisine?: string;
   restaurantNeighborhood?: string;
   restaurantPrice?: number;
+  restaurantPhone?: string;
+  restaurantWebsite?: string;
 }
 
 interface WizardForm {
@@ -230,6 +232,8 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
       restaurantCuisine: r.cuisine.join(','),
       restaurantNeighborhood: r.neighborhood,
       restaurantPrice: r.priceLevel,
+      restaurantPhone: r.phone ?? undefined,
+      restaurantWebsite: r.website ?? undefined,
     });
     setError(null);
     setStep(2);
@@ -426,6 +430,24 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                   )}
                 </div>
               )}
+              {/* Contact details */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-3)', marginTop: '6px' }}>
+                {selectedRestaurant.restaurantPhone && (
+                  <a href={`tel:${selectedRestaurant.restaurantPhone}`} style={{ fontSize: '11px', color: 'var(--color-accent)', textDecoration: 'none', fontWeight: 500 }}>
+                    {selectedRestaurant.restaurantPhone}
+                  </a>
+                )}
+                {selectedRestaurant.restaurantWebsite && (
+                  <a href={selectedRestaurant.restaurantWebsite} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: 'var(--color-accent)', textDecoration: 'none', fontWeight: 500 }}>
+                    Website
+                  </a>
+                )}
+                {!selectedRestaurant.restaurantPhone && !selectedRestaurant.restaurantWebsite && (
+                  <span style={{ fontSize: '11px', color: 'var(--color-warning, #f59e0b)', fontWeight: 500 }}>
+                    No contact info — you may need to reach out via social media or in person
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -497,6 +519,23 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                     <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)' }}>{r.name}</div>
                     <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
                       {r.neighborhood} &middot; {r.cuisine.slice(0, 2).join(', ')} &middot; {PRICE_LABELS[r.priceLevel]}
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '3px' }}>
+                      {r.phone && (
+                        <span style={{ fontSize: '10px', color: 'var(--color-success)', fontWeight: 500 }}>
+                          Phone
+                        </span>
+                      )}
+                      {r.website && (
+                        <span style={{ fontSize: '10px', color: 'var(--color-success)', fontWeight: 500 }}>
+                          Website
+                        </span>
+                      )}
+                      {!r.phone && !r.website && (
+                        <span style={{ fontSize: '10px', color: 'var(--color-warning, #f59e0b)', fontWeight: 500 }}>
+                          No contact info yet
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>
@@ -808,6 +847,32 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
               )}
               {form.notes && <ReviewRow label="Notes" value={form.notes} isLast />}
             </div>
+
+            {/* Restaurant contact info */}
+            {selectedRestaurant && (
+              <div style={{
+                backgroundColor: 'var(--color-bgElevated)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-5)',
+                marginBottom: 'var(--space-4)',
+              }}>
+                <h3 style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-4)' }}>
+                  Restaurant Contact
+                </h3>
+                {selectedRestaurant.restaurantPhone && (
+                  <ReviewRow label="Phone" value={selectedRestaurant.restaurantPhone} />
+                )}
+                {selectedRestaurant.restaurantWebsite && (
+                  <ReviewRow label="Website" value={selectedRestaurant.restaurantWebsite} isLast={!selectedRestaurant.restaurantPhone} />
+                )}
+                {!selectedRestaurant.restaurantPhone && !selectedRestaurant.restaurantWebsite && (
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-warning, #f59e0b)', lineHeight: 1.5, margin: 0 }}>
+                    No contact info on file for this restaurant. You may need to reach out via their social media or visit in person to coordinate the deal.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Ready message */}
             <div style={{

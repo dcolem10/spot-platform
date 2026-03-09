@@ -48,6 +48,8 @@ export default function CampaignManager() {
         restaurantCuisine: searchParams.get('restaurantCuisine') || undefined,
         restaurantNeighborhood: searchParams.get('restaurantNeighborhood') || undefined,
         restaurantPrice: searchParams.get('restaurantPrice') ? Number(searchParams.get('restaurantPrice')) : undefined,
+        restaurantPhone: searchParams.get('restaurantPhone') || undefined,
+        restaurantWebsite: searchParams.get('restaurantWebsite') || undefined,
       });
       setShowWizard(true);
     }
