@@ -1,0 +1,23 @@
+{
+  "skill_name": "cost-financial",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "how much am I spending on AWS this month? break it down by service",
+      "expected_output": "Uses AWS CLI ce get-cost-and-usage to pull current month spend, groups by SERVICE, references the $50/month budget, and identifies top cost drivers",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I want to add a new Lambda function that calls the Anthropic API to generate personalized restaurant descriptions for every restaurant in the database. What will this cost?",
+      "expected_output": "Calculates per-call Anthropic token cost, estimates volume based on restaurant count, forecasts monthly cost, compares to $50 budget, flags HIGH risk, recommends Haiku over Sonnet and suggests caching",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "what are some ways I can reduce my AWS costs without losing functionality?",
+      "expected_output": "References API Gateway v1→v2 migration (71% savings), Lambda right-sizing, DynamoDB caching, CloudWatch log retention, Anthropic model selection (Haiku vs Sonnet), Google Places field masking",
+      "files": []
+    }
+  ]
+}
