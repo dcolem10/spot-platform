@@ -1,8 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
+import CampaignWizard, { type RestaurantContext } from './CampaignWizard';
 import type { Campaign, CampaignStatus, Deliverable } from '../../types';
 import './CampaignManager.css';
 
@@ -12,8 +14,6 @@ const STAGES: { key: CampaignStatus; label: string; badgeClass: string }[] = [
   { key: 'active', label: 'Active', badgeClass: 'badge--success' },
   { key: 'completed', label: 'Completed', badgeClass: 'badge--accent' },
 ];
-
-const PACKAGE_OPTIONS = ['Spotlight', 'Feature', 'Series', 'Takeover', 'Custom'];
 
 function formatBudget(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
@@ -30,28 +30,28 @@ function deliverableProgress(deliverables: Deliverable[]): { done: number; total
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
-interface NewCampaignForm {
-  restaurantName: string;
-  package: string;
-  budget: string;
-  startDate: string;
-  endDate: string;
-  notes: string;
-}
-
-const emptyForm: NewCampaignForm = {
-  restaurantName: '',
-  package: PACKAGE_OPTIONS[0],
-  budget: '',
-  startDate: '',
-  endDate: '',
-  notes: '',
-};
-
 export default function CampaignManager() {
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<NewCampaignForm>(emptyForm);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showWizard, setShowWizard] = useState(false);
+  const [restaurantContext, setRestaurantContext] = useState<RestaurantContext | null>(null);
+
+  // Auto-open wizard if restaurant context is in URL (came from RestaurantDetail)
+  useEffect(() => {
+    const restaurantId = searchParams.get('restaurantId');
+    const restaurantName = searchParams.get('restaurantName');
+    if (restaurantId && restaurantName) {
+      setRestaurantContext({
+        restaurantId,
+        restaurantName,
+        restaurantPhoto: searchParams.get('restaurantPhoto') || undefined,
+        restaurantCuisine: searchParams.get('restaurantCuisine') || undefined,
+        restaurantNeighborhood: searchParams.get('restaurantNeighborhood') || undefined,
+        restaurantPrice: searchParams.get('restaurantPrice') ? Number(searchParams.get('restaurantPrice')) : undefined,
+      });
+      setShowWizard(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['campaigns'],
@@ -71,10 +71,21 @@ export default function CampaignManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      setShowForm(false);
-      setForm(emptyForm);
+      handleCloseWizard();
     },
   });
+
+  const handleOpenWizard = useCallback(() => {
+    setRestaurantContext(null);
+    setShowWizard(true);
+  }, []);
+
+  const handleCloseWizard = useCallback(() => {
+    setShowWizard(false);
+    setRestaurantContext(null);
+    // Clear URL params if present
+    setSearchParams({});
+  }, [setSearchParams]);
 
   const moveMutation = useMutation({
     mutationFn: async ({ campaignId, status }: { campaignId: string; status: CampaignStatus }) => {
@@ -102,24 +113,6 @@ export default function CampaignManager() {
     });
     return map;
   }, [campaigns]);
-
-  const handleFormChange = useCallback((field: keyof NewCampaignForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    if (!form.restaurantName.trim() || !form.budget.trim()) return;
-    createMutation.mutate({
-      restaurantName: form.restaurantName.trim(),
-      package: form.package,
-      budget: Number(form.budget),
-      startDate: form.startDate || undefined,
-      endDate: form.endDate || undefined,
-      notes: form.notes || undefined,
-      status: 'inquiry',
-      deliverables: [],
-    });
-  }, [form, createMutation]);
 
   const getNextStatus = (current: CampaignStatus): CampaignStatus | null => {
     const order: CampaignStatus[] = ['inquiry', 'negotiation', 'active', 'completed'];
@@ -177,101 +170,19 @@ export default function CampaignManager() {
             {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''} in your pipeline
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Cancel' : '+ New Campaign'}
+        <button className="btn btn-primary" onClick={handleOpenWizard}>
+          + New Campaign
         </button>
       </div>
 
-      {/* New Campaign Form */}
-      {showForm && (
-        <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
-          <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, marginBottom: 'var(--space-4)' }}>
-            New Campaign
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-            <FormField label="Restaurant Name" required>
-              <input
-                type="text"
-                value={form.restaurantName}
-                onChange={(e) => handleFormChange('restaurantName', e.target.value)}
-                placeholder="e.g. Pasta Palace"
-                className="form-input"
-              />
-            </FormField>
-
-            <FormField label="Package">
-              <select
-                value={form.package}
-                onChange={(e) => handleFormChange('package', e.target.value)}
-                className="form-input"
-              >
-                {PACKAGE_OPTIONS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="Budget ($)" required>
-              <input
-                type="number"
-                value={form.budget}
-                onChange={(e) => handleFormChange('budget', e.target.value)}
-                placeholder="2500"
-                min="0"
-                className="form-input"
-              />
-            </FormField>
-
-            <FormField label="Start Date">
-              <input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => handleFormChange('startDate', e.target.value)}
-                className="form-input"
-              />
-            </FormField>
-
-            <FormField label="End Date">
-              <input
-                type="date"
-                value={form.endDate}
-                onChange={(e) => handleFormChange('endDate', e.target.value)}
-                className="form-input"
-              />
-            </FormField>
-
-            <FormField label="Notes">
-              <input
-                type="text"
-                value={form.notes}
-                onChange={(e) => handleFormChange('notes', e.target.value)}
-                placeholder="Optional notes..."
-                className="form-input"
-              />
-            </FormField>
-          </div>
-
-          <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
-            <button className="btn btn-secondary" onClick={() => { setShowForm(false); setForm(emptyForm); }}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || !form.restaurantName.trim() || !form.budget.trim()}
-              style={{ opacity: createMutation.isPending ? 0.7 : 1 }}
-            >
-              {createMutation.isPending ? 'Creating...' : 'Create Campaign'}
-            </button>
-          </div>
-
-          {createMutation.isError && (
-            <p style={{ color: 'var(--color-error)', fontSize: 'var(--font-sm)', marginTop: 'var(--space-3)' }}>
-              {createMutation.error instanceof Error ? createMutation.error.message : 'Failed to create campaign.'}
-            </p>
-          )}
-        </div>
-      )}
+      {/* Campaign Creation Wizard */}
+      <CampaignWizard
+        isOpen={showWizard}
+        onClose={handleCloseWizard}
+        onSubmit={(payload) => createMutation.mutate(payload)}
+        isSubmitting={createMutation.isPending}
+        restaurantContext={restaurantContext}
+      />
 
       {/* Kanban board */}
       <div style={{
@@ -300,11 +211,11 @@ export default function CampaignManager() {
         ))}
       </div>
 
-      {campaigns.length === 0 && !showForm && (
+      {campaigns.length === 0 && !showWizard && (
         <div className="empty-state" style={{ marginTop: 'var(--space-8)' }}>
           <h3>No campaigns yet</h3>
           <p>Start your first restaurant partnership by creating a campaign.</p>
-          <button className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }} onClick={() => setShowForm(true)}>
+          <button className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }} onClick={handleOpenWizard}>
             + New Campaign
           </button>
         </div>
@@ -314,17 +225,6 @@ export default function CampaignManager() {
 }
 
 /* ─── Sub-components ───────────────────────────────────────────────────────── */
-
-function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-      <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-        {label}{required && <span style={{ color: 'var(--color-error)' }}> *</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 function KanbanColumn({
   stage,

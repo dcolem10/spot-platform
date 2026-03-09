@@ -211,7 +211,11 @@ export default function RestaurantDetail() {
               <p style={{ color: 'var(--color-textMuted)', marginBottom: 'var(--space-3)' }}>
                 No campaigns yet with {restaurant.name}.
               </p>
-              <Link to="/app/campaigns" className="btn btn-primary" style={{ fontSize: 'var(--font-sm)', textDecoration: 'none' }}>
+              <Link
+                to={`/app/campaigns?restaurantId=${restaurant.restaurantId}&restaurantName=${encodeURIComponent(restaurant.name)}&restaurantPhoto=${encodeURIComponent(restaurant.photos?.[0] ?? '')}&restaurantCuisine=${encodeURIComponent(restaurant.cuisine.join(','))}&restaurantNeighborhood=${encodeURIComponent(restaurant.neighborhood)}&restaurantPrice=${restaurant.priceLevel}`}
+                className="btn btn-primary"
+                style={{ fontSize: 'var(--font-sm)', textDecoration: 'none' }}
+              >
                 Start a Campaign
               </Link>
             </div>

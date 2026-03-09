@@ -64,6 +64,8 @@ export interface Campaign {
   startDate?: string;
   endDate?: string;
   deliverables: Deliverable[];
+  goal?: string;
+  contentDeliverables?: string[];
   notes?: string;
   createdAt: string;
   updatedAt: string;
