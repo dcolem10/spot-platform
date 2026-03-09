@@ -68,6 +68,42 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  # ─── S3 — Restaurant Photos ──────────────────────────────────────────────
+  PhotosBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub spot-photos-${Environment}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']
+            AllowedMethods: [GET]
+            AllowedHeaders: ['*']
+            MaxAge: 86400
+      LifecycleConfiguration:
+        Rules:
+          - Id: CleanupIncomplete
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  PhotosBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PhotosBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadPhotos
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${PhotosBucket.Arn}/restaurants/*'
+
   # ─── API Gateway ──────────────────────────────────────────────────────────
   SpotApi:
     Type: AWS::Serverless::Api
@@ -779,3 +815,9 @@ Outputs:
   TableName:
     Description: DynamoDB table name
     Value: !Ref DataTable
+  PhotosBucketName:
+    Description: S3 bucket for restaurant photos
+    Value: !Ref PhotosBucket
+  PhotosBucketUrl:
+    Description: Public URL prefix for restaurant photos
+    Value: !Sub https://${PhotosBucket}.s3.amazonaws.com
