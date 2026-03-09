@@ -268,11 +268,26 @@ export default function RestaurantDirectory() {
 
   const restaurants = data ?? [];
 
-  // Build city counts: show count for the selected city from actual data
-  const restaurantCounts = useMemo(() => {
-    if (isDemoMode()) return undefined; // CitySelector falls back to demo counts
-    return { [selectedCity]: restaurants.length } as Record<string, number>;
-  }, [selectedCity, restaurants.length]);
+  // Fetch restaurant counts for ALL cities (real mode only)
+  const { data: restaurantCounts } = useQuery({
+    queryKey: ['restaurantCityCounts'],
+    queryFn: async () => {
+      const counts: Record<string, number> = {};
+      const results = await Promise.all(
+        CITY_OPTIONS.map(async (city) => {
+          const res = await api.get<Restaurant[]>(
+            `/api/restaurants?city=${encodeURIComponent(city)}&limit=200`,
+            { public: true }
+          );
+          return { city, count: res.data?.length ?? 0 };
+        })
+      );
+      results.forEach(({ city, count }) => { counts[city] = count; });
+      return counts;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !isDemoMode(),
+  });
 
   // Derive unique cuisines from CURRENT CITY'S data (dynamic, not hardcoded)
   const availableCuisines = useMemo(() => {
