@@ -1,8 +1,15 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY } from '../../data/demoData';
+import { useAuthStore } from '../../store/authStore';
 import type { Restaurant, Campaign } from '../../types';
+
+/* ─── City helpers ─────────────────────────────────────────────────────────── */
+const CITY_STORAGE_KEY = 'spot-selected-city';
+function getSavedCity(): string | null {
+  try { return localStorage.getItem(CITY_STORAGE_KEY); } catch { return null; }
+}
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
 
@@ -124,6 +131,10 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
   const [selectedRestaurant, setSelectedRestaurant] = useState<RestaurantContext | null>(restaurantContext ?? null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Resolve the user's active city: saved selection > profile city > default
+  const demoProfile = useAuthStore((s) => s.demoProfile);
+  const activeCity = useMemo(() => getSavedCity() || demoProfile?.city || 'Washington, DC', [demoProfile?.city]);
+
   // Reset when opened/closed
   useEffect(() => {
     if (isOpen) {
@@ -135,17 +146,20 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
     }
   }, [isOpen, restaurantContext]);
 
-  // Restaurant search query
+  // Restaurant search query — filtered by user's selected city
   const { data: searchResults } = useQuery({
-    queryKey: ['restaurantSearch', searchQuery],
+    queryKey: ['restaurantSearch', searchQuery, activeCity],
     queryFn: async () => {
       if (isDemoMode()) {
-        const all = Object.values(DEMO_RESTAURANTS_BY_CITY).flat();
-        if (!searchQuery.trim()) return all.slice(0, 8);
+        const cityRestaurants = DEMO_RESTAURANTS_BY_CITY[activeCity] ?? [];
+        if (!searchQuery.trim()) return cityRestaurants.slice(0, 8);
         const q = searchQuery.toLowerCase();
-        return all.filter((r) => r.name.toLowerCase().includes(q) || r.cuisine.some((c) => c.toLowerCase().includes(q))).slice(0, 8);
+        return cityRestaurants.filter((r) => r.name.toLowerCase().includes(q) || r.cuisine.some((c) => c.toLowerCase().includes(q))).slice(0, 8);
       }
-      const res = await api.get<Restaurant[]>(`/api/restaurants?search=${encodeURIComponent(searchQuery)}&limit=8`, { public: true });
+      const params = new URLSearchParams({ limit: '8' });
+      if (activeCity) params.set('city', activeCity);
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      const res = await api.get<Restaurant[]>(`/api/restaurants?${params.toString()}`, { public: true });
       return res.data ?? [];
     },
     enabled: isOpen && !hasRestaurant && step === 1,
@@ -173,7 +187,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
       if (s === 2) return 'Choose your content deliverables and set the timeline.';
       return 'Review everything before launching your campaign.';
     }
-    if (s === 1) return 'Search and select a restaurant to create content about.';
+    if (s === 1) return `Showing restaurants in ${activeCity}. Change your city from the directory.`;
     if (s === 2) return 'Pick your campaign type and set up a deal for your audience.';
     if (s === 3) return 'Choose your content deliverables and set the timeline.';
     return 'Review everything before launching your campaign.';
