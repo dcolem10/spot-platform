@@ -7,7 +7,6 @@ Globals:
     Runtime: nodejs20.x
     Timeout: 15
     MemorySize: 512
-    Tracing: Active
     Environment:
       Variables:
         TABLE_NAME: !Ref DataTable
@@ -276,6 +275,10 @@ Resources:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource: !Ref SecretsArn
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt SyncDLQ.Arn
       Events:
         DailySync:
           Type: Schedule
@@ -348,6 +351,10 @@ Resources:
             - Effect: Allow
               Action: lambda:InvokeFunction
               Resource: !GetAtt EmailFunction.Arn
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt LifecycleDLQ.Arn
       Events:
         DailyLifecycle:
           Type: Schedule
@@ -376,6 +383,10 @@ Resources:
                 - ses:SendEmail
                 - ses:SendRawEmail
               Resource: '*'
+        - Statement:
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt EmailDLQ.Arn
 
   # ─── CloudWatch Alarms ───────────────────────────────────────────────────
   ApiErrorAlarm:
@@ -424,13 +435,13 @@ Resources:
   ApiLatencyAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: !Sub spot-api-latency-p99-${Environment}
+      AlarmName: !Sub spot-api-latency-avg-${Environment}
       MetricName: Duration
       Namespace: AWS/Lambda
-      ExtendedStatistic: p99
+      Statistic: Average
       Period: 300
-      EvaluationPeriods: 1
-      Threshold: 5000
+      EvaluationPeriods: 3
+      Threshold: 3000
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
         - Name: FunctionName
@@ -705,10 +716,11 @@ Resources:
               "x": 0, "y": 0, "width": 12, "height": 6,
               "properties": {
                 "metrics": [
-                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ApiFunction}", { "stat": "Sum", "label": "Invocations" } ],
-                  [ "AWS/Lambda", "Errors", "FunctionName", "${ApiFunction}", { "stat": "Sum", "label": "Errors" } ],
-                  [ "AWS/Lambda", "Duration", "FunctionName", "${ApiFunction}", { "stat": "Average", "label": "Avg Duration (ms)" } ]
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ApiFunction}" ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${ApiFunction}" ],
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${ApiFunction}" ]
                 ],
+                "stat": "Sum",
                 "period": 300,
                 "region": "${AWS::Region}",
                 "title": "API Lambda Metrics"
@@ -719,10 +731,11 @@ Resources:
               "x": 12, "y": 0, "width": 12, "height": 6,
               "properties": {
                 "metrics": [
-                  [ "AWS/Lambda", "Invocations", "FunctionName", "${AiFunction}", { "stat": "Sum", "label": "Invocations" } ],
-                  [ "AWS/Lambda", "Errors", "FunctionName", "${AiFunction}", { "stat": "Sum", "label": "Errors" } ],
-                  [ "AWS/Lambda", "Duration", "FunctionName", "${AiFunction}", { "stat": "Average", "label": "Avg Duration (ms)" } ]
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${AiFunction}" ],
+                  [ "AWS/Lambda", "Errors", "FunctionName", "${AiFunction}" ],
+                  [ "AWS/Lambda", "Duration", "FunctionName", "${AiFunction}" ]
                 ],
+                "stat": "Sum",
                 "period": 300,
                 "region": "${AWS::Region}",
                 "title": "AI Lambda Metrics"
@@ -733,9 +746,10 @@ Resources:
               "x": 0, "y": 6, "width": 12, "height": 6,
               "properties": {
                 "metrics": [
-                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}", { "stat": "Sum", "label": "Read Capacity" } ],
-                  [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${DataTable}", { "stat": "Sum", "label": "Write Capacity" } ]
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${DataTable}" ],
+                  [ "AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${DataTable}" ]
                 ],
+                "stat": "Sum",
                 "period": 300,
                 "region": "${AWS::Region}",
                 "title": "DynamoDB Capacity"
@@ -746,9 +760,10 @@ Resources:
               "x": 12, "y": 6, "width": 12, "height": 6,
               "properties": {
                 "metrics": [
-                  [ "AWS/ApiGateway", "4XXError", "ApiName", "spot-api-${Environment}", { "stat": "Sum", "label": "4XX Errors" } ],
-                  [ "AWS/ApiGateway", "5XXError", "ApiName", "spot-api-${Environment}", { "stat": "Sum", "label": "5XX Errors" } ]
+                  [ "AWS/ApiGateway", "4XXError", "ApiName", "spot-api-${Environment}" ],
+                  [ "AWS/ApiGateway", "5XXError", "ApiName", "spot-api-${Environment}" ]
                 ],
+                "stat": "Sum",
                 "period": 300,
                 "region": "${AWS::Region}",
                 "title": "API Gateway Errors"
