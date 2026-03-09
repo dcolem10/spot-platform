@@ -338,10 +338,10 @@ export default function LandingPage() {
     navigate(path);
   }, [setDemoMode, setAuth, navigate]);
 
-  // Count-up stats for social proof
-  const creators = useCountUp(500, 1600);
-  const restaurants = useCountUp(2400, 1800);
-  const revenue = useCountUp(1.2, 2000);
+  // Platform capability highlights (not user counts — we're pre-launch)
+  const cities = useCountUp(6, 1200);
+  const restaurants = useCountUp(850, 1600);
+  const features = useCountUp(19, 1000);
 
   return (
     <div ref={rootRef} style={{ minHeight: '100vh', background: 'var(--color-bgPrimary)' }}>
@@ -423,18 +423,19 @@ export default function LandingPage() {
       </section>
 
       {/* ── Social Proof Stats ───────────────────────────────────────────── */}
+      {/* ── Platform Capabilities (truthful — not fake user counts) ──── */}
       <section className="landing-stats reveal">
         <div className="landing-stat">
-          <div className="landing-stat-value"><span ref={creators.ref}>{creators.value}</span>+</div>
-          <div className="landing-stat-label">Creators</div>
+          <div className="landing-stat-value"><span ref={cities.ref}>{cities.value}</span></div>
+          <div className="landing-stat-label">Cities Supported</div>
         </div>
         <div className="landing-stat">
           <div className="landing-stat-value"><span ref={restaurants.ref}>{restaurants.value.toLocaleString()}</span>+</div>
-          <div className="landing-stat-label">Restaurant Partners</div>
+          <div className="landing-stat-label">Restaurants in Directory</div>
         </div>
         <div className="landing-stat">
-          <div className="landing-stat-value">$<span ref={revenue.ref}>{revenue.value}</span>M+</div>
-          <div className="landing-stat-label">Creator Revenue</div>
+          <div className="landing-stat-value"><span ref={features.ref}>{features.value}</span></div>
+          <div className="landing-stat-label">Built-In Tools</div>
         </div>
       </section>
 
@@ -566,7 +567,7 @@ export default function LandingPage() {
       <section id="pricing" className="landing-section">
         <div className="landing-section-header reveal">
           <h2>Simple, transparent pricing</h2>
-          <p>Start free with the demo. Upgrade when you&rsquo;re ready.</p>
+          <p>Try the full demo free. Subscribe when you&rsquo;re ready.</p>
         </div>
 
         <div className="pricing-grid reveal-stagger">

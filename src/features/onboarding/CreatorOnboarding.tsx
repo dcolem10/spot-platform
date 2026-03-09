@@ -27,7 +27,7 @@ const FOLLOWER_RANGES = [
 interface FormData {
   displayName: string;
   bio: string;
-  creatorType: 'food' | 'lifestyle' | 'travel' | 'other';
+  creatorType: 'food' | 'reviews' | 'recipes' | 'culinary-travel';
   city: string;
   neighborhoods: string[];
   cuisinePreferences: string[];
@@ -47,10 +47,10 @@ const CHECKLIST_ITEMS = [
 ];
 
 const CREATOR_TYPES = [
-  { value: 'food' as const, label: 'Food', icon: '🍽️', desc: 'Restaurant reviews & recipes' },
-  { value: 'lifestyle' as const, label: 'Lifestyle', icon: '✨', desc: 'Dining culture & trends' },
-  { value: 'travel' as const, label: 'Travel', icon: '🗺️', desc: 'Culinary travel & exploration' },
-  { value: 'other' as const, label: 'Other', icon: '🎯', desc: 'Multi-niche creator' },
+  { value: 'food' as const, label: 'Food Creator', icon: '🍽️', desc: 'Restaurant features & dining content' },
+  { value: 'reviews' as const, label: 'Food Reviewer', icon: '⭐', desc: 'Honest reviews & taste tests' },
+  { value: 'recipes' as const, label: 'Recipe Creator', icon: '👨‍🍳', desc: 'Recipes & cooking content' },
+  { value: 'culinary-travel' as const, label: 'Culinary Travel', icon: '🗺️', desc: 'Food-focused travel & guides' },
 ];
 
 /* ─── SVG Icons ─────────────────────────────────────────────────────────────── */
@@ -137,7 +137,7 @@ export default function CreatorOnboarding() {
     setFormData(prev => ({ ...prev, bio: text }));
   };
 
-  const handleCreatorTypeChange = (type: 'food' | 'lifestyle' | 'travel' | 'other') => {
+  const handleCreatorTypeChange = (type: 'food' | 'reviews' | 'recipes' | 'culinary-travel') => {
     setFormData(prev => ({ ...prev, creatorType: type }));
   };
 

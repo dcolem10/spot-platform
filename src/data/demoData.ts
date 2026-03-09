@@ -45,12 +45,12 @@ export const DEMO_CREATOR_PROFILE: CreatorProfile = {
   creatorId: 'creator-demo',
   brandName: 'Demo Creator',
   platforms: {
-    instagram: { handle: '@democreator', followers: 393000 },
-    tiktok: { handle: '@democreator', followers: 187000 },
+    instagram: { handle: '@yourhandle', followers: 0 },
+    tiktok: { handle: '@yourhandle', followers: 0 },
   },
   city: 'Washington, DC',
   niche: 'Food & Restaurants',
-  monthlyRate: { min: 2500, max: 5000 },
+  monthlyRate: { min: 0, max: 0 },
 };
 
 /* ─── Restaurants ──────────────────────────────────────────────────────────── */
@@ -268,10 +268,10 @@ export const DEMO_CAMPAIGN_REPORTS: CampaignReport[] = [
 
 export const DEMO_OFFERS: Offer[] = [
   { offerId: 'o1', restaurantId: 'r1', code: 'SPOT-RASIKA', type: 'qr', description: '15% off when you show this QR to your server', landingPageUrl: '#', scans: 342, redemptions: 48, isActive: true, createdAt: demoISO(-30), expiresAt: demoDate(30) },
-  { offerId: 'o2', restaurantId: 'r6', code: 'SPOT20ROSES', type: 'promo', description: '$20 off your first visit — mention Demo Creator', landingPageUrl: '#', scans: 0, redemptions: 186, isActive: true, createdAt: demoISO(-60) },
+  { offerId: 'o2', restaurantId: 'r6', code: 'SPOT20ROSES', type: 'promo', description: '$20 off your first visit — use code at checkout', landingPageUrl: '#', scans: 0, redemptions: 186, isActive: true, createdAt: demoISO(-60) },
   { offerId: 'o3', restaurantId: 'r3', code: 'spot-dabney-spring', type: 'link', description: 'Track visits from The Dabney spring campaign', landingPageUrl: '#', scans: 215, redemptions: 32, isActive: true, createdAt: demoISO(-14), expiresAt: demoDate(45) },
   { offerId: 'o4', restaurantId: 'r2', code: 'SPOT-BS', type: 'qr', description: 'Complimentary dessert with entree purchase', landingPageUrl: '#', scans: 520, redemptions: 123, isActive: false, createdAt: demoISO(-45), expiresAt: demoDate(-5) },
-  { offerId: 'o5', restaurantId: 'r12', code: 'BRUNCH-DIPLO', type: 'promo', description: 'Free mimosa with brunch — mention Demo Creator', landingPageUrl: '#', scans: 0, redemptions: 67, isActive: true, createdAt: demoISO(-5), expiresAt: demoDate(20) },
+  { offerId: 'o5', restaurantId: 'r12', code: 'BRUNCH-DIPLO', type: 'promo', description: 'Free mimosa with brunch — use code at checkout', landingPageUrl: '#', scans: 0, redemptions: 67, isActive: true, createdAt: demoISO(-5), expiresAt: demoDate(20) },
 ];
 
 /* ─── Deals (Insider) ──────────────────────────────────────────────────────── */

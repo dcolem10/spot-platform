@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
             <P>When you create an account or use our Service, you may provide:</P>
             <BulletList items={[
               'Account information: name, email address, and password (managed through AWS Cognito)',
-              'Creator profile: display name, bio, creator type (food, lifestyle, travel), city, preferred neighborhoods, and cuisine preferences',
+              'Creator profile: display name, bio, creator type, city, preferred neighborhoods, and cuisine preferences',
               'Social media handles: Instagram, TikTok, YouTube, and personal website URLs',
               'Follower count range (self-reported)',
               'Restaurant partner information: restaurant name, address, phone number, cuisine types, and neighborhood',
