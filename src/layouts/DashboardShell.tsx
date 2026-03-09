@@ -21,12 +21,12 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
     ],
   },
   {
-    group: 'Partnerships',
+    group: 'Campaigns',
     items: [
-      { to: '/app/crm', label: 'CRM', icon: '\uD83D\uDC65' },
+      { to: '/app/crm', label: 'Restaurants', icon: '\uD83D\uDC65' },
       { to: '/app/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
-      { to: '/app/offers', label: 'Offers & QR', icon: '\uD83C\uDF9F' },
-      { to: '/app/reports', label: 'Reports', icon: '\uD83D\uDCCA' },
+      { to: '/app/offers', label: 'Deals & QR', icon: '\uD83C\uDF9F' },
+      { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
       { to: '/app/insights', label: 'AI Insights', icon: '\u2728' },
     ],
   },

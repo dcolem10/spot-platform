@@ -41,9 +41,9 @@ interface FormData {
 }
 
 const CHECKLIST_ITEMS = [
-  { id: 'campaign', label: 'Create your first campaign', description: 'Set up a campaign to track how your content drives restaurant visits.', link: '/app/campaigns', icon: 'campaign' },
-  { id: 'partner', label: 'Browse restaurant partners', description: 'Discover restaurants in your area and pitch a partnership.', link: '/app/restaurants', icon: 'restaurant' },
-  { id: 'offer', label: 'Explore your offers', description: 'Create offer codes your audience can redeem in real time.', link: '/app/offers', icon: 'offer' },
+  { id: 'campaign', label: 'Create your first campaign', description: 'Pick a restaurant, set up a deal for your audience, and start tracking attribution.', link: '/app/campaigns', icon: 'campaign' },
+  { id: 'partner', label: 'Browse restaurants', description: 'Discover restaurants in your area worth creating content about.', link: '/app/restaurants', icon: 'restaurant' },
+  { id: 'offer', label: 'Set up a deal', description: 'Create a deal code your audience can redeem — every redemption counts toward your portfolio.', link: '/app/offers', icon: 'offer' },
 ];
 
 const CREATOR_TYPES = [
@@ -252,7 +252,7 @@ export default function CreatorOnboarding() {
   ];
 
   const STEP_SUBTITLES = [
-    "We help food creators prove ROI to restaurant partners through closed-loop attribution. Let's set up your profile in under 2 minutes.",
+    "Spot tracks every customer who discovers restaurants through your content. You create, people visit, everybody wins. Let's set up your profile in under 2 minutes.",
     "Let's start with the basics to build your creator profile.",
     "Tell us about your favorite neighborhoods to feature.",
     "What cuisines do you love to create content about?",
@@ -891,8 +891,8 @@ export default function CreatorOnboarding() {
                     <ChartIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Campaign tracking</div>
-                    <div className="onboarding-feature-desc">See exactly how your content drives restaurant visits through QR scans and offer redemptions.</div>
+                    <div className="onboarding-feature-title">Attribution tracking</div>
+                    <div className="onboarding-feature-desc">See exactly how many people visit restaurants because of your content — through QR scans and deal redemptions.</div>
                   </div>
                 </div>
                 <div className="onboarding-feature">
@@ -900,8 +900,8 @@ export default function CreatorOnboarding() {
                     <SparklesIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">AI content ideas</div>
-                    <div className="onboarding-feature-desc">Get personalized post angles and campaign suggestions based on your performance data.</div>
+                    <div className="onboarding-feature-title">Deals that drive traffic</div>
+                    <div className="onboarding-feature-desc">Set up real deals your audience will love. Every redemption builds your attribution portfolio.</div>
                   </div>
                 </div>
                 <div className="onboarding-feature">
@@ -909,8 +909,8 @@ export default function CreatorOnboarding() {
                     <FileTextIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">ROI reports</div>
-                    <div className="onboarding-feature-desc">Show restaurants the dollar value of your partnerships with one-click attribution reports.</div>
+                    <div className="onboarding-feature-title">Proof of impact</div>
+                    <div className="onboarding-feature-desc">One-click reports showing how many new customers you sent to each restaurant. Real data, not vanity metrics.</div>
                   </div>
                 </div>
               </div>

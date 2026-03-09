@@ -144,7 +144,7 @@ export default function PartnerPortal() {
       <div className="page-header">
         <h1 className="page-title">Partner Dashboard</h1>
         <p className="page-subtitle">
-          Welcome back{name ? `, ${name}` : ''}. Here is your partnership overview.
+          Welcome back{name ? `, ${name}` : ''}. Here&rsquo;s how creators are driving customers to you.
         </p>
       </div>
 

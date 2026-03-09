@@ -579,8 +579,8 @@ export default function PartnershipCRM() {
     <div className="page-container">
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Partnership CRM</h1>
-        <p className="page-subtitle">Manage all your restaurant partnerships in one place</p>
+        <h1 className="page-title">Restaurant CRM</h1>
+        <p className="page-subtitle">Manage all your restaurant campaigns in one place</p>
       </div>
 
       {/* Error */}
@@ -642,7 +642,7 @@ export default function PartnershipCRM() {
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <h3>No partnerships found</h3>
+            <h3>No restaurants found</h3>
             <p>
               {statusFilter !== 'all'
                 ? `No campaigns with status "${statusFilter}"`

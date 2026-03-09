@@ -668,7 +668,7 @@ export default function AIInsights() {
               marginBottom: 'var(--space-5)',
             }}
           >
-            Tailored content ideas based on your active partnerships and audience trends.
+            Tailored content ideas based on your active campaigns and audience trends.
           </p>
           {isDemoMode() ? (
             <div

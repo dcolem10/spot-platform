@@ -214,7 +214,7 @@ export default function CampaignManager() {
       {campaigns.length === 0 && !showWizard && (
         <div className="empty-state" style={{ marginTop: 'var(--space-8)' }}>
           <h3>No campaigns yet</h3>
-          <p>Start your first restaurant partnership by creating a campaign.</p>
+          <p>Pick a restaurant, set up a deal, and start tracking the customers your content drives.</p>
           <button className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }} onClick={handleOpenWizard}>
             + New Campaign
           </button>

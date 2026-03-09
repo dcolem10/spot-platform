@@ -41,11 +41,6 @@ const PIPELINE_STAGES: { key: CampaignStatus; label: string; color: string }[] =
   { key: 'completed', label: 'Completed', color: 'var(--color-accent)' },
 ];
 
-function formatCurrency(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`;
-  return `$${n.toLocaleString()}`;
-}
-
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -263,10 +258,10 @@ export default function CreatorDashboard() {
   // Trends are 0 when values are 0 (no data = no growth to show).
   // TODO: Replace with actual historical comparison once API supports /pipeline?period=previous
   const heroMetrics: HeroMetric[] = [
-    { label: 'Total Partners', value: String(totalPartners), trend: totalPartners === 0 ? 0 : 12.5 },
+    { label: 'Restaurants', value: String(totalPartners), trend: totalPartners === 0 ? 0 : 12.5 },
     { label: 'Active Campaigns', value: String(activeCampaigns), trend: activeCampaigns === 0 ? 0 : 8.3 },
-    { label: 'Monthly Revenue', value: formatCurrency(monthlyRevenue), trend: monthlyRevenue === 0 ? 0 : 15.2 },
-    { label: 'Avg Deal Size', value: formatCurrency(avgDealSize), trend: avgDealSize === 0 ? 0 : -3.1 },
+    { label: 'Customers Driven', value: monthlyRevenue === 0 ? '0' : String(Math.round(monthlyRevenue / 25)), trend: monthlyRevenue === 0 ? 0 : 15.2 },
+    { label: 'Deal Redemptions', value: avgDealSize === 0 ? '0' : String(Math.round(avgDealSize / 10)), trend: avgDealSize === 0 ? 0 : -3.1 },
   ];
 
   // Pipeline total for bar widths
@@ -278,13 +273,13 @@ export default function CreatorDashboard() {
     {
       label: 'New Campaign',
       icon: '+',
-      description: 'Start a new partnership',
+      description: 'Create content for a restaurant',
       onClick: () => navigate('/app/campaigns'),
     },
     {
       label: 'Generate Report',
       icon: '\u{1F4CA}',
-      description: 'Create performance report',
+      description: 'See your attribution impact',
       onClick: () => navigate('/app/reports'),
     },
     {
@@ -329,7 +324,7 @@ export default function CreatorDashboard() {
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Creator Dashboard</h1>
-        <p className="page-subtitle">Your partnership overview at a glance</p>
+        <p className="page-subtitle">Your attribution overview at a glance</p>
       </div>
 
       {/* Error */}
@@ -358,7 +353,7 @@ export default function CreatorDashboard() {
       </div>
 
       {/* Pipeline Summary */}
-      <CollapsibleSection title="Partnership Pipeline">
+      <CollapsibleSection title="Campaign Pipeline">
         <div className="section-card">
           <div style={styles.pipelineBar}>
             {pipelineTotal > 0 &&
@@ -398,7 +393,7 @@ export default function CreatorDashboard() {
                   color: 'var(--color-textMuted)',
                 }}
               >
-                No partnerships yet
+                No campaigns yet
               </div>
             )}
           </div>

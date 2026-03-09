@@ -557,9 +557,9 @@ export default function PartnerOnboarding() {
         </h1>
 
         <p style={subtitleStyle}>
-          {step === 1 && "Let's set up your restaurant profile on Spot Platform."}
-          {step === 2 && 'Create an enticing offer to attract diners and drive engagement.'}
-          {step === 3 && 'Review your restaurant and offer before launching your partnership.'}
+          {step === 1 && "Let's get your restaurant on Spot so creators can discover you and bring new customers."}
+          {step === 2 && 'Set up a deal that creators can share with their audience. Every redemption means a new customer for you.'}
+          {step === 3 && 'Review your restaurant and offer details before going live.'}
         </p>
 
         {error && <div style={errorStyle}>{error}</div>}
@@ -698,7 +698,7 @@ export default function PartnerOnboarding() {
                 <label style={labelStyle}>Offer Code Preview</label>
                 <div style={qrCodeBoxStyle}>
                   <div style={qrCodeTextStyle}>{generatedQRCode}</div>
-                  <div style={qrCodeLabelStyle}>Creators will share this code to drive traffic</div>
+                  <div style={qrCodeLabelStyle}>Customers use this code when visiting from a creator&rsquo;s recommendation</div>
                 </div>
               </div>
             </>
@@ -761,7 +761,7 @@ export default function PartnerOnboarding() {
 
               <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '14px', color: '#166534', lineHeight: '1.5' }}>
-                  ✓ Your partnership is ready to go live! Creators will be able to find your restaurant and share your offer.
+                  ✓ You&rsquo;re all set! Creators can now discover your restaurant and share your deal with their audience &mdash; new customers, no upfront cost.
                 </div>
               </div>
             </>
@@ -794,7 +794,7 @@ export default function PartnerOnboarding() {
               disabled={isSubmitting}
               type="button"
             >
-              {isSubmitting ? 'Launching...' : 'Launch Partnership'}
+              {isSubmitting ? 'Going Live...' : 'Go Live'}
             </button>
           )}
         </div>

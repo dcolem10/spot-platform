@@ -194,7 +194,7 @@ export default function RestaurantDetail() {
             )}
             {!restaurant.isPartner && (
               <Link to="/app/crm" className="btn btn-secondary" style={{ fontSize: 'var(--font-sm)', textDecoration: 'none' }}>
-                Pitch Partnership
+                Reach Out
               </Link>
             )}
           </div>

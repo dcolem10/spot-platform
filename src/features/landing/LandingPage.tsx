@@ -123,36 +123,36 @@ function MiniPipeline() {
   return (
     <div className="mini-pipeline">
       <div className="mini-pipeline-col">
-        <div className="mini-pipeline-label">Lead</div>
+        <div className="mini-pipeline-label">Planned</div>
         <div className="mini-pipeline-item mini-pipeline-item--blue">
           <span className="mini-pipeline-name">Rasika</span>
-          <span className="mini-pipeline-value">$1,200</span>
+          <span className="mini-pipeline-value">Visit & Create</span>
         </div>
         <div className="mini-pipeline-item mini-pipeline-item--blue">
           <span className="mini-pipeline-name">Tail Up Goat</span>
-          <span className="mini-pipeline-value">$800</span>
+          <span className="mini-pipeline-value">Menu Feature</span>
         </div>
       </div>
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Active</div>
         <div className="mini-pipeline-item mini-pipeline-item--green">
           <span className="mini-pipeline-name">Bad Saint</span>
-          <span className="mini-pipeline-value">$2,500</span>
+          <span className="mini-pipeline-value">47 visits</span>
         </div>
         <div className="mini-pipeline-item mini-pipeline-item--green">
           <span className="mini-pipeline-name">Rose&rsquo;s Luxury</span>
-          <span className="mini-pipeline-value">$1,800</span>
+          <span className="mini-pipeline-value">89 visits</span>
         </div>
         <div className="mini-pipeline-item mini-pipeline-item--green">
           <span className="mini-pipeline-name">Maydan</span>
-          <span className="mini-pipeline-value">$3,000</span>
+          <span className="mini-pipeline-value">132 visits</span>
         </div>
       </div>
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Complete</div>
         <div className="mini-pipeline-item mini-pipeline-item--orange">
           <span className="mini-pipeline-name">Le Dip</span>
-          <span className="mini-pipeline-value">$1,500</span>
+          <span className="mini-pipeline-value">63 visits</span>
         </div>
       </div>
     </div>
@@ -292,20 +292,20 @@ const pricingTiers = [
   {
     name: 'Starter',
     price: '$49',
-    description: 'For creators just starting to monetize',
-    features: ['Up to 5 active campaigns', 'Content archive', 'Basic ROI reports', 'Restaurant directory'],
+    description: 'For creators building their first attribution portfolio',
+    features: ['Up to 5 active campaigns', 'Content archive', 'Basic attribution reports', 'Restaurant directory'],
   },
   {
     name: 'Pro',
     price: '$99',
-    description: 'For creators with consistent partnerships',
-    features: ['Unlimited campaigns', 'Editorial calendar', 'Advanced ROI + benchmarks', 'QR & offer attribution', 'Audience discovery app'],
+    description: 'For creators with proven impact',
+    features: ['Unlimited campaigns', 'Editorial calendar', 'Advanced attribution + benchmarks', 'QR & deal tracking', 'Audience discovery app'],
     highlighted: true,
   },
   {
     name: 'Scale',
     price: '$149',
-    description: 'For creators building a team',
+    description: 'For creator teams tracking real results',
     features: ['Everything in Pro', 'Team member access', 'White-label reports', 'API access', 'Priority support'],
   },
 ];
@@ -378,15 +378,15 @@ export default function LandingPage() {
         <div className="landing-hero-content">
           <div className="landing-hero-badge">
             <span className="landing-hero-badge-dot" />
-            Built for food creators
+            Attribution-first creator platform
           </div>
           <h1>
-            Stop running your business on{' '}
-            <span className="text-gradient">spreadsheets and DMs</span>
+            Your content drives customers.{' '}
+            <span className="text-gradient">Now you can prove it.</span>
           </h1>
           <p className="landing-hero-desc">
-            Spot replaces your scattered tools with one platform: track partnerships, schedule content,
-            prove ROI to restaurants, and give your audience a discovery app they&rsquo;ll actually use.
+            Spot tracks every restaurant visit your content inspires &mdash; through QR codes, deals,
+            and smart links. Creators get credit, restaurants get customers, and everybody profits from new traffic.
           </p>
           <div className="landing-hero-actions">
             <div className="cta-pulse-wrap">
@@ -412,7 +412,7 @@ export default function LandingPage() {
             <div className="hero-device-glow" aria-hidden="true" />
             <img
               src="/hero-dashboard.png"
-              alt="Spot Platform dashboard showing Partnership Pipeline with analytics charts"
+              alt="Spot Platform dashboard showing campaign pipeline with attribution analytics"
               className="hero-device-img"
               loading="eager"
               width={600}
@@ -442,31 +442,30 @@ export default function LandingPage() {
       {/* ── Creator Features Bento ──────────────────────────────────────── */}
       <section className="landing-section">
         <div className="landing-section-header reveal">
-          <h2>Everything you need to run your creator business</h2>
+          <h2>Track the real impact of your content</h2>
           <p>
-            No more juggling spreadsheets, DMs, and screenshots.
-            One platform for partnerships, content, and your audience.
+            No more guessing whether your posts actually drive customers.
+            One platform for attribution, content, and your audience.
           </p>
         </div>
 
         <div className="landing-bento reveal-stagger">
-          {/* Partnership Pipeline — primary feature card */}
+          {/* Campaign Pipeline — primary feature card */}
           <BentoCard className="bento-card--large bento-card--hero bento-card--glow-orange">
-            <h3>Partnership Pipeline &amp; CRM</h3>
+            <h3>Campaign Pipeline</h3>
             <p>
-              Track every restaurant deal from first DM to final payment.
-              See your entire business at a glance &mdash; who&rsquo;s interested,
-              who&rsquo;s active, and who&rsquo;s paid.
+              See every restaurant you&rsquo;re creating content for at a glance &mdash;
+              planned visits, active campaigns, and the customers you&rsquo;ve driven.
             </p>
             <MiniPipeline />
           </BentoCard>
 
-          {/* ROI Reports — SVG chart with gradient fills */}
+          {/* Attribution Reports — SVG chart with gradient fills */}
           <BentoCard className="bento-card--medium bento-card--glow-blue">
-            <h3>Auto-Generated ROI Reports</h3>
+            <h3>Attribution Reports</h3>
             <p>
-              One-click reports that prove your value.
-              Show restaurants exactly what they got for their investment.
+              One-click reports that show how many customers
+              your content actually sent to each restaurant.
             </p>
             <MiniChartSVG />
           </BentoCard>
@@ -481,7 +480,7 @@ export default function LandingPage() {
           {/* Editorial Calendar */}
           <BentoCard className="bento-card--third bento-card--glow-green">
             <h3>Editorial Calendar</h3>
-            <p>Plan sponsored and organic content on a visual timeline.</p>
+            <p>Plan your restaurant visits and content on a visual timeline.</p>
             <MiniCalendar />
           </BentoCard>
 
@@ -497,10 +496,10 @@ export default function LandingPage() {
       {/* ── For Foodies ─────────────────────────────────────────────────── */}
       <section className="landing-section landing-section--alt">
         <div className="landing-section-header reveal">
-          <h2>Follow food creators? This is for you.</h2>
+          <h2>Love discovering new restaurants? This is for you.</h2>
           <p>
-            Discover curated restaurant picks, save your favorites, and unlock exclusive deals
-            &mdash; all powered by the creators you already trust.
+            Browse creator-recommended restaurants, save your favorites, and grab real deals
+            &mdash; every visit supports the creators who helped you find these spots.
           </p>
         </div>
 
@@ -528,8 +527,8 @@ export default function LandingPage() {
 
           {/* Deals */}
           <BentoCard className="bento-card--medium bento-card--glow-coral">
-            <h3>Exclusive Deals</h3>
-            <p>Discounts and offers you won&rsquo;t find on any other app.</p>
+            <h3>Creator Deals</h3>
+            <p>Real discounts from creators who eat there &mdash; not generic coupons.</p>
             <div className="mini-deal-card">
               <div className="mini-deal-pct">20% off</div>
               <div className="mini-deal-name">Omakase Room &mdash; Tasting Menu</div>
