@@ -222,6 +222,9 @@
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4))
           drop-shadow(0 0 60px rgba(249, 115, 22, 0.08));
   mix-blend-mode: lighten;
+  /* Fade all edges so the image bleeds seamlessly into the page background */
+  -webkit-mask-image: radial-gradient(ellipse 70% 65% at 50% 45%, black 40%, transparent 72%);
+  mask-image: radial-gradient(ellipse 70% 65% at 50% 45%, black 40%, transparent 72%);
   will-change: transform;
 }
 
