@@ -36,6 +36,8 @@ export interface Restaurant {
   hours?: WeeklyHours;
   googlePlaceId?: string;
   spotRating?: number;
+  description?: string;
+  knownFor?: string[];
   spotVideoUrl?: string;
   spotReview?: string;
   lastVisited?: string;

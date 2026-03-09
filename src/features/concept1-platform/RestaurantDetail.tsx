@@ -263,6 +263,71 @@ export default function RestaurantDetail() {
         </div>
       </div>
 
+      {/* About this restaurant */}
+      {(restaurant.description || (restaurant.vibes && restaurant.vibes.length > 0) || restaurant.knownFor) && (
+        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-4)' }}>
+            About {restaurant.name}
+          </h2>
+
+          {restaurant.description && (
+            <p style={{ color: 'var(--color-textSecondary)', lineHeight: 1.7, fontSize: 'var(--font-sm)', marginBottom: 'var(--space-4)' }}>
+              {restaurant.description}
+            </p>
+          )}
+
+          {restaurant.knownFor && restaurant.knownFor.length > 0 && (
+            <div style={{ marginBottom: 'var(--space-4)' }}>
+              <h3 style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textMuted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 'var(--space-2)' }}>
+                Known For
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                {restaurant.knownFor.map((item) => (
+                  <span
+                    key={item}
+                    className="badge"
+                    style={{
+                      background: 'rgba(249, 115, 22, 0.1)',
+                      color: 'var(--color-accent)',
+                      fontSize: 'var(--font-xs)',
+                      fontWeight: 500,
+                      padding: 'var(--space-1) var(--space-3)',
+                    }}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {restaurant.vibes && restaurant.vibes.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textMuted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 'var(--space-2)' }}>
+                Vibe
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                {restaurant.vibes.map((vibe) => (
+                  <span
+                    key={vibe}
+                    className="badge"
+                    style={{
+                      background: 'var(--color-bgElevated)',
+                      color: 'var(--color-textSecondary)',
+                      fontSize: 'var(--font-xs)',
+                      fontWeight: 500,
+                      padding: 'var(--space-1) var(--space-3)',
+                    }}
+                  >
+                    {vibe}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Offers section */}
       {offers && offers.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
