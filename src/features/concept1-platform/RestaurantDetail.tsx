@@ -51,8 +51,9 @@ export default function RestaurantDetail() {
       if (isDemoMode()) {
         return DEMO_CAMPAIGNS.filter((c) => c.restaurantId === id);
       }
-      const res = await api.get<Campaign[]>(`/api/campaigns?restaurantId=${id}`);
-      return res.data ?? [];
+      const res = await api.get<Campaign[]>('/api/campaigns');
+      // API returns all user campaigns — filter to this restaurant
+      return (res.data ?? []).filter((c) => c.restaurantId === id);
     },
     enabled: Boolean(id),
   });
@@ -63,7 +64,7 @@ export default function RestaurantDetail() {
       if (isDemoMode()) {
         return DEMO_OFFERS.filter((o) => o.restaurantId === id);
       }
-      const res = await api.get<Offer[]>(`/api/offers?restaurantId=${id}`);
+      const res = await api.get<Offer[]>(`/api/restaurants/${id}/offers`);
       return res.data ?? [];
     },
     enabled: Boolean(id),
