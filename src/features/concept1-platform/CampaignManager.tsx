@@ -15,10 +15,6 @@ const STAGES: { key: CampaignStatus; label: string; badgeClass: string }[] = [
   { key: 'completed', label: 'Completed', badgeClass: 'badge--accent' },
 ];
 
-function formatBudget(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
-}
-
 function formatDate(iso: string | undefined): string {
   if (!iso) return '--';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -30,11 +26,35 @@ function deliverableProgress(deliverables: Deliverable[]): { done: number; total
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) };
 }
 
+// Campaign type labels (keep in sync with wizard)
+const CAMPAIGN_TYPE_LABELS: Record<string, string> = {
+  visit_post: 'Visit & Create',
+  menu_highlight: 'Menu Feature',
+  event_coverage: 'Event Coverage',
+  behind_scenes: 'Behind the Scenes',
+  ongoing: 'Ongoing Relationship',
+};
+
+const DEAL_TYPE_LABELS: Record<string, string> = {
+  percent_off: '% Off Check',
+  free_item: 'Free Item',
+  bogo: 'BOGO',
+  fixed_off: '$ Off Check',
+};
+
+const TRACKING_LABELS: Record<string, string> = {
+  qr_code: 'QR Code',
+  deal_code: 'Deal Code',
+  spot_link: 'Spot Link',
+  reservation: 'Reservation Referral',
+};
+
 export default function CampaignManager() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showWizard, setShowWizard] = useState(false);
   const [restaurantContext, setRestaurantContext] = useState<RestaurantContext | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
   // Auto-open wizard if restaurant context is in URL (came from RestaurantDetail)
   useEffect(() => {
@@ -88,6 +108,19 @@ export default function CampaignManager() {
     // Clear URL params if present
     setSearchParams({});
   }, [setSearchParams]);
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ campaignId, updates }: { campaignId: string; updates: Partial<Campaign> }) => {
+      if (isDemoMode()) return { ...selectedCampaign, ...updates } as Campaign;
+      const res = await api.put<Campaign>(`/api/campaigns/${campaignId}`, updates);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      if (data) setSelectedCampaign(data as Campaign);
+    },
+  });
 
   const moveMutation = useMutation({
     mutationFn: async ({ campaignId, status }: { campaignId: string; status: CampaignStatus }) => {
@@ -198,6 +231,8 @@ export default function CampaignManager() {
             key={stage.key}
             stage={stage}
             campaigns={grouped[stage.key]}
+            onSelect={(campaign) => setSelectedCampaign(campaign)}
+            selectedId={selectedCampaign?.campaignId ?? null}
             onMoveForward={(id) => {
               const next = getNextStatus(stage.key);
               if (next) moveMutation.mutate({ campaignId: id, status: next });
@@ -212,6 +247,16 @@ export default function CampaignManager() {
           />
         ))}
       </div>
+
+      {/* Campaign Detail Panel */}
+      {selectedCampaign && (
+        <CampaignDetailPanel
+          campaign={selectedCampaign}
+          onClose={() => setSelectedCampaign(null)}
+          onUpdate={(updates) => updateMutation.mutate({ campaignId: selectedCampaign.campaignId, updates })}
+          isSaving={updateMutation.isPending}
+        />
+      )}
 
       {campaigns.length === 0 && !showWizard && (
         <div className="empty-state" style={{ marginTop: 'var(--space-8)' }}>
@@ -228,9 +273,348 @@ export default function CampaignManager() {
 
 /* ─── Sub-components ───────────────────────────────────────────────────────── */
 
+/* ─── Campaign Detail Panel ─────────────────────────────────────────────── */
+
+function CampaignDetailPanel({
+  campaign,
+  onClose,
+  onUpdate,
+  isSaving,
+}: {
+  campaign: Campaign;
+  onClose: () => void;
+  onUpdate: (updates: Partial<Campaign>) => void;
+  isSaving: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    dealType: campaign.dealType || '',
+    dealDescription: campaign.dealDescription || '',
+    goal: campaign.goal || '',
+    notes: campaign.notes || '',
+    startDate: campaign.startDate || '',
+    endDate: campaign.endDate || '',
+  });
+
+  // Sync edit form when campaign changes
+  useEffect(() => {
+    setEditForm({
+      dealType: campaign.dealType || '',
+      dealDescription: campaign.dealDescription || '',
+      goal: campaign.goal || '',
+      notes: campaign.notes || '',
+      startDate: campaign.startDate || '',
+      endDate: campaign.endDate || '',
+    });
+    setIsEditing(false);
+  }, [campaign.campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSave = () => {
+    onUpdate({
+      dealType: editForm.dealType || undefined,
+      dealDescription: editForm.dealDescription || undefined,
+      goal: editForm.goal || undefined,
+      notes: editForm.notes || undefined,
+      startDate: editForm.startDate || undefined,
+      endDate: editForm.endDate || undefined,
+    });
+    setIsEditing(false);
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          zIndex: 999,
+          backdropFilter: 'blur(2px)',
+        }}
+      />
+
+      {/* Panel */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0, right: 0, bottom: 0,
+          width: '480px',
+          maxWidth: '90vw',
+          backgroundColor: 'var(--color-bgSecondary)',
+          borderLeft: '1px solid var(--color-border)',
+          zIndex: 1000,
+          overflowY: 'auto',
+          boxShadow: 'var(--shadow-xl)',
+          animation: 'slideIn 0.2s ease',
+        }}
+      >
+        <style>{`
+          @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+          }
+        `}</style>
+
+        {/* Header */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+          padding: 'var(--space-6)', borderBottom: '1px solid var(--color-border)',
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-1)' }}>
+              {campaign.restaurantName}
+            </h2>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className={`badge ${STAGES.find((s) => s.key === campaign.status)?.badgeClass ?? ''}`}>
+                {STAGES.find((s) => s.key === campaign.status)?.label ?? campaign.status}
+              </span>
+              <span className="badge" style={{ background: 'var(--color-bgElevated)', color: 'var(--color-textSecondary)', fontSize: '10px' }}>
+                {CAMPAIGN_TYPE_LABELS[campaign.package] || campaign.package}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', color: 'var(--color-textMuted)',
+              fontSize: 'var(--font-xl)', cursor: 'pointer', padding: 'var(--space-1)', lineHeight: 1,
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+
+          {/* Deal Section */}
+          <DetailSection title="Deal">
+            {isEditing ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                <select
+                  className="form-input"
+                  value={editForm.dealType}
+                  onChange={(e) => setEditForm((p) => ({ ...p, dealType: e.target.value }))}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                >
+                  <option value="">Select deal type...</option>
+                  {Object.entries(DEAL_TYPE_LABELS).map(([val, label]) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Describe the deal..."
+                  value={editForm.dealDescription}
+                  onChange={(e) => setEditForm((p) => ({ ...p, dealDescription: e.target.value }))}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            ) : (
+              <>
+                <DetailRow label="Type" value={DEAL_TYPE_LABELS[campaign.dealType ?? ''] || campaign.dealType || '—'} />
+                <DetailRow label="Description" value={campaign.dealDescription || '—'} />
+              </>
+            )}
+          </DetailSection>
+
+          {/* Tracking Methods */}
+          {(campaign.trackingMethods?.length ?? 0) > 0 && (
+            <DetailSection title="Attribution Tracking">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                {campaign.trackingMethods?.map((m) => (
+                  <span key={m} className="badge" style={{ background: 'rgba(249, 115, 22, 0.1)', color: 'var(--color-accent)', fontSize: '11px' }}>
+                    {TRACKING_LABELS[m] || m}
+                  </span>
+                ))}
+              </div>
+            </DetailSection>
+          )}
+
+          {/* Timeline */}
+          <DetailSection title="Timeline">
+            {isEditing ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: '4px' }}>Start</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={editForm.startDate}
+                    onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: '4px' }}>End</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={editForm.endDate}
+                    onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <DetailRow label="Start" value={formatDate(campaign.startDate)} />
+                <DetailRow label="End" value={formatDate(campaign.endDate)} />
+              </>
+            )}
+          </DetailSection>
+
+          {/* Content Deliverables */}
+          {(campaign.contentDeliverables?.length ?? 0) > 0 && (
+            <DetailSection title="Content Deliverables">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                {campaign.contentDeliverables?.map((d) => (
+                  <span key={d} className="badge" style={{ background: 'var(--color-bgElevated)', color: 'var(--color-textSecondary)', fontSize: '11px' }}>
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </DetailSection>
+          )}
+
+          {/* Deliverable Progress (actual fulfillment tracking) */}
+          {campaign.deliverables.length > 0 && (
+            <DetailSection title="Deliverable Progress">
+              {campaign.deliverables.map((d) => (
+                <div key={d.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+                  padding: 'var(--space-2) 0',
+                  borderBottom: '1px solid var(--color-border)',
+                }}>
+                  <span style={{ fontSize: 'var(--font-base)', opacity: d.completed ? 1 : 0.4 }}>
+                    {d.completed ? '✅' : '⬜'}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', fontWeight: 500 }}>
+                      {d.description}
+                    </div>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                      {d.type} {d.completedAt ? `— ${formatDate(d.completedAt)}` : ''}
+                    </div>
+                  </div>
+                  {d.postUrl && (
+                    <a href={d.postUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--font-xs)', color: 'var(--color-accent)' }}>
+                      View
+                    </a>
+                  )}
+                </div>
+              ))}
+            </DetailSection>
+          )}
+
+          {/* Goal / Highlight */}
+          <DetailSection title="What to Highlight">
+            {isEditing ? (
+              <textarea
+                className="form-input"
+                value={editForm.goal}
+                onChange={(e) => setEditForm((p) => ({ ...p, goal: e.target.value }))}
+                rows={3}
+                placeholder="What's interesting about this restaurant?"
+                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            ) : (
+              <p style={{ fontSize: 'var(--font-sm)', color: campaign.goal ? 'var(--color-textPrimary)' : 'var(--color-textMuted)', lineHeight: 1.5, margin: 0 }}>
+                {campaign.goal || 'No highlight set.'}
+              </p>
+            )}
+          </DetailSection>
+
+          {/* Notes */}
+          <DetailSection title="Notes">
+            {isEditing ? (
+              <textarea
+                className="form-input"
+                value={editForm.notes}
+                onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
+                rows={3}
+                placeholder="Additional notes..."
+                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            ) : (
+              <p style={{ fontSize: 'var(--font-sm)', color: campaign.notes ? 'var(--color-textPrimary)' : 'var(--color-textMuted)', lineHeight: 1.5, margin: 0 }}>
+                {campaign.notes || 'No notes.'}
+              </p>
+            )}
+          </DetailSection>
+
+          {/* Meta */}
+          <DetailSection title="Details">
+            <DetailRow label="Created" value={formatDate(campaign.createdAt)} />
+            <DetailRow label="Updated" value={formatDate(campaign.updatedAt)} />
+            <DetailRow label="Campaign ID" value={campaign.campaignId} />
+          </DetailSection>
+        </div>
+
+        {/* Footer actions */}
+        <div style={{
+          padding: 'var(--space-4) var(--space-6)',
+          borderTop: '1px solid var(--color-border)',
+          display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end',
+          position: 'sticky', bottom: 0,
+          background: 'var(--color-bgSecondary)',
+        }}>
+          {isEditing ? (
+            <>
+              <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={() => setIsEditing(true)}>
+              Edit Campaign
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 style={{
+        fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)',
+        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 'var(--space-3)',
+      }}>
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+      paddingBottom: 'var(--space-2)', marginBottom: 'var(--space-2)',
+    }}>
+      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', textAlign: 'right', maxWidth: '65%', wordBreak: 'break-word' }}>{value}</span>
+    </div>
+  );
+}
+
+/* ─── Kanban Column ────────────────────────────────────────────────────────── */
+
 function KanbanColumn({
   stage,
   campaigns,
+  onSelect,
+  selectedId,
   onMoveForward,
   onMoveBack,
   isFirst,
@@ -239,6 +623,8 @@ function KanbanColumn({
 }: {
   stage: { key: CampaignStatus; label: string; badgeClass: string };
   campaigns: Campaign[];
+  onSelect: (campaign: Campaign) => void;
+  selectedId: string | null;
   onMoveForward: (id: string) => void;
   onMoveBack: (id: string) => void;
   isFirst: boolean;
@@ -286,23 +672,33 @@ function KanbanColumn({
         ) : (
           campaigns.map((campaign) => {
             const progress = deliverableProgress(campaign.deliverables);
+            const isSelected = campaign.campaignId === selectedId;
             return (
               <div
                 key={campaign.campaignId}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(campaign)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(campaign); } }}
                 style={{
                   background: 'var(--color-bgPrimary)',
-                  border: '1px solid var(--color-border)',
+                  border: isSelected ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-md)',
                   padding: 'var(--space-4)',
+                  cursor: 'pointer',
                   transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-borderHover)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = 'var(--color-borderHover)';
+                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)';
-                  e.currentTarget.style.boxShadow = 'none';
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = 'var(--color-border)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
                 }}
               >
                 {/* Restaurant name */}
@@ -316,8 +712,8 @@ function KanbanColumn({
                   {campaign.restaurantName}
                 </h4>
 
-                {/* Package + Budget */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+                {/* Package + Deal */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
                   <span
                     className="badge"
                     style={{
@@ -326,11 +722,20 @@ function KanbanColumn({
                       fontSize: '10px',
                     }}
                   >
-                    {campaign.package}
+                    {CAMPAIGN_TYPE_LABELS[campaign.package] || campaign.package}
                   </span>
-                  <span style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-accent)' }}>
-                    {formatBudget(campaign.budget)}
-                  </span>
+                  {campaign.dealType && (
+                    <span
+                      className="badge"
+                      style={{
+                        background: 'rgba(249, 115, 22, 0.1)',
+                        color: 'var(--color-accent)',
+                        fontSize: '10px',
+                      }}
+                    >
+                      {DEAL_TYPE_LABELS[campaign.dealType] || campaign.dealType}
+                    </span>
+                  )}
                 </div>
 
                 {/* Date range */}
@@ -373,7 +778,7 @@ function KanbanColumn({
                     <button
                       className="btn btn-ghost"
                       style={{ fontSize: 'var(--font-xs)', padding: 'var(--space-1) var(--space-2)' }}
-                      onClick={() => onMoveBack(campaign.campaignId)}
+                      onClick={(e) => { e.stopPropagation(); onMoveBack(campaign.campaignId); }}
                       disabled={isMoving}
                       title={`Move back`}
                     >
@@ -384,7 +789,7 @@ function KanbanColumn({
                     <button
                       className="btn btn-ghost"
                       style={{ fontSize: 'var(--font-xs)', padding: 'var(--space-1) var(--space-2)' }}
-                      onClick={() => onMoveForward(campaign.campaignId)}
+                      onClick={(e) => { e.stopPropagation(); onMoveForward(campaign.campaignId); }}
                       disabled={isMoving}
                       title={`Move forward`}
                     >
