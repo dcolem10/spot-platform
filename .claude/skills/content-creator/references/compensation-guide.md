@@ -1,153 +1,125 @@
-# Creator Compensation Framework
+# Creator Value & Attribution Framework
 
 ## Table of Contents
-1. Rate Calculation Factors
-2. Compensation Models
-3. Budget Ranges by Campaign Type
-4. Negotiation Norms
-5. Red Flags (for creators and restaurants)
+1. How Creators Earn on Spot
+2. The Deal Structure — Everyone Profits
+3. Attribution Tracking
+4. Creator Portfolio & Proof of Value
+5. Premium Arrangements (Earned, Not Demanded)
 
 ---
 
-## 1. Rate Calculation Factors
+## 1. How Creators Earn on Spot
 
-Creator rates are driven by several factors, roughly in this order of importance:
+Spot does NOT operate on a "restaurant pays creator" model. Instead, creators earn through the value they generate:
 
-### Engagement Rate (most important)
-The percentage of followers who actively interact with content. This matters more than follower count because it measures actual influence.
+### Platform Revenue (Creator's Primary Income)
+Creators are paid by the platforms they post on — TikTok, Instagram, YouTube — based on views and engagement. This is their bread and butter. Spot's role is to help them find interesting restaurants that make great content, which drives more views, which earns them more platform revenue.
 
-- **Excellent:** 5%+ (common for smaller, niche food accounts)
-- **Good:** 3-5% (healthy mid-tier account)
-- **Average:** 1-3% (typical for larger accounts)
-- **Below average:** <1% (may have inflated/purchased followers)
+### Attribution Commissions
+When a creator shares a Spot deal or QR code and a follower redeems it at the restaurant, the creator earns attribution credit. This can be:
+- A small commission per redemption
+- A percentage of the deal value
+- Points toward Spot creator tier benefits
 
-**Calculation:** (likes + comments) / followers × 100 for last 10-20 posts
+This is the key innovation: the creator earns when they provably drive traffic, and the restaurant only "pays" through the deal they offered (which is itself a customer acquisition cost they'd pay anyway).
 
-### Follower Count
-Raw audience size. Matters, but less than engagement.
-
-### Content Quality
-Production value, editing skill, photography quality, storytelling ability. A creator with beautiful, consistent content commands higher rates than one with inconsistent quality, even at the same follower count.
-
-### Niche Relevance
-A creator who specifically covers the restaurant's cuisine type, neighborhood, or price point is worth more than a generalist food creator. Their audience is pre-qualified.
-
-### Platform Strength
-Rates vary by platform. A creator dominant on TikTok (high-reach, young audience) may command different rates than one dominant on Instagram (high-engagement, purchase-intent audience).
+### Deal-Driven Benefits
+Creators offer deals to their audience through Spot. The better the deal, the more followers engage, the more redemptions happen, the more attribution the creator earns. It's a virtuous cycle:
+- **Creator shares a "15% off your first visit" deal** → followers visit → restaurant gets new customers → creator gets attribution credit → creator builds their portfolio
 
 ---
 
-## 2. Compensation Models
+## 2. The Deal Structure — Everyone Profits
 
-### Flat Fee
-- **How it works:** Fixed payment for agreed-upon deliverables
-- **When to use:** Most campaigns. Clear, professional, easy to budget
-- **Payment timing:** 50% upfront + 50% on delivery is standard; net-30 is also common
-- **Creator preference:** High — they know exactly what they're earning
+The core of Spot's value exchange is the **deal**. Here's how it works:
 
-### Complimentary Dining + Fee
-- **How it works:** Restaurant comps the meal + pays a reduced cash fee
-- **When to use:** Standard for food partnerships. The meal comp is expected baseline, not the compensation itself
-- **Typical setup:** Comp for 2-4 guests + cash fee at 60-80% of normal rate
-- **Creator preference:** High — they get to bring friends/family, which makes better content
+### For the Restaurant
+- **Offers a deal** through Spot (e.g., 15% off, free appetizer, complimentary drink with entree)
+- **Cost:** Only pays the cost of the deal when it's redeemed — no upfront payments to creators
+- **Gets:** New customers they can measure, with data on which creators drove them
+- **Risk:** Minimal — they're offering a discount on a meal that's being purchased, not paying for content that may or may not work
 
-### Performance-Based
-- **How it works:** Base fee + bonus tied to metrics (views, clicks, redemptions)
-- **When to use:** Ongoing partnerships where both sides are invested in results
-- **Typical setup:** Base fee (50-70% of normal rate) + bonus per X views or redemptions
-- **Creator preference:** Medium — fair if the base is reasonable, risky if they're mostly paid on performance
+### For the Creator
+- **Shares the deal** with their audience via content (Reels, TikToks, Stories with QR code)
+- **Earns:** Platform revenue from views + attribution credit per redemption + portfolio proof
+- **Gets:** Content material (the restaurant experience) + audience goodwill (good deals for followers) + measurable impact data
+- **Risk:** Minimal — they're creating content they'd create anyway, now with tracking
 
-### Revenue Share / Affiliate
-- **How it works:** Creator gets a percentage of attributable revenue (via tracking link or promo code)
-- **When to use:** Ongoing ambassador partnerships
-- **Typical rate:** 10-20% of attributable revenue
-- **Creator preference:** Low for one-offs (too uncertain), High for long-term if the restaurant is popular
+### For the Follower / Diner
+- **Gets a real deal** from a creator they trust
+- **Experience:** Discovers a restaurant they might not have found otherwise, saves money
+- **Trust:** The deal came from someone whose taste they follow, not a random ad
 
-### Product-Only (Comp Only)
-- **How it works:** Free meal with no cash compensation
-- **When to use:** Only for emerging creators who are actively seeking exposure, OR when the dining experience is exceptionally premium ($200+ per person)
-- **Creator preference:** Low — most creators with 10K+ followers expect cash compensation
+### Deal Quality Guidelines
+Good deals make everyone look good. Bad deals waste everyone's time.
+
+| Deal Quality | Example | Creator Impact |
+|---|---|---|
+| Great | Free signature dish with any entree | High redemptions, great content hook |
+| Good | 15-20% off entire check | Solid redemptions, easy to share |
+| Okay | 10% off, weekdays only | Some redemptions, restrictions dampen excitement |
+| Weak | 5% off, excluding drinks | Low redemptions, not worth creator's credibility |
 
 ---
 
-## 3. Budget Ranges by Campaign Type
+## 3. Attribution Tracking
 
-### Visit & Post
-| Creator Tier | Budget Range | Includes |
-|---|---|---|
-| Emerging | $150-500 | Comp for 2 + 1-2 posts |
-| Established | $500-2,000 | Comp for 2-4 + 1-2 posts |
-| Professional | $2,000-8,000 | Comp for 2-4 + 1-3 posts + stories |
+Attribution is what makes Spot different from "just posting about restaurants." Here's what gets tracked:
 
-### Menu Highlight
-| Creator Tier | Budget Range | Includes |
-|---|---|---|
-| Emerging | $200-600 | Tasting comp + 1-3 focused posts |
-| Established | $600-2,500 | Tasting comp + 2-3 posts |
-| Professional | $2,500-10,000 | Tasting comp + 2-4 posts + story set |
+### QR Code Scans
+Creator generates a unique QR code for a restaurant. When followers scan it at the restaurant (or before visiting), Spot logs the attribution.
 
-### Event Coverage
-| Creator Tier | Budget Range | Includes |
-|---|---|---|
-| Emerging | $300-800 | Event access + stories + 1 post |
-| Established | $800-3,000 | Event access + stories + 1-2 posts |
-| Professional | $3,000-12,000 | VIP access + stories + 2-3 posts |
+### Deal Redemptions
+When a follower uses the creator's deal code, that's a hard attribution event — provable traffic driven by the creator.
 
-### Behind the Scenes
-| Creator Tier | Budget Range | Includes |
-|---|---|---|
-| Emerging | $400-1,000 | Kitchen access + 1-2 videos |
-| Established | $1,000-4,000 | Full access + 1-2 videos + stories |
-| Professional | $4,000-15,000 | Full access + 2-3 videos + stories |
+### Link Clicks
+Creator shares a Spot link in their bio or story. Clicks are tracked as interest-level attribution.
 
-### Ongoing Partnership (monthly)
-| Creator Tier | Monthly Budget | Includes |
-|---|---|---|
-| Emerging | $400-1,200/mo | Standing comp + 2-3 posts/mo |
-| Established | $1,200-4,000/mo | Standing comp + 3-4 posts/mo |
-| Professional | $4,000-15,000/mo | Standing comp + 4-6 posts/mo + exclusivity |
+### Reservation Referrals
+If the restaurant has online reservations and integrates with Spot, referral bookings are tracked.
+
+### Attribution Data the Creator Gets
+- Total scans/clicks from their content
+- Redemptions (how many people actually went and used the deal)
+- Revenue impact estimate (average check × redemptions)
+- Comparison across campaigns (which restaurants/content types drive most traffic)
+
+This data becomes the creator's **proof of value** — their portfolio of real business impact.
 
 ---
 
-## 4. Negotiation Norms
+## 4. Creator Portfolio & Proof of Value
 
-### What's Negotiable
-- Cash amount (within reason)
-- Number of deliverables (fewer posts = lower rate)
-- Content format (reels cost more than static posts)
-- Timeline (rush jobs command a premium)
-- Exclusivity terms
-- Content usage rights
+Over time, a creator's Spot profile becomes a living portfolio of proven impact:
 
-### What's Not Negotiable (red lines)
-- Getting paid (if cash is agreed, cash must be paid)
-- Payment timeline (don't delay past agreed terms)
-- Creative freedom (within scope, creator decides how to tell the story)
-- Content ownership (creator owns their content unless explicit licensing is agreed)
+- **Total attributable visits** driven across all restaurants
+- **Estimated revenue generated** for restaurant partners
+- **Redemption rate** (what % of their audience actually acts on deals)
+- **Content performance** tied to real-world outcomes
+- **Restaurant relationships** — which spots they've featured and the results
 
-### Standard Terms
-- **Payment:** Net-30 from content delivery, or 50/50 split (upfront + delivery)
-- **Revisions:** 1 round of minor revisions is standard. Major reshoots require additional compensation
-- **Usage rights:** Restaurant can repost creator's content with credit for 90 days. Extended or exclusive usage is a separate fee (typically 20-40% premium)
-- **Exclusivity:** If requested, typically adds 25-50% to the fee. Must be time-limited (30-90 days max is reasonable)
-- **Cancellation:** If restaurant cancels after creator has visited, creator is paid for work completed
+This portfolio is incredibly powerful. Instead of pitching a restaurant with "I have 50K followers," a creator can say "I've driven 340 verified visits to restaurants in DC this quarter, generating an estimated $18,000 in revenue. Here's the data."
+
+That changes the entire dynamic. The creator isn't asking for anything — they're showing what they deliver.
 
 ---
 
-## 5. Red Flags
+## 5. Premium Arrangements (Earned, Not Demanded)
 
-### For Creators Evaluating Campaigns
-- Restaurant expects 5+ deliverables for an emerging-tier budget
-- "Payment upon content going viral" or performance-only comp with no base
-- Requiring final approval over all creative decisions
-- Exclusivity requested with no additional compensation
-- No clear point of contact or slow/no communication
-- Restaurant has negative reviews about mistreating creators
+As a creator proves their value through attribution data, premium arrangements naturally develop:
 
-### For Restaurants Evaluating Creators
-- Engagement rate below 1% with high follower count (likely purchased followers)
-- No food content in their recent history (misaligned niche)
-- Refusing to share analytics or media kit
-- Demanding payment before any content is delivered
-- History of not delivering on time or producing content that doesn't match their portfolio quality
-- Asking for an unreasonably high rate relative to their metrics
+### Standing Comp
+Restaurants offer ongoing complimentary dining to creators who have proven they drive traffic. This isn't "paying for content" — it's investing in a marketing channel that has proven ROI. The creator has the data to back it up.
+
+### Exclusive Access
+Kitchen access, chef interviews, event invites, early tastings. These go to creators who have demonstrated real impact, not to whoever has the most followers.
+
+### Revenue Share
+For top-performing creator-restaurant relationships, a formal revenue share on attributable traffic. Creator earns X% of revenue from customers they provably sent.
+
+### Featured Deals
+The restaurant creates premium deals exclusively for a high-performing creator's audience ("20% off this weekend, exclusive to [Creator]'s followers"). This drives both redemptions and creator credibility.
+
+### The Key Principle
+All premium arrangements are **earned through proven attribution**, not negotiated upfront. A creator doesn't walk in and demand compensation — they build a track record on Spot and the data speaks for itself. This protects restaurants from overpaying for unproven creators, and it rewards creators who actually drive results.

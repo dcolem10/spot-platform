@@ -10,43 +10,38 @@ import type { Restaurant, Campaign } from '../../types';
 const CAMPAIGN_TYPES = [
   {
     value: 'visit_post',
-    label: 'Visit & Post',
-    desc: 'Visit the restaurant, create content from the experience',
+    label: 'Visit & Create',
+    desc: 'Visit the restaurant, create content, share a deal with your audience',
     icon: '📍',
     suggestedDeliverables: ['Instagram Reel', 'Instagram Carousel', 'Story Set'],
-    budgetHint: '$150 – $2,000',
   },
   {
     value: 'menu_highlight',
-    label: 'Menu Highlight',
-    desc: 'Feature specific dishes, a new menu, or seasonal items',
+    label: 'Menu Feature',
+    desc: 'Highlight specific dishes, a new menu, or seasonal items with a deal for followers',
     icon: '🍽',
     suggestedDeliverables: ['Instagram Reel', 'TikTok', 'Instagram Carousel'],
-    budgetHint: '$200 – $2,500',
   },
   {
     value: 'event_coverage',
     label: 'Event Coverage',
-    desc: 'Cover an opening, tasting event, or special dinner',
+    desc: 'Cover an opening, tasting event, or special dinner — share exclusive access',
     icon: '🎉',
     suggestedDeliverables: ['Story Set', 'Instagram Reel', 'TikTok'],
-    budgetHint: '$300 – $3,000',
   },
   {
     value: 'behind_scenes',
     label: 'Behind the Scenes',
-    desc: 'Kitchen access, chef interview, sourcing story',
+    desc: 'Kitchen access, chef interview, sourcing story — deep content your audience loves',
     icon: '🎬',
     suggestedDeliverables: ['Instagram Reel', 'YouTube Short', 'TikTok'],
-    budgetHint: '$400 – $4,000',
   },
   {
     value: 'ongoing',
-    label: 'Ongoing Partnership',
-    desc: 'Multi-visit deal — become a regular voice for this spot',
+    label: 'Ongoing Relationship',
+    desc: 'Become a regular voice for this spot with consistent content and tracking',
     icon: '🤝',
     suggestedDeliverables: ['Instagram Reel', 'Story Set', 'TikTok', 'Instagram Carousel'],
-    budgetHint: '$400 – $4,000/mo',
   },
 ];
 
@@ -57,12 +52,20 @@ const DELIVERABLE_OPTIONS = [
   'Story Set', 'Blog Post',
 ];
 
-// How the creator gets compensated
-const COMPENSATION_MODELS = [
-  { value: 'flat_fee', label: 'Flat Fee', desc: 'Fixed cash payment for deliverables' },
-  { value: 'comp_plus_fee', label: 'Comp + Fee', desc: 'Complimentary dining + reduced cash fee' },
-  { value: 'performance', label: 'Performance', desc: 'Base fee + bonus tied to views or redemptions' },
-  { value: 'comp_only', label: 'Comp Only', desc: 'Complimentary dining, no cash' },
+// Deal types the creator can offer their audience through Spot
+const DEAL_TYPES = [
+  { value: 'percent_off', label: '% Off Check', desc: 'Percentage discount on the total bill', placeholder: 'e.g. 15' },
+  { value: 'free_item', label: 'Free Item', desc: 'Complimentary dish or drink with purchase', placeholder: 'e.g. Free appetizer with entree' },
+  { value: 'bogo', label: 'BOGO', desc: 'Buy one, get one free on a menu item', placeholder: 'e.g. BOGO cocktails' },
+  { value: 'fixed_off', label: '$ Off Check', desc: 'Fixed dollar amount off the total', placeholder: 'e.g. $10 off orders over $50' },
+];
+
+// How attribution is tracked
+const TRACKING_OPTIONS = [
+  { value: 'qr_code', label: 'QR Code', desc: 'Unique QR code for your audience to scan at the restaurant', icon: '📱' },
+  { value: 'deal_code', label: 'Deal Code', desc: 'Shareable promo code followers mention when they visit', icon: '🏷' },
+  { value: 'spot_link', label: 'Spot Link', desc: 'Trackable link in your bio or stories', icon: '🔗' },
+  { value: 'reservation', label: 'Reservation Referral', desc: 'Track bookings from your referral link', icon: '📅' },
 ];
 
 const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
@@ -80,8 +83,9 @@ export interface RestaurantContext {
 
 interface WizardForm {
   package: string;
-  compensationModel: string;
-  budget: string;
+  dealType: string;
+  dealDescription: string;
+  trackingMethods: string[];
   goal: string;
   startDate: string;
   endDate: string;
@@ -99,8 +103,9 @@ interface CampaignWizardProps {
 
 const emptyForm: WizardForm = {
   package: '',
-  compensationModel: '',
-  budget: '',
+  dealType: '',
+  dealDescription: '',
+  trackingMethods: ['qr_code'],
   goal: '',
   startDate: '',
   endDate: '',
@@ -164,12 +169,12 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
 
   const getStepSubtitle = (s: number): string => {
     if (hasRestaurant) {
-      if (s === 1) return 'Pick the type of campaign and how you want to get paid.';
+      if (s === 1) return 'Pick your campaign type and set up a deal for your audience.';
       if (s === 2) return 'Choose your content deliverables and set the timeline.';
       return 'Review everything before launching your campaign.';
     }
-    if (s === 1) return 'Search and select a restaurant to partner with.';
-    if (s === 2) return 'Pick the type of campaign and how you want to get paid.';
+    if (s === 1) return 'Search and select a restaurant to create content about.';
+    if (s === 2) return 'Pick your campaign type and set up a deal for your audience.';
     if (s === 3) return 'Choose your content deliverables and set the timeline.';
     return 'Review everything before launching your campaign.';
   };
@@ -194,6 +199,15 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
     }));
   }, []);
 
+  const toggleTracking = useCallback((method: string) => {
+    setForm((prev) => ({
+      ...prev,
+      trackingMethods: prev.trackingMethods.includes(method)
+        ? prev.trackingMethods.filter((m) => m !== method)
+        : [...prev.trackingMethods, method],
+    }));
+  }, []);
+
   const selectRestaurant = useCallback((r: Restaurant) => {
     setSelectedRestaurant({
       restaurantId: r.restaurantId,
@@ -213,8 +227,8 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
     }
     if (isPackageStep) {
       if (!form.package) { setError('Please select a campaign type'); return false; }
-      if (!form.compensationModel) { setError('Please select how you want to get paid'); return false; }
-      if (form.compensationModel !== 'comp_only' && !form.budget.trim()) { setError('Budget is required for paid campaigns'); return false; }
+      if (!form.dealType) { setError('Please select a deal type for your audience'); return false; }
+      if (!form.dealDescription.trim()) { setError('Please describe the deal'); return false; }
     }
     if (isTimelineStep) {
       if (!form.startDate) { setError('Start date is required'); return false; }
@@ -239,8 +253,10 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
       restaurantId: selectedRestaurant.restaurantId,
       restaurantName: selectedRestaurant.restaurantName,
       package: form.package,
-      compensationModel: form.compensationModel || undefined,
-      budget: form.budget ? Number(form.budget) : 0,
+      dealType: form.dealType || undefined,
+      dealDescription: form.dealDescription || undefined,
+      trackingMethods: form.trackingMethods.length > 0 ? form.trackingMethods : undefined,
+      budget: 0,
       goal: form.goal || undefined,
       startDate: form.startDate || undefined,
       endDate: form.endDate || undefined,
@@ -480,7 +496,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
           </div>
         )}
 
-        {/* Step: Campaign Type + Compensation */}
+        {/* Step: Campaign Type + Deal Setup */}
         {isPackageStep && (
           <div>
             {/* Campaign type selection */}
@@ -496,7 +512,6 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                       key={ct.value}
                       onClick={() => {
                         handleFieldChange('package', ct.value);
-                        // Auto-suggest deliverables for this campaign type
                         if (!form.contentDeliverables.length) {
                           setForm((prev) => ({ ...prev, contentDeliverables: ct.suggestedDeliverables.slice(0, 2) }));
                         }
@@ -524,27 +539,27 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                           {ct.desc}
                         </div>
                       </div>
-                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-accent)', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {ct.budgetHint}
-                      </span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Compensation model */}
+            {/* Deal for your audience */}
             <div style={{ marginBottom: 'var(--space-6)' }}>
-              <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-3)' }}>
-                How do you want to get paid? <span style={{ color: 'var(--color-error)' }}>*</span>
+              <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
+                Deal for Your Audience <span style={{ color: 'var(--color-error)' }}>*</span>
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)' }}>
-                {COMPENSATION_MODELS.map((cm) => {
-                  const selected = form.compensationModel === cm.value;
+              <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-3)', lineHeight: 1.4 }}>
+                What deal will you share with your followers? Better deals = more redemptions = more attribution credit for you.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+                {DEAL_TYPES.map((dt) => {
+                  const selected = form.dealType === dt.value;
                   return (
                     <button
-                      key={cm.value}
-                      onClick={() => handleFieldChange('compensationModel', cm.value)}
+                      key={dt.value}
+                      onClick={() => handleFieldChange('dealType', dt.value)}
                       style={{
                         padding: 'var(--space-3)',
                         border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
@@ -556,10 +571,63 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                       }}
                     >
                       <div style={{ fontWeight: 600, fontSize: 'var(--font-xs)', color: 'var(--color-textPrimary)', marginBottom: '2px' }}>
-                        {cm.label}
+                        {dt.label}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--color-textMuted)' }}>
-                        {cm.desc}
+                        {dt.desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {form.dealType && (
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder={DEAL_TYPES.find((dt) => dt.value === form.dealType)?.placeholder ?? 'Describe the deal...'}
+                  value={form.dealDescription}
+                  onChange={(e) => handleFieldChange('dealDescription', e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              )}
+            </div>
+
+            {/* Attribution tracking methods */}
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
+                How to Track Attribution
+              </label>
+              <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-3)', lineHeight: 1.4 }}>
+                Select how you want to track the traffic you drive. QR code is selected by default.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)' }}>
+                {TRACKING_OPTIONS.map((to) => {
+                  const selected = form.trackingMethods.includes(to.value);
+                  return (
+                    <button
+                      key={to.value}
+                      onClick={() => toggleTracking(to.value)}
+                      style={{
+                        padding: 'var(--space-3)',
+                        border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgElevated)',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                      }}
+                    >
+                      <span style={{ fontSize: 'var(--font-base)' }}>{to.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--font-xs)', color: 'var(--color-textPrimary)', marginBottom: '1px' }}>
+                          {to.label}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-textMuted)', lineHeight: 1.3 }}>
+                          {to.desc}
+                        </div>
                       </div>
                     </button>
                   );
@@ -567,30 +635,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
               </div>
             </div>
 
-            {/* Budget — only show if not comp-only */}
-            {form.compensationModel && form.compensationModel !== 'comp_only' && (
-              <div style={{ marginBottom: 'var(--space-6)' }}>
-                <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
-                  {form.compensationModel === 'performance' ? 'Base Fee ($)' : 'Budget ($)'} <span style={{ color: 'var(--color-error)' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  className="form-input"
-                  placeholder={form.package ? (CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.budgetHint ?? 'e.g. 1000') : 'e.g. 1000'}
-                  value={form.budget}
-                  onChange={(e) => handleFieldChange('budget', e.target.value)}
-                  min="0"
-                  style={{ width: '100%', boxSizing: 'border-box' }}
-                />
-                {form.package && (
-                  <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: '4px' }}>
-                    Typical range for {CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.label}: {CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.budgetHint}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Campaign goal */}
+            {/* Campaign goal — what's interesting about this spot */}
             <div>
               <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
                 What do you want to highlight?
@@ -707,8 +752,10 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                 </button>
               </div>
               <ReviewRow label="Type" value={CAMPAIGN_TYPES.find((ct) => ct.value === form.package)?.label ?? form.package} />
-              <ReviewRow label="Compensation" value={COMPENSATION_MODELS.find((cm) => cm.value === form.compensationModel)?.label ?? form.compensationModel} />
-              {form.budget && <ReviewRow label={form.compensationModel === 'performance' ? 'Base Fee' : 'Budget'} value={`$${Number(form.budget).toLocaleString()}`} />}
+              <ReviewRow label="Deal" value={`${DEAL_TYPES.find((dt) => dt.value === form.dealType)?.label ?? form.dealType}${form.dealDescription ? ` — ${form.dealDescription}` : ''}`} />
+              {form.trackingMethods.length > 0 && (
+                <ReviewRow label="Tracking" value={form.trackingMethods.map((m) => TRACKING_OPTIONS.find((t) => t.value === m)?.label ?? m).join(', ')} />
+              )}
               {form.goal && <ReviewRow label="Highlight" value={form.goal} isLast={!form.startDate} />}
             </div>
 

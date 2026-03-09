@@ -64,7 +64,9 @@ export interface Campaign {
   startDate?: string;
   endDate?: string;
   deliverables: Deliverable[];
-  compensationModel?: string;
+  dealType?: string;
+  dealDescription?: string;
+  trackingMethods?: string[];
   goal?: string;
   contentDeliverables?: string[];
   notes?: string;
