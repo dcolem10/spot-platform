@@ -202,9 +202,60 @@
   z-index: 2;
 }
 
-/* The Spotlight positions itself absolutely within .landing-hero--split */
-.hero-spotlight {
-  z-index: 1;
+/* ─── Hero Device Mockup — Floating Animation ────────────────────────────── */
+
+.hero-device-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-device-img {
+  width: 100%;
+  max-width: 600px;
+  height: auto;
+  border-radius: var(--radius-lg);
+  animation: hero-float 6s ease-in-out infinite;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4))
+          drop-shadow(0 0 60px rgba(249, 115, 22, 0.08));
+  will-change: transform;
+}
+
+/* Ambient glow behind the device */
+.hero-device-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 80%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(249, 115, 22, 0.1) 0%,
+    rgba(236, 72, 153, 0.04) 40%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  pointer-events: none;
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+@keyframes hero-float {
+  0%, 100% {
+    transform: translateY(0) rotate3d(0.5, 1, 0, 0deg);
+  }
+  25% {
+    transform: translateY(-12px) rotate3d(0.5, 1, 0, 2deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate3d(0.5, 1, 0, -1deg);
+  }
+  75% {
+    transform: translateY(-14px) rotate3d(0.5, 1, 0, 1deg);
+  }
 }
 
 /* In split mode, left-align actions */

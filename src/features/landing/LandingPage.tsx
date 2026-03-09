@@ -1,8 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import { SplineScene } from '../../components/ui/SplineScene';
-import { Spotlight } from '../../components/ui/Spotlight';
 import './LandingPage.css';
 
 /* ─── Hooks ──────────────────────────────────────────────────────────────── */
@@ -372,15 +370,9 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── Hero — Split Layout: Copy Left + 3D Right ──────────────────── */}
+      {/* ── Hero — Split Layout: Copy Left + Dashboard Right ─────────── */}
       <section className="landing-hero landing-hero--split">
         <FloatingOrbs />
-        <Spotlight
-          className="hero-spotlight"
-          size={400}
-          fill="rgba(249, 115, 22, 0.12)"
-          springOptions={{ bounce: 0, duration: 0.6 }}
-        />
 
         {/* Left: Text content */}
         <div className="landing-hero-content">
@@ -414,14 +406,19 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Right: Interactive 3D Spline Scene */}
+        {/* Right: Floating dashboard mockup */}
         <div className="landing-hero-3d">
-          {import.meta.env.VITE_SPLINE_HERO_SCENE && (
-            <SplineScene
-              scene={import.meta.env.VITE_SPLINE_HERO_SCENE}
-              style={{ width: '100%', height: '100%' }}
+          <div className="hero-device-wrap">
+            <div className="hero-device-glow" aria-hidden="true" />
+            <img
+              src="/hero-dashboard.png"
+              alt="Spot Platform dashboard showing Partnership Pipeline with analytics charts"
+              className="hero-device-img"
+              loading="eager"
+              width={600}
+              height={340}
             />
-          )}
+          </div>
         </div>
       </section>
 
