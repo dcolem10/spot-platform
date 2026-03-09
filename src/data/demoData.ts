@@ -143,6 +143,27 @@ const BALT_RESTAURANTS: Restaurant[] = [
   { restaurantId: 'balt5', name: 'Dylan\'s Oyster Cellar', address: '3823 Chestnut Ave', neighborhood: 'Hampden', coords: { lat: 39.3307, lng: -76.6357 }, cuisine: ['Seafood', 'American'], vibes: ['Casual', 'Date Night'], priceLevel: 2, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-10), updatedAt: demoISO(-8) },
 ];
 
+const ARL_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'arl1', name: 'Pupatella', address: '5104 Wilson Blvd', neighborhood: 'Bluemont', coords: { lat: 38.8805, lng: -77.1155 }, cuisine: ['Italian', 'Pizza'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.7, isPartner: true, photos: [], createdAt: demoISO(-60), updatedAt: demoISO(-2) },
+  { restaurantId: 'arl2', name: 'SER', address: '1110 N Glebe Rd', neighborhood: 'Ballston', coords: { lat: 38.8823, lng: -77.1122 }, cuisine: ['Spanish', 'Tapas'], vibes: ['Date Night', 'Brunch'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-3) },
+  { restaurantId: 'arl3', name: 'Faccia Luna', address: '2909 Wilson Blvd', neighborhood: 'Clarendon', coords: { lat: 38.8870, lng: -77.0967 }, cuisine: ['Italian', 'Pizza'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.3, isPartner: false, photos: [], createdAt: demoISO(-45), updatedAt: demoISO(-8) },
+  { restaurantId: 'arl4', name: 'Ambar', address: '2901 Wilson Blvd', neighborhood: 'Clarendon', coords: { lat: 38.8868, lng: -77.0964 }, cuisine: ['Balkan', 'Mediterranean'], vibes: ['Brunch', 'Group Friendly'], priceLevel: 2, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-4) },
+  { restaurantId: 'arl5', name: 'Taqueria el Poblano', address: '2503 Columbia Pike', neighborhood: 'Columbia Pike', coords: { lat: 38.8617, lng: -77.0887 }, cuisine: ['Mexican'], vibes: ['Casual', 'Quick Bite'], priceLevel: 1, spotRating: 4.4, isPartner: false, photos: [], createdAt: demoISO(-35), updatedAt: demoISO(-6) },
+  { restaurantId: 'arl6', name: 'Yona', address: '2936 Columbia Pike', neighborhood: 'Columbia Pike', coords: { lat: 38.8607, lng: -77.0929 }, cuisine: ['Japanese', 'Ramen'], vibes: ['Casual'], priceLevel: 2, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-1) },
+  { restaurantId: 'arl7', name: 'Lyon Hall', address: '3100 Washington Blvd', neighborhood: 'Clarendon', coords: { lat: 38.8867, lng: -77.0988 }, cuisine: ['French', 'American'], vibes: ['Date Night', 'Late Night'], priceLevel: 3, spotRating: 4.4, isPartner: true, photos: [], createdAt: demoISO(-25), updatedAt: demoISO(-5) },
+  { restaurantId: 'arl8', name: 'Me Jana', address: '2300 Wilson Blvd', neighborhood: 'Courthouse', coords: { lat: 38.8916, lng: -77.0853 }, cuisine: ['Lebanese', 'Mediterranean'], vibes: ['Date Night', 'Group Friendly'], priceLevel: 3, spotRating: 4.6, isPartner: false, photos: [], createdAt: demoISO(-20), updatedAt: demoISO(-7) },
+];
+
+const ALX_RESTAURANTS: Restaurant[] = [
+  { restaurantId: 'alx1', name: 'Hummingbird', address: '220 S Union St', neighborhood: 'Old Town', coords: { lat: 38.8038, lng: -77.0432 }, cuisine: ['American', 'Modern'], vibes: ['Date Night', 'Special Occasion'], priceLevel: 4, spotRating: 4.8, isPartner: true, photos: [], createdAt: demoISO(-55), updatedAt: demoISO(-1) },
+  { restaurantId: 'alx2', name: 'Barca', address: '110 S Pitt St', neighborhood: 'Old Town', coords: { lat: 38.8035, lng: -77.0468 }, cuisine: ['Spanish', 'Tapas'], vibes: ['Date Night', 'Group Friendly'], priceLevel: 3, spotRating: 4.6, isPartner: true, photos: [], createdAt: demoISO(-50), updatedAt: demoISO(-2) },
+  { restaurantId: 'alx3', name: 'Brabo', address: '1600 King St', neighborhood: 'Old Town', coords: { lat: 38.8079, lng: -77.0580 }, cuisine: ['French', 'Belgian'], vibes: ['Brunch', 'Date Night'], priceLevel: 3, spotRating: 4.5, isPartner: false, photos: [], createdAt: demoISO(-45), updatedAt: demoISO(-5) },
+  { restaurantId: 'alx4', name: 'Thai Peppers', address: '2018 Mt Vernon Ave', neighborhood: 'Del Ray', coords: { lat: 38.8308, lng: -77.0588 }, cuisine: ['Thai'], vibes: ['Casual', 'Quick Bite'], priceLevel: 2, spotRating: 4.4, isPartner: true, photos: [], createdAt: demoISO(-40), updatedAt: demoISO(-3) },
+  { restaurantId: 'alx5', name: 'Del Ray Pizzeria', address: '2218 Mt Vernon Ave', neighborhood: 'Del Ray', coords: { lat: 38.8324, lng: -77.0588 }, cuisine: ['Italian', 'Pizza'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.3, isPartner: false, photos: [], createdAt: demoISO(-35), updatedAt: demoISO(-8) },
+  { restaurantId: 'alx6', name: 'Los Tios Grill', address: '2615 Mt Vernon Ave', neighborhood: 'Del Ray', coords: { lat: 38.8347, lng: -77.0588 }, cuisine: ['Latin', 'Salvadoran'], vibes: ['Casual', 'Group Friendly'], priceLevel: 2, spotRating: 4.5, isPartner: true, photos: [], createdAt: demoISO(-30), updatedAt: demoISO(-4) },
+  { restaurantId: 'alx7', name: 'Cheesetique', address: '2411 Mt Vernon Ave', neighborhood: 'Del Ray', coords: { lat: 38.8336, lng: -77.0588 }, cuisine: ['American', 'Cheese'], vibes: ['Casual', 'Brunch'], priceLevel: 2, spotRating: 4.4, isPartner: true, photos: [], createdAt: demoISO(-25), updatedAt: demoISO(-6) },
+];
+
 /** City-keyed map of all demo restaurants. */
 export const DEMO_RESTAURANTS_BY_CITY: Record<string, Restaurant[]> = {
   'Washington, DC': DC_RESTAURANTS,
@@ -152,6 +173,8 @@ export const DEMO_RESTAURANTS_BY_CITY: Record<string, Restaurant[]> = {
   'Los Angeles, CA': LA_RESTAURANTS,
   'Miami, FL': MIA_RESTAURANTS,
   'Baltimore, MD': BALT_RESTAURANTS,
+  'Arlington, VA': ARL_RESTAURANTS,
+  'Alexandria, VA': ALX_RESTAURANTS,
 };
 
 /** Flat list of all demo restaurants (for backwards compat with campaigns/offers). */
