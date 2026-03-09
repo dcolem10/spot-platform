@@ -60,10 +60,12 @@ function CitySelector({
   selectedCity,
   userCity,
   onChange,
+  restaurantCounts,
 }: {
   selectedCity: string;
   userCity: string;
   onChange: (city: string) => void;
+  restaurantCounts?: Record<string, number>;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -145,7 +147,7 @@ function CitySelector({
             </span>
           </div>
           {sortedCities.map((city) => {
-            const count = DEMO_RESTAURANTS_BY_CITY[city]?.length ?? 0;
+            const count = restaurantCounts?.[city] ?? DEMO_RESTAURANTS_BY_CITY[city]?.length ?? 0;
             const isSelected = city === selectedCity;
             const isHome = city === userCity;
             return (
@@ -198,12 +200,22 @@ function CitySelector({
 
 /* ─── Main Directory ──────────────────────────────────────────────────────── */
 
+const CITY_STORAGE_KEY = 'spot-selected-city';
+
+function getSavedCity(): string | null {
+  try { return localStorage.getItem(CITY_STORAGE_KEY); } catch { return null; }
+}
+function saveCity(city: string) {
+  try { localStorage.setItem(CITY_STORAGE_KEY, city); } catch { /* noop */ }
+}
+
 export default function RestaurantDirectory() {
   const demoProfile = useAuthStore((s) => s.demoProfile);
 
-  // Default to user's onboarded city, or DC as fallback
+  // Default to saved city → user's onboarded city → DC as fallback
   const userCity = demoProfile?.city || 'Washington, DC';
-  const [selectedCity, setSelectedCity] = useState(userCity);
+  const initialCity = getSavedCity() || userCity;
+  const [selectedCity, setSelectedCity] = useState(initialCity);
   const [filtersInitialized, setFiltersInitialized] = useState(false);
   const [filters, setFilters] = useState<RestaurantFilters>({
     search: '',
@@ -226,9 +238,9 @@ export default function RestaurantDirectory() {
     },
   });
 
-  // Set city from profile on first load
+  // Set city from profile on first load (only if no saved city)
   useEffect(() => {
-    if (profile?.city) setSelectedCity(profile.city);
+    if (profile?.city && !getSavedCity()) setSelectedCity(profile.city);
   }, [profile?.city]);
 
   // Pre-select cuisine filters from onboarding prefs (demo mode, once)
@@ -247,7 +259,7 @@ export default function RestaurantDirectory() {
       if (isDemoMode()) {
         return DEMO_RESTAURANTS_BY_CITY[selectedCity] ?? [];
       }
-      const params = selectedCity ? `?city=${encodeURIComponent(selectedCity)}` : '';
+      const params = selectedCity ? `?city=${encodeURIComponent(selectedCity)}&limit=100` : '?limit=100';
       const res = await api.get<Restaurant[]>(`/api/restaurants${params}`);
       if (res.error) throw new Error(res.error);
       return res.data ?? [];
@@ -255,6 +267,12 @@ export default function RestaurantDirectory() {
   });
 
   const restaurants = data ?? [];
+
+  // Build city counts: show count for the selected city from actual data
+  const restaurantCounts = useMemo(() => {
+    if (isDemoMode()) return undefined; // CitySelector falls back to demo counts
+    return { [selectedCity]: restaurants.length } as Record<string, number>;
+  }, [selectedCity, restaurants.length]);
 
   // Derive unique cuisines from CURRENT CITY'S data (dynamic, not hardcoded)
   const availableCuisines = useMemo(() => {
@@ -279,6 +297,7 @@ export default function RestaurantDirectory() {
   // don't exist in the new city
   const handleCityChange = useCallback((city: string) => {
     setSelectedCity(city);
+    saveCity(city);
     setFilters((prev) => ({
       ...prev,
       neighborhood: [],
@@ -449,6 +468,7 @@ export default function RestaurantDirectory() {
           selectedCity={selectedCity}
           userCity={userCity}
           onChange={handleCityChange}
+          restaurantCounts={restaurantCounts}
         />
       </div>
 
