@@ -118,6 +118,15 @@ async function listRestaurants(event) {
     Limit: limit,
   };
 
+  // Efficient city filter using GSI1SK begins_with
+  // Seeded restaurants use GSI1SK = "CITY#{cityName}#{restaurantName}"
+  // This avoids scanning the entire table when filtering by city
+  if (params.city) {
+    const city = sanitize(params.city, 100);
+    queryParams.KeyConditionExpression += ' AND begins_with(GSI1SK, :cityPrefix)';
+    queryParams.ExpressionAttributeValues[':cityPrefix'] = `CITY#${city}`;
+  }
+
   if (params.lastKey) {
     const decoded = decodePaginationKey(params.lastKey);
     if (decoded) queryParams.ExclusiveStartKey = decoded;
@@ -127,10 +136,10 @@ async function listRestaurants(event) {
 
   let items = result.Items || [];
 
-  // City filter (server-side)
+  // Fallback city filter for legacy items that don't use the new GSI1SK format
   if (params.city) {
     const city = sanitize(params.city, 100);
-    items = items.filter((r) => r.city === city);
+    items = items.filter((r) => r.city === city || (r.GSI1SK && r.GSI1SK.startsWith(`CITY#${city}`)));
   }
   if (params.cuisine) {
     const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);

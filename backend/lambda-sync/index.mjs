@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { seedRestaurants } from './seeder.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -90,12 +91,12 @@ async function refreshRestaurant(restaurant) {
   console.log(`Validated: ${restaurant.name} (${restaurant.restaurantId}) — Google valid: ${isValid}`);
 }
 
-// ─── Main Handler ─────────────────────────────────────────────────────────────
+// ─── Daily Validation ────────────────────────────────────────────────────────
 
 /** Safety cap: max restaurants to process per invocation to prevent runaway API costs */
 const MAX_RESTAURANTS = 1000;
 
-export const handler = async () => {
+async function runValidation() {
   console.log('Starting daily restaurant validation sync...');
 
   // Paginate through all restaurants (with safety cap)
@@ -152,13 +153,52 @@ export const handler = async () => {
     }
   }
 
-  const summary = {
+  return {
+    action: 'validate',
     total: restaurants.length,
     validated,
     failed,
     timestamp: new Date().toISOString(),
   };
+}
 
+// ─── Main Handler ─────────────────────────────────────────────────────────────
+//
+// Event-driven routing:
+//   - No event / scheduled event → daily validation (existing behavior)
+//   - { action: "seed" }         → seed restaurants from Google Places
+//   - { action: "seed", cities: ["Washington, DC"], dryRun: true } → targeted dry run
+//
+// To trigger a seed manually from CLI:
+//   aws lambda invoke --function-name spot-sync-dev \
+//     --payload '{"action":"seed"}' /dev/stdout
+//
+// To do a dry run for one city:
+//   aws lambda invoke --function-name spot-sync-dev \
+//     --payload '{"action":"seed","cities":["Washington, DC"],"dryRun":true}' /dev/stdout
+
+export const handler = async (event = {}) => {
+  const action = event.action || 'validate';
+
+  if (action === 'seed') {
+    console.log('Seed mode triggered');
+    const googleKey = await getGoogleKey();
+
+    if (!googleKey) {
+      const err = 'Google Places API key not found in Secrets Manager. Cannot seed.';
+      console.error(err);
+      return { error: err };
+    }
+
+    return await seedRestaurants(TABLE, googleKey, {
+      cities: event.cities || undefined,      // array of city names, or all
+      cuisines: event.cuisines || undefined,   // array of cuisine names, or all
+      dryRun: event.dryRun || false,
+    });
+  }
+
+  // Default: daily validation
+  const summary = await runValidation();
   console.log('Sync complete:', summary);
   return summary;
 };
