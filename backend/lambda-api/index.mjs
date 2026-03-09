@@ -501,6 +501,19 @@ async function updateCampaign(campaignId, event) {
       completed: d.completed === true,
     })) : undefined,
     notes: (v) => sanitize(v, 2000),
+    goal: (v) => sanitize(v, 1000),
+    dealType: (v) => sanitize(v, 100),
+    dealDescription: (v) => sanitize(v, 1000),
+    linkedOfferId: (v) => sanitize(v, 64),
+    linkedOfferCode: (v) => sanitize(v, 64),
+    trackingMethods: (v) => Array.isArray(v) ? v.slice(0, 10).map((m) => sanitize(m, 50)).filter(Boolean) : undefined,
+    contentDeliverables: (v) => Array.isArray(v) ? v.slice(0, 20).map((d) => sanitize(d, 100)).filter(Boolean) : undefined,
+    activity: (v) => Array.isArray(v) ? v.slice(0, 200).map((a) => ({
+      id: sanitize(a.id, 64) || randomUUID(),
+      type: ['status_change', 'outreach', 'note', 'offer_linked', 'deal_updated'].includes(a.type) ? a.type : 'note',
+      message: sanitize(a.message, 500),
+      timestamp: sanitize(a.timestamp, 30) || new Date().toISOString(),
+    })) : undefined,
   };
   const names = {};
   const values = {};
@@ -860,6 +873,31 @@ async function listOffers(event) {
   );
 
   return respond(200, stripAll(result.Items || []));
+}
+
+// ─── Restaurant Offers (public — for campaign linking) ───────────────────────
+
+async function listRestaurantOffers(restaurantId) {
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${restaurantId}`,
+        ':sk': 'OFFER#',
+      },
+      Limit: 50,
+    })
+  );
+
+  // Only return active offers
+  const activeOffers = (result.Items || [])
+    .filter((o) => o.isActive !== false)
+    .map((o) => stripDdbKeys(o));
+
+  return respond(200, activeOffers);
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
@@ -1784,6 +1822,10 @@ export const handler = async (event) => {
       return updateRestaurant(pathParts[pathParts.length - 1], event);
 
     // Restaurant offers
+    if (path.match(/\/api\/restaurants\/[^/]+\/offers$/) && method === 'GET') {
+      const restId = pathParts[pathParts.length - 2];
+      return listRestaurantOffers(restId);
+    }
     if (path.match(/\/api\/restaurants\/[^/]+\/offers$/) && method === 'POST') {
       const restId = pathParts[pathParts.length - 2];
       return createOffer(restId, event);

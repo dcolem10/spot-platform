@@ -70,8 +70,18 @@ export interface Campaign {
   goal?: string;
   contentDeliverables?: string[];
   notes?: string;
+  linkedOfferId?: string;
+  linkedOfferCode?: string;
+  activity?: CampaignActivity[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CampaignActivity {
+  id: string;
+  type: 'status_change' | 'outreach' | 'note' | 'offer_linked' | 'deal_updated';
+  message: string;
+  timestamp: string;
 }
 
 export interface Deliverable {

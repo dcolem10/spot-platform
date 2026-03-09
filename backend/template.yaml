@@ -237,6 +237,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        RestaurantOffers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/restaurants/{restaurantId}/offers
+            Method: GET
+            Auth:
+              Authorizer: NONE
         GoogleDetails:
           Type: Api
           Properties:
