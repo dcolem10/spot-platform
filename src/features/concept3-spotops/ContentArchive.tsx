@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ContentItem } from '../../types';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_CONTENT } from '../../data/demoData';
+import { EmptyState } from '../../components/EmptyState';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -385,11 +386,19 @@ export default function ContentArchive() {
       </div>
 
       {/* Grid */}
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && items.length > 0 ? (
         <div className="empty-state">
           <h3>No content found</h3>
           <p>Try adjusting your filters or search query</p>
         </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={'\uD83D\uDCF7'}
+          title="No content yet"
+          description="Your content archive will grow as you create campaigns and upload photos, videos, and posts from your restaurant visits."
+          ctaLabel="Start a Campaign"
+          ctaTo="/app/campaigns"
+        />
       ) : (
         <div style={styles.grid} className="stagger-children">
           {filtered.map((item) => {

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { ScrollToTop } from '../components/ScrollToTop';
+import { WelcomeModal } from '../components/WelcomeModal';
 import './Sidebar.css';
 
 interface NavItem {
@@ -244,6 +245,7 @@ export default function DashboardShell() {
         >
           <Outlet />
         </Suspense>
+        <WelcomeModal />
       </main>
 
       <nav className="mobile-nav">

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
+import { EmptyState } from '../../components/EmptyState';
 import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
 import CampaignWizard, { type RestaurantContext } from './CampaignWizard';
 import type { Campaign, CampaignStatus, Deliverable, Offer, Restaurant } from '../../types';
@@ -259,12 +260,16 @@ export default function CampaignManager() {
       )}
 
       {campaigns.length === 0 && !showWizard && (
-        <div className="empty-state" style={{ marginTop: 'var(--space-8)' }}>
-          <h3>No campaigns yet</h3>
-          <p>Pick a restaurant, set up a deal, and start tracking the customers your content drives.</p>
-          <button className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }} onClick={handleOpenWizard}>
-            + New Campaign
-          </button>
+        <div style={{ marginTop: 'var(--space-8)' }}>
+          <EmptyState
+            icon={'\uD83D\uDE80'}
+            title="Launch your first campaign"
+            description="Create content campaigns for restaurants, track deliverables, and measure your attribution impact."
+            ctaLabel="New Campaign"
+            onCtaClick={handleOpenWizard}
+            secondaryLabel="Discover Restaurants"
+            secondaryTo="/app/restaurants"
+          />
         </div>
       )}
     </div>

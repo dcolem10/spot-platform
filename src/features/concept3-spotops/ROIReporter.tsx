@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Campaign, CampaignReport, PostMetrics } from '../../types';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_CAMPAIGNS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
+import { EmptyState } from '../../components/EmptyState';
 
 /* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -481,10 +482,15 @@ export default function ROIReporter() {
 
       {/* No campaigns */}
       {campaigns.length === 0 && !loading && (
-        <div className="empty-state">
-          <h3>No Campaigns</h3>
-          <p>Create active or completed campaigns to generate attribution reports</p>
-        </div>
+        <EmptyState
+          icon={'\uD83D\uDCCA'}
+          title="No attribution data yet"
+          description="Once you have active or completed campaigns, your attribution reports will appear here — showing exactly how your content drives real restaurant traffic."
+          ctaLabel="Start a Campaign"
+          ctaTo="/app/campaigns"
+          secondaryLabel="Discover Restaurants"
+          secondaryTo="/app/restaurants"
+        />
       )}
 
       {/* Report loading */}
@@ -701,12 +707,11 @@ export default function ROIReporter() {
               Print Report
             </button>
             <button
-              className="btn btn-primary"
+              className={`btn btn-primary ${shareStatus === 'generating' ? 'btn-loading' : ''}`}
               onClick={handleGenerateShare}
               disabled={shareStatus === 'generating'}
             >
               {shareStatus === 'idle' && 'Generate & Share'}
-              {shareStatus === 'generating' && 'Generating PDF...'}
               {shareStatus === 'done' && 'Link Copied!'}
             </button>
           </div>

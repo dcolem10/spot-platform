@@ -917,12 +917,12 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
             </button>
           ) : (
             <button
-              className="btn btn-primary"
+              className={`btn btn-primary ${isSubmitting ? 'btn-loading' : ''}`}
               onClick={handleSubmit}
               disabled={isSubmitting}
-              style={{ flex: 1, opacity: isSubmitting ? 0.7 : 1 }}
+              style={{ flex: 1 }}
             >
-              {isSubmitting ? 'Launching...' : 'Launch Campaign'}
+              {!isSubmitting && 'Launch Campaign'}
             </button>
           )}
         </div>

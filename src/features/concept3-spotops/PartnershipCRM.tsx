@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Campaign, CampaignStatus, Deliverable } from '../../types';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
+import { EmptyState } from '../../components/EmptyState';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -641,14 +642,17 @@ export default function PartnershipCRM() {
       {/* Table */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {filtered.length === 0 ? (
-          <div className="empty-state">
-            <h3>No restaurants found</h3>
-            <p>
-              {statusFilter !== 'all'
-                ? `No campaigns with status "${statusFilter}"`
-                : 'Create your first campaign to get started'}
-            </p>
-          </div>
+          <EmptyState
+            icon={statusFilter !== 'all' ? '\uD83D\uDD0D' : '\uD83E\uDD1D'}
+            title={statusFilter !== 'all' ? 'No matching campaigns' : 'Your CRM is empty'}
+            description={statusFilter !== 'all'
+              ? `No campaigns with status "${statusFilter}". Try a different filter or create a new campaign.`
+              : 'Start by discovering restaurants and creating your first campaign. Your partnerships will appear here.'}
+            ctaLabel={statusFilter === 'all' ? 'Discover Restaurants' : undefined}
+            ctaTo={statusFilter === 'all' ? '/app/restaurants' : undefined}
+            secondaryLabel={statusFilter === 'all' ? 'New Campaign' : undefined}
+            secondaryTo={statusFilter === 'all' ? '/app/campaigns' : undefined}
+          />
         ) : (
           <table style={styles.table}>
             <thead>
@@ -778,11 +782,12 @@ export default function PartnershipCRM() {
             {nextStatus(selectedCampaign.status) && (
               <div style={{ marginBottom: 'var(--space-5)' }}>
                 <button
-                  className="btn btn-primary"
+                  className={`btn btn-primary ${editSaving ? 'btn-loading' : ''}`}
                   style={{ width: '100%' }}
                   onClick={() => handleStatusAdvance(selectedCampaign.campaignId, nextStatus(selectedCampaign.status)!)}
+                  disabled={editSaving}
                 >
-                  Move to {nextStatus(selectedCampaign.status)}
+                  {!editSaving && `Move to ${nextStatus(selectedCampaign.status)}`}
                 </button>
               </div>
             )}
@@ -1085,11 +1090,11 @@ export default function PartnershipCRM() {
                 Cancel
               </button>
               <button
-                className="btn btn-primary"
+                className={`btn btn-primary ${editSaving ? 'btn-loading' : ''}`}
                 onClick={handleEditSave}
                 disabled={editSaving || editForm.budget <= 0}
               >
-                {editSaving ? 'Saving...' : 'Save Changes'}
+                {!editSaving && 'Save Changes'}
               </button>
             </div>
           </div>
