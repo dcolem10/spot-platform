@@ -1044,7 +1044,7 @@ async function getGoogleDetails(restaurantId, event) {
   // Fetch fresh from Google Places API
   const secrets = await getApiSecrets();
   const googleKey = secrets.GOOGLE_PLACES_API_KEY;
-  if (!googleKey) return respond(503, { error: 'Google Places not configured' });
+  if (!googleKey) return respond(503, { error: 'Service temporarily unavailable' });
 
   const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos,websiteUri,nationalPhoneNumber';
   const res = await fetch(
@@ -1058,7 +1058,7 @@ async function getGoogleDetails(restaurantId, event) {
     }
   );
 
-  if (!res.ok) return respond(502, { error: 'Google Places API error' });
+  if (!res.ok) return respond(502, { error: 'External service error' });
   const data = await res.json();
 
   // Cache for 24 hours

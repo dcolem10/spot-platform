@@ -23,8 +23,8 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
   {
     group: 'Campaigns',
     items: [
-      { to: '/app/crm', label: 'Restaurants', icon: '\uD83D\uDC65' },
-      { to: '/app/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
+      { to: '/app/crm', label: 'Partnership CRM', icon: '\uD83D\uDC65' },
+      { to: '/app/campaigns', label: 'Campaign Pipeline', icon: '\uD83D\uDCC8' },
       { to: '/app/offers', label: 'Deals & QR', icon: '\uD83C\uDF9F' },
       { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
       { to: '/app/insights', label: 'AI Insights', icon: '\u2728' },
@@ -75,14 +75,14 @@ const audienceNav: { group: string; items: NavItem[] }[] = [
 
 const creatorMobileNavItems: NavItem[] = [
   { to: '/app/dashboard', label: 'Home', icon: '\u2302' },
-  { to: '/app/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
-  { to: '/app/discover', label: 'Discover', icon: '\uD83D\uDD0D' },
-  { to: '/app/archive', label: 'Content', icon: '\uD83D\uDCF7' },
-  { to: '/app/offers', label: 'Offers', icon: '\uD83C\uDF9F' },
+  { to: '/app/campaigns', label: 'Pipeline', icon: '\uD83D\uDCC8' },
+  { to: '/app/crm', label: 'CRM', icon: '\uD83D\uDC65' },
+  { to: '/app/restaurants', label: 'Restaurants', icon: '\uD83C\uDF7D' },
+  { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
 ];
 
 const audienceMobileNavItems: NavItem[] = [
-  { to: '/app/discover', label: 'Discover', icon: '\uD83D\uDD0D' },
+  { to: '/app/restaurants', label: 'Discover', icon: '\uD83D\uDD0D' },
   { to: '/app/deals', label: 'Deals', icon: '\u2B50' },
   { to: '/app/saved', label: 'Saved', icon: '\uD83D\uDD16' },
 ];

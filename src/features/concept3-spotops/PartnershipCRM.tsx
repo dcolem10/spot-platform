@@ -5,7 +5,7 @@ import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
-type SortField = 'date' | 'budget';
+type SortField = 'date' | 'value';
 type SortDir = 'asc' | 'desc';
 
 interface CRMStats {
@@ -597,7 +597,7 @@ export default function PartnershipCRM() {
       <div style={styles.statsRow} className="stagger-children">
         <div className="card">
           <div style={styles.statValue}>{formatCurrency(stats.pipelineValue)}</div>
-          <div style={styles.statLabel}>Total Pipeline Value</div>
+          <div style={styles.statLabel}>Est. Attribution Value</div>
         </div>
         <div className="card">
           <div style={styles.statValue}>{stats.conversionRate}%</div>
@@ -631,10 +631,10 @@ export default function PartnershipCRM() {
         </button>
         <button
           style={styles.sortBtn}
-          onClick={() => toggleSort('budget')}
-          title="Sort by budget"
+          onClick={() => toggleSort('value')}
+          title="Sort by estimated value"
         >
-          Budget {sortField === 'budget' ? (sortDir === 'asc' ? '\u2191' : '\u2193') : ''}
+          Value {sortField === 'value' ? (sortDir === 'asc' ? '\u2191' : '\u2193') : ''}
         </button>
       </div>
 
@@ -656,7 +656,7 @@ export default function PartnershipCRM() {
                 <th style={styles.th}>Restaurant</th>
                 <th style={styles.th}>Status</th>
                 <th style={styles.th}>Package</th>
-                <th style={styles.th}>Budget</th>
+                <th style={styles.th}>Est. Value</th>
                 <th style={styles.th}>Start Date</th>
                 <th style={styles.th}>Deliverables</th>
                 <th style={styles.th}>Actions</th>
@@ -792,7 +792,7 @@ export default function PartnershipCRM() {
               <span style={styles.detailValue}>{selectedCampaign.package}</span>
             </div>
             <div style={styles.detailRow}>
-              <span style={styles.detailLabel}>Budget</span>
+              <span style={styles.detailLabel}>Estimated Value</span>
               <span style={styles.detailValue}>{formatCurrency(selectedCampaign.budget)}</span>
             </div>
             <div style={styles.detailRow}>
@@ -977,7 +977,7 @@ export default function PartnershipCRM() {
 
             {/* Budget */}
             <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Budget</label>
+              <label style={styles.formLabel}>Estimated Value</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-textMuted)', fontSize: 'var(--font-sm)' }}>$</span>
                 <input
@@ -991,7 +991,7 @@ export default function PartnershipCRM() {
               </div>
               {editForm.budget <= 0 && (
                 <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)', marginTop: 'var(--space-1)', display: 'block' }}>
-                  Budget must be greater than 0
+                  Estimated value must be greater than 0
                 </span>
               )}
             </div>

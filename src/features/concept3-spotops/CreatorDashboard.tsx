@@ -252,16 +252,16 @@ export default function CreatorDashboard() {
   // Compute hero metrics
   const totalPartners = pipeline?.total ?? 0;
   const activeCampaigns = pipeline?.byStatus.active ?? 0;
-  const monthlyRevenue = pipeline?.totalRevenue ?? 0;
-  const avgDealSize = pipeline?.avgDealSize ?? 0;
+  const estReachCount = pipeline?.totalRevenue ?? 0;  // Pipeline estimate for reach
+  const dealRedemptionCount = pipeline?.avgDealSize ?? 0;  // Estimated redemptions
 
   // Trends are 0 when values are 0 (no data = no growth to show).
   // TODO: Replace with actual historical comparison once API supports /pipeline?period=previous
   const heroMetrics: HeroMetric[] = [
-    { label: 'Restaurants', value: String(totalPartners), trend: totalPartners === 0 ? 0 : 12.5 },
     { label: 'Active Campaigns', value: String(activeCampaigns), trend: activeCampaigns === 0 ? 0 : 8.3 },
-    { label: 'Customers Driven', value: monthlyRevenue === 0 ? '0' : String(Math.round(monthlyRevenue / 25)), trend: monthlyRevenue === 0 ? 0 : 15.2 },
-    { label: 'Deal Redemptions', value: avgDealSize === 0 ? '0' : String(Math.round(avgDealSize / 10)), trend: avgDealSize === 0 ? 0 : -3.1 },
+    { label: 'Restaurants Reached', value: String(totalPartners), trend: totalPartners === 0 ? 0 : 12.5 },
+    { label: 'Content Created', value: estReachCount === 0 ? '0' : String(Math.round(estReachCount / 25)), trend: estReachCount === 0 ? 0 : 15.2 },
+    { label: 'Deal Redemptions', value: dealRedemptionCount === 0 ? '0' : String(Math.round(dealRedemptionCount / 10)), trend: dealRedemptionCount === 0 ? 0 : -3.1 },
   ];
 
   // Pipeline total for bar widths

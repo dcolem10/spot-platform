@@ -58,18 +58,17 @@ function deriveDemoInsights(
     });
   }
 
-  // 2. Revenue pipeline
-  const activeBudget = campaigns
-    .filter((c) => c.status === 'active')
-    .reduce((sum, c) => sum + c.budget, 0);
-  const completedBudget = campaigns
+  // 2. Campaign pipeline
+  const activeCampaigns = campaigns.filter((c) => c.status === 'active').length;
+  const completedCampaigns = campaigns
     .filter((c) => c.status === 'completed')
-    .reduce((sum, c) => sum + c.budget, 0);
+    .length;
+  const negotiatingCampaigns = campaigns.filter((c) => c.status === 'negotiation').length;
   insights.push({
     id: 'revenue',
     icon: '\u{1F4B0}',
-    title: `$${formatNum(activeBudget)} in active campaigns`,
-    detail: `You have $${formatNum(completedBudget)} earned from completed campaigns and $${formatNum(activeBudget)} in progress. ${campaigns.filter((c) => c.status === 'negotiation').length} deals in negotiation could add $${formatNum(campaigns.filter((c) => c.status === 'negotiation').reduce((s, c) => s + c.budget, 0))} more.`,
+    title: `${activeCampaigns} active campaigns in pipeline`,
+    detail: `You have ${completedCampaigns} campaigns completed with attribution tracking and ${activeCampaigns} actively in progress. ${negotiatingCampaigns} additional deals in negotiation could expand your reach.`,
     type: 'info',
   });
 
@@ -195,7 +194,7 @@ function getDemoContentIdeas(): ContentIdea[] {
     },
     {
       title: '$20 Challenge: Columbia Heights',
-      description: 'Best meal under $20 at Thip Khao, Bad Saint, or a new find. Budget content drives huge reach.',
+      description: 'Best meal under $20 at Thip Khao, Bad Saint, or a new find. Affordable finds drive huge reach.',
       type: 'tiktok',
     },
   ];

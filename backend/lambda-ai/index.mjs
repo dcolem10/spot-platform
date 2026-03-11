@@ -276,7 +276,7 @@ async function handleRecommendations(event) {
     return respond(400, { error: 'Invalid query content' });
 
   // Check cache
-  const cacheKey = `REC#${query.toLowerCase().replace(/\s+/g, '-').slice(0, 100)}`;
+  const cacheKey = `REC#${userId}#${query.toLowerCase().replace(/\s+/g, '-').slice(0, 100)}`;
   const cached = await ddb.send(
     new GetCommand({
       TableName: TABLE,

@@ -128,17 +128,20 @@ function CitySelector({
       {open && (
         <div
           style={{
-            position: 'absolute',
-            top: 'calc(100% + var(--space-2))',
-            right: 0,
-            minWidth: '240px',
+            position: 'fixed',
+            top: 'auto',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'min(320px, 90vw)',
             background: 'var(--color-bgSecondary)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-lg)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            zIndex: 50,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            zIndex: 999,
             overflow: 'hidden',
             animation: 'fadeIn 0.15s ease-out',
+            maxHeight: '60vh',
+            overflowY: 'auto',
           }}
         >
           <div style={{ padding: 'var(--space-2) var(--space-3)', borderBottom: '1px solid var(--color-border)' }}>

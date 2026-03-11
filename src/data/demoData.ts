@@ -197,7 +197,7 @@ export const DEMO_CAMPAIGNS: Campaign[] = [
   { campaignId: 'c8', restaurantId: 'r6', restaurantName: "Rose's Luxury", status: 'completed', package: 'Feature', budget: 3500, startDate: demoDate(-60), endDate: demoDate(-30), deliverables: [{ id: 'd15', type: 'reel', description: 'Tasting menu reel', completed: true, completedAt: demoISO(-35) }, { id: 'd16', type: 'story', description: 'Stories with owner', completed: true, completedAt: demoISO(-33) }, { id: 'd17', type: 'tiktok', description: 'TikTok review', completed: true, completedAt: demoISO(-31) }], createdAt: demoISO(-75), updatedAt: demoISO(-30) },
   { campaignId: 'c9', restaurantId: 'r2', restaurantName: 'Bad Saint', status: 'completed', package: 'Spotlight', budget: 2000, startDate: demoDate(-45), endDate: demoDate(-25), deliverables: [{ id: 'd18', type: 'reel', description: 'Filipino food intro', completed: true, completedAt: demoISO(-28) }, { id: 'd19', type: 'post', description: 'Feed post', completed: true, completedAt: demoISO(-26) }], createdAt: demoISO(-60), updatedAt: demoISO(-25) },
   // Cancelled (1)
-  { campaignId: 'c10', restaurantId: 'r11', restaurantName: 'Founding Farmers', status: 'cancelled', package: 'Custom', budget: 1500, deliverables: [], notes: 'Budget mismatch', createdAt: demoISO(-40), updatedAt: demoISO(-35) },
+  { campaignId: 'c10', restaurantId: 'r11', restaurantName: 'Founding Farmers', status: 'cancelled', package: 'Custom', budget: 1500, deliverables: [], notes: 'Deal terms mismatch', createdAt: demoISO(-40), updatedAt: demoISO(-35) },
 ];
 
 /* ─── Pipeline ─────────────────────────────────────────────────────────────── */

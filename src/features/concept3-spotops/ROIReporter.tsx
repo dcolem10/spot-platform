@@ -11,10 +11,6 @@ function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-function formatCurrency(n: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-}
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -68,7 +64,7 @@ const styles = {
     gap: 'var(--space-2)',
     marginTop: 'var(--space-1)',
   } as React.CSSProperties,
-  campaignCardBudget: {
+  campaignCardValue: {
     fontSize: 'var(--font-lg)',
     fontWeight: 700,
     color: 'var(--color-textPrimary)',
@@ -444,8 +440,8 @@ export default function ROIReporter() {
     <div className="page-container">
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">ROI Reporter</h1>
-        <p className="page-subtitle">Generate and share campaign performance reports</p>
+        <h1 className="page-title">Attribution Reporter</h1>
+        <p className="page-subtitle">Track and share how your content drives real restaurant traffic</p>
       </div>
 
       {/* Error */}
@@ -477,7 +473,7 @@ export default function ROIReporter() {
                 </span>
                 <span>{c.package}</span>
               </div>
-              <div style={styles.campaignCardBudget}>{formatCurrency(c.budget)}</div>
+              <div style={styles.campaignCardValue}>{c.restaurantName}</div>
             </div>
           ))}
         </div>
@@ -487,7 +483,7 @@ export default function ROIReporter() {
       {campaigns.length === 0 && !loading && (
         <div className="empty-state">
           <h3>No Campaigns</h3>
-          <p>Create active or completed campaigns to generate ROI reports</p>
+          <p>Create active or completed campaigns to generate attribution reports</p>
         </div>
       )}
 

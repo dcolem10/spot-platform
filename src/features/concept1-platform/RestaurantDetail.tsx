@@ -246,7 +246,7 @@ export default function RestaurantDetail() {
                         {c.package} Package
                       </span>
                       <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginLeft: 'var(--space-2)' }}>
-                        ${c.budget.toLocaleString()}
+                        {c.status === 'active' ? 'In Progress' : c.status === 'completed' ? 'Completed' : c.status === 'negotiation' ? 'Negotiating' : 'Inquiry'}
                       </span>
                     </div>
                     <span

@@ -182,7 +182,7 @@ export default function TermsOfService() {
             <P>
               Campaign performance data, partnership terms, and financial details shared between
               Creators and Partners through the Service are confidential. Neither party may publicly
-              disclose the other party's campaign data, budgets, or performance metrics without prior
+              disclose the other party's campaign data, deal terms, or attribution metrics without prior
               written consent.
             </P>
           </SubSection>
