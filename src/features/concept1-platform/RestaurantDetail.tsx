@@ -1,9 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY, DEMO_CAMPAIGNS, DEMO_OFFERS } from '../../data/demoData';
 import type { Restaurant, Campaign, Offer } from '../../types';
+
+interface GoogleReview {
+  name: string;
+  relativePublishTimeDescription: string;
+  rating: number;
+  text: { text: string; languageCode: string };
+  originalText?: { text: string; languageCode: string };
+  authorAttribution: { displayName: string; uri?: string; photoUri?: string };
+  publishTime: string;
+}
 
 const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
 
@@ -69,6 +79,26 @@ export default function RestaurantDetail() {
     },
     enabled: Boolean(id),
   });
+
+  // Fetch Google reviews (only for non-demo, when restaurant has a googlePlaceId)
+  const { data: googleData, isLoading: reviewsLoading } = useQuery({
+    queryKey: ['googleDetails', id],
+    queryFn: async () => {
+      const res = await api.get<{ reviews?: GoogleReview[]; rating?: number; userRatingCount?: number }>(`/api/restaurants/${id}/google-details`);
+      return res.data ?? null;
+    },
+    enabled: Boolean(id) && !isDemoMode() && Boolean(restaurant?.googlePlaceId),
+    staleTime: 60_000 * 30, // 30 min — backend caches 24hr anyway
+    retry: 1,
+  });
+
+  const googleReviews = useMemo(() => {
+    if (!googleData?.reviews) return [];
+    // Take up to 5 reviews, sorted by most recent
+    return [...googleData.reviews]
+      .sort((a, b) => new Date(b.publishTime).getTime() - new Date(a.publishTime).getTime())
+      .slice(0, 5);
+  }, [googleData]);
 
   const activeCampaigns = useMemo(() => campaigns?.filter((c) => c.status === 'active') ?? [], [campaigns]);
   const pastCampaigns = useMemo(() => campaigns?.filter((c) => c.status === 'completed') ?? [], [campaigns]);
@@ -368,7 +398,7 @@ export default function RestaurantDetail() {
 
       {/* Spot Review */}
       {restaurant.spotReview && (
-        <div className="card" style={{ padding: 'var(--space-5)' }}>
+        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
           <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-3)' }}>
             Your Spot Review
           </h2>
@@ -377,6 +407,122 @@ export default function RestaurantDetail() {
           </p>
         </div>
       )}
+
+      {/* Google Reviews */}
+      {(googleReviews.length > 0 || reviewsLoading) && (
+        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+            <div>
+              <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-1)' }}>
+                Google Reviews
+              </h2>
+              {googleData?.rating != null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <span style={{ fontSize: 'var(--font-sm)', fontWeight: 700, color: 'var(--color-textPrimary)' }}>
+                    {googleData.rating.toFixed(1)}
+                  </span>
+                  <span style={{ color: 'var(--color-warning)', fontSize: 'var(--font-sm)', letterSpacing: '1px' }}>
+                    {'★'.repeat(Math.round(googleData.rating))}{'☆'.repeat(5 - Math.round(googleData.rating))}
+                  </span>
+                  {googleData.userRatingCount != null && (
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                      ({googleData.userRatingCount.toLocaleString()} reviews)
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {reviewsLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="skeleton" style={{ height: '80px', borderRadius: 'var(--radius-md)' }} />
+              ))}
+            </div>
+          ) : (
+            <GoogleReviewsList reviews={googleReviews} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GoogleReviewsList({ reviews }: { reviews: GoogleReview[] }) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      {reviews.map((review) => {
+        const text = review.text?.text || review.originalText?.text || '';
+        const isLong = text.length > 180;
+        const isExpanded = expanded === review.name;
+        const displayText = isLong && !isExpanded ? text.slice(0, 180) + '...' : text;
+
+        return (
+          <div
+            key={review.name}
+            style={{
+              padding: 'var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--color-bgSecondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {/* Review header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                {review.authorAttribution.photoUri ? (
+                  <img
+                    src={review.authorAttribution.photoUri}
+                    alt=""
+                    style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-full)', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: 'var(--radius-full)',
+                    background: 'var(--color-accentMuted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 'var(--font-xs)', fontWeight: 700, color: 'var(--color-accent)',
+                  }}>
+                    {review.authorAttribution.displayName?.[0]?.toUpperCase() || '?'}
+                  </div>
+                )}
+                <div>
+                  <span style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
+                    {review.authorAttribution.displayName}
+                  </span>
+                </div>
+              </div>
+              <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                {review.relativePublishTimeDescription}
+              </span>
+            </div>
+
+            {/* Stars */}
+            <div style={{ color: 'var(--color-warning)', fontSize: 'var(--font-xs)', marginBottom: 'var(--space-2)', letterSpacing: '1px' }}>
+              {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+            </div>
+
+            {/* Review text */}
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.6, margin: 0 }}>
+              {displayText}
+            </p>
+            {isLong && (
+              <button
+                onClick={() => setExpanded(isExpanded ? null : review.name)}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--color-accent)',
+                  fontSize: 'var(--font-xs)', cursor: 'pointer', padding: 'var(--space-1) 0',
+                  fontWeight: 600, fontFamily: 'inherit',
+                }}
+              >
+                {isExpanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

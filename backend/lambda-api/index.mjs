@@ -1046,7 +1046,7 @@ async function getGoogleDetails(restaurantId, event) {
   const googleKey = secrets.GOOGLE_PLACES_API_KEY;
   if (!googleKey) return respond(503, { error: 'Service temporarily unavailable' });
 
-  const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos,websiteUri,nationalPhoneNumber';
+  const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos,websiteUri,nationalPhoneNumber,reviews,userRatingCount';
   const res = await fetch(
     `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}`,
     {
