@@ -185,6 +185,7 @@ export default function OfferManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offers'] });
     },
+    onError: (err: Error) => console.error('Toggle offer failed:', err.message),
   });
 
   const submitForApprovalMutation = useMutation({
@@ -195,6 +196,7 @@ export default function OfferManager() {
       return res.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
+    onError: (err: Error) => console.error('Submit for approval failed:', err.message),
   });
 
   const pauseOfferMutation = useMutation({
@@ -205,6 +207,7 @@ export default function OfferManager() {
       return res.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
+    onError: (err: Error) => console.error('Pause offer failed:', err.message),
   });
 
   const resumeOfferMutation = useMutation({
@@ -215,6 +218,7 @@ export default function OfferManager() {
       return res.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
+    onError: (err: Error) => console.error('Resume offer failed:', err.message),
   });
 
   const offers = data?.length ? data : (isDemoMode() ? DEMO_OFFERS : []);

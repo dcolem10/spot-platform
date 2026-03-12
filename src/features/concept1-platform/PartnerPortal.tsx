@@ -124,6 +124,9 @@ export default function PartnerPortal() {
         reports: reportsRes.data ?? [],
       } as PartnerDashboardData;
     },
+    staleTime: 2 * 60 * 1000,      // 2 min — dashboard doesn't need real-time
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Fetch margin analytics

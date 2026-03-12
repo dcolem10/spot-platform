@@ -195,6 +195,8 @@ export default function RaffleEntryPage() {
       return res.data as Raffle;
     },
     enabled: !!id,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const raffle = raffleQuery.data;

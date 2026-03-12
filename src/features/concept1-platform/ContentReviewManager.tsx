@@ -1,6 +1,7 @@
 import { useState, memo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
+import { useAuth } from '../../hooks/useAuth';
 import { isDemoMode } from '../../data/demoData';
 import type { ContentReview, ContentReviewStatus, ContentPlatform, ContentType } from '../../types';
 
@@ -678,25 +679,28 @@ export default function ContentReviewManager() {
   const [tab, setTab] = useState<'drafts' | 'inbox' | 'archive'>('drafts');
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
+  const { userId } = useAuth();
 
   const draftsQuery = useQuery({
-    queryKey: ['content-reviews', 'my-drafts'],
+    queryKey: ['content-reviews', userId, 'my-drafts'],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_REVIEWS;
       const res = await api.get<{ reviews: ContentReview[] }>('/api/content-reviews');
       return res.data?.reviews || [];
     },
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const inboxQuery = useQuery({
-    queryKey: ['content-reviews', 'inbox'],
+    queryKey: ['content-reviews', userId, 'inbox'],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_REVIEWS;
       const res = await api.get<{ reviews: ContentReview[] }>('/api/content-reviews?inbox=true');
       return res.data?.reviews || [];
     },
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const submitMutation = useMutation({
@@ -705,6 +709,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/submit`, {});
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
+    onError: (err: Error) => console.error('Submit failed:', err.message),
   });
 
   const approveMutation = useMutation({
@@ -713,6 +718,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/approve`, {});
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
+    onError: (err: Error) => console.error('Approve failed:', err.message),
   });
 
   const requestRevisionMutation = useMutation({
@@ -721,6 +727,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/request-revision`, { reason });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
+    onError: (err: Error) => console.error('Revision request failed:', err.message),
   });
 
   const rejectMutation = useMutation({
@@ -729,6 +736,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/reject`, { reason });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
+    onError: (err: Error) => console.error('Reject failed:', err.message),
   });
 
   const reviews = tab === 'inbox' ? inboxQuery.data || [] : draftsQuery.data || [];

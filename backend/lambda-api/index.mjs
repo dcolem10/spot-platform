@@ -109,10 +109,13 @@ function getUserId(event) {
 // ─── Restaurant CRUD ──────────────────────────────────────────────────────────
 
 async function listRestaurants(event) {
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
   const params = event.queryStringParameters || {};
 
   // H3: Pagination support
-  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 200);
+  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 50);
   const queryParams = {
     TableName: TABLE,
     IndexName: 'GSI1',
@@ -226,7 +229,7 @@ async function createRestaurant(event) {
   };
 
   await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
-  return respond(201, item);
+  return respond(201, stripDdbKeys(item));
 }
 
 async function listMyRestaurants(event) {
@@ -468,7 +471,7 @@ async function createCampaign(event) {
   };
 
   await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
-  return respond(201, item);
+  return respond(201, stripDdbKeys(item));
 }
 
 async function updateCampaign(campaignId, event) {
@@ -658,7 +661,7 @@ async function createOffer(restaurantId, event) {
     })
   );
 
-  return respond(201, item);
+  return respond(201, stripDdbKeys(item));
 }
 
 async function updateOffer(offerId, event) {
@@ -784,7 +787,7 @@ async function checkPublicRateLimit(event) {
 
 /**
  * Per-user mutation rate limiter. Prevents a single authenticated user from
- * spamming create operations. Default: 30 mutations per hour (fail-open).
+ * spamming create operations. Default: 30 mutations per hour (fail-closed).
  */
 async function checkUserMutationRate(userId, label = 'MUTATION', limit = 30) {
   const hour = Math.floor(Date.now() / 3600000);
@@ -800,7 +803,7 @@ async function checkUserMutationRate(userId, label = 'MUTATION', limit = 30) {
     return (result.Attributes?.cnt || 0) <= limit;
   } catch (err) {
     console.error(`User mutation rate check failed (${label}):`, err.message);
-    return true; // fail open for authenticated users
+    return false; // fail closed — deny mutation if rate check fails
   }
 }
 
@@ -1065,8 +1068,11 @@ async function listOffers(event) {
 
 // ─── Restaurant Offers (public — for campaign linking) ───────────────────────
 
-async function listRestaurantOffers(restaurantId) {
+async function listRestaurantOffers(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
 
   try {
     const result = await ddb.send(
@@ -1539,6 +1545,7 @@ async function handleSquareCallback(event) {
         grant_type: 'authorization_code',
         code_verifier: pending.codeVerifier,
       }).toString(),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!tokenResponse.ok) {
@@ -1556,6 +1563,7 @@ async function handleSquareCallback(event) {
     try {
       const merchantRes = await fetch('https://connect.squareup.com/v2/merchants/me', {
         headers: { 'Authorization': `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(10000),
       });
       if (merchantRes.ok) {
         const merchantData = await merchantRes.json();
@@ -1689,6 +1697,7 @@ async function disconnectPos(event) {
               client_id: process.env.SQUARE_APP_ID,
               access_token: conn.accessToken,
             }).toString(),
+            signal: AbortSignal.timeout(10000),
           });
         } catch (e) {
           console.warn('Failed to revoke Square token:', e.message);
@@ -4516,22 +4525,11 @@ async function listNotifications(event) {
   const result = await ddb.send(new QueryCommand(params));
   const notifications = (result.Items || []).map(stripDdbKeys);
 
-  // Also return unread count
-  const countResult = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-      FilterExpression: 'isRead = :unread',
-      ExpressionAttributeValues: {
-        ':pk': `USER#${userId}`,
-        ':prefix': 'NOTIF#',
-        ':unread': false,
-      },
-      Select: 'COUNT',
-    })
-  );
+  // Compute unread count from fetched items (avoids second DDB query)
+  // For small notification sets (limit ≤ 100), counting from result is accurate enough
+  const unreadCount = (result.Items || []).filter(n => n.isRead === false).length;
 
-  return respond(200, { notifications, unreadCount: countResult.Count || 0 });
+  return respond(200, { notifications, unreadCount });
 }
 
 /**
@@ -5240,7 +5238,7 @@ export const handler = async (event) => {
     // Restaurant offers
     if (path.match(/\/api\/restaurants\/[^/]+\/offers$/) && method === 'GET') {
       const restId = pathParts[pathParts.length - 2];
-      return listRestaurantOffers(restId);
+      return listRestaurantOffers(restId, event);
     }
     if (path.match(/\/api\/restaurants\/[^/]+\/offers$/) && method === 'POST') {
       const restId = pathParts[pathParts.length - 2];

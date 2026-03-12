@@ -196,6 +196,8 @@ export default function NotificationBell() {
       return res.data as { notifications: Notification[]; unreadCount: number };
     },
     refetchInterval: 60000, // Poll every 60s
+    staleTime: 30000,            // Consider fresh for 30s
+    refetchOnWindowFocus: false,  // Prevent duplicate polls on tab switch
   });
 
   const notifications = data?.notifications || [];

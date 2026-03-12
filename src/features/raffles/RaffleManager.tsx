@@ -385,6 +385,7 @@ export default function RaffleManager() {
       return res.data?.raffles || [];
     },
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const activateMutation = useMutation({
@@ -393,6 +394,7 @@ export default function RaffleManager() {
       return api.put(`/api/raffles/${id}`, { status: 'active' });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['raffles'] }),
+    onError: (err: Error) => console.error('Activate raffle failed:', err.message),
   });
 
   const drawMutation = useMutation({
@@ -402,6 +404,7 @@ export default function RaffleManager() {
       return res;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['raffles'] }),
+    onError: (err: Error) => console.error('Draw winner failed:', err.message),
   });
 
   const raffles = rafflesQuery.data || [];
