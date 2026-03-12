@@ -366,6 +366,7 @@ export default function OfferManager() {
       {actionFeedback && (
         <div
           role="alert"
+          aria-live="assertive"
           style={{
             position: 'fixed', top: 'var(--space-4)', right: 'var(--space-4)', zIndex: 9999,
             padding: 'var(--space-3) var(--space-4)',

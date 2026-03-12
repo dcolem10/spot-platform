@@ -26,6 +26,8 @@ export function CollapsibleSection({ title, children, defaultOpen = true }: Coll
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <button
         onClick={() => isMobile && setIsOpen(!isOpen)}
+        aria-expanded={isMobile ? isOpen : undefined}
+        aria-label={isMobile ? `${isOpen ? 'Collapse' : 'Expand'} ${title} section` : undefined}
         style={{
           display: 'flex',
           alignItems: 'center',

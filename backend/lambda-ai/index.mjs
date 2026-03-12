@@ -405,6 +405,15 @@ async function handleContentIdeas(event) {
     }
   }
 
+  // H8: Cap user-supplied context payload to 5 KB to prevent token cost explosion
+  if (body.context) {
+    const contextSize = JSON.stringify(body.context).length;
+    if (contextSize > 5120) {
+      console.warn(`Context payload too large: ${contextSize} bytes from user ${userId}`);
+      return respond(400, { error: 'Context payload too large (max 5 KB)' });
+    }
+  }
+
   const apiKey = await getApiKey();
   if (!apiKey) {
     return respond(200, {

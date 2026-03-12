@@ -110,7 +110,7 @@ Resources:
         RestrictPublicBuckets: false
       CorsConfiguration:
         CorsRules:
-          - AllowedOrigins: ['*']
+          - AllowedOrigins: [!Ref AllowedOrigin, 'https://spot-platform.com']
             AllowedMethods: [GET]
             AllowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
             MaxAge: 86400
@@ -312,7 +312,7 @@ Resources:
           ALLOWED_ORIGIN: !Ref AllowedOrigin
           SECRETS_ARN: !Ref SecretsArn
       Policies:
-        - DynamoDBReadPolicy:
+        - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
         - Statement:
             - Effect: Allow

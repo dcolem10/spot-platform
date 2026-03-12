@@ -638,13 +638,13 @@ export default function EditorialCalendar() {
       {/* Controls */}
       <div style={styles.header}>
         <div style={styles.navRow}>
-          <button style={styles.navBtn} onClick={() => navigate(-1)}>
+          <button style={styles.navBtn} onClick={() => navigate(-1)} aria-label="Previous period">
             ←
           </button>
           <button style={styles.navBtn} onClick={goToday}>
             Today
           </button>
-          <button style={styles.navBtn} onClick={() => navigate(1)}>
+          <button style={styles.navBtn} onClick={() => navigate(1)} aria-label="Next period">
             →
           </button>
           <span style={styles.currentLabel}>{periodLabel}</span>

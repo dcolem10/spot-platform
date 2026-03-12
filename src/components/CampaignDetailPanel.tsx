@@ -321,6 +321,7 @@ export default function CampaignDetailPanel({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close campaign details"
             style={{
               background: 'none',
               border: 'none',
@@ -1062,11 +1063,23 @@ export default function CampaignDetailPanel({
 
   /* ─── Render with backdrop ──────────────────────────────────────────── */
 
+  // Escape key handler for both modal and slideover
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (isModal) {
     return (
       <>
         <div
           onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Campaign details"
           style={{
             position: 'fixed',
             inset: 0,
@@ -1099,7 +1112,9 @@ export default function CampaignDetailPanel({
           backdropFilter: 'blur(2px)',
         }}
       />
-      {panelContent}
+      <div role="dialog" aria-modal="true" aria-label="Campaign details">
+        {panelContent}
+      </div>
     </>
   );
 }

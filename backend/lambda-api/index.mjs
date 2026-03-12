@@ -1129,6 +1129,7 @@ async function getSpotOpsPipeline(event) {
         IndexName: 'GSI1',
         KeyConditionExpression: 'GSI1PK = :pk',
         ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
+        Limit: 200,
       })
     );
 
@@ -1197,8 +1198,11 @@ async function listRestaurantOffers(restaurantId, event) {
       })
     );
 
+    // Public endpoint: only return active + approved offers (hide draft/paused/unapproved from public)
     const activeOffers = (result.Items || [])
       .filter((o) => o.isActive !== false)
+      .filter((o) => !o.approvalStatus || o.approvalStatus === 'approved')
+      .filter((o) => !o.expiresAt || new Date(o.expiresAt) > new Date()) // hide expired
       .map((o) => stripDdbKeys(o));
 
     return respond(200, activeOffers);
@@ -2925,7 +2929,7 @@ async function redeemDeal(dealId, event) {
     }
   } catch (err) {
     console.error('Deal rate limit check failed:', err.message);
-    // fail open — allow the redemption
+    return respond(503, { error: 'Service temporarily unavailable. Please try again.' });
   }
 
   await ddb.send(
@@ -3593,6 +3597,12 @@ async function inviteCollaborator(campaignId, event) {
 
   if (collabCount.Items?.length >= 5) {
     return respond(400, { error: 'Max 5 collaborators per campaign' });
+  }
+
+  // Check if this creator is already a collaborator (prevent duplicate invites)
+  const alreadyCollab = (collabCount.Items || []).find(c => c.SK === `COLLAB#${inviteeId}`);
+  if (alreadyCollab) {
+    return respond(409, { error: 'This creator is already a collaborator on this campaign' });
   }
 
   const createdAt = new Date().toISOString();
