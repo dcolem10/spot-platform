@@ -339,6 +339,67 @@ export interface RestaurantFilters {
   occasion?: string;
 }
 
+// ─── Content Reviews ──────────────────────────────────────────────────────────
+
+export type ContentReviewStatus = 'draft' | 'submitted' | 'revision_requested' | 'revised' | 'approved' | 'rejected';
+export type ContentPlatform = 'instagram' | 'tiktok' | 'youtube';
+export type ContentType = 'reel' | 'story' | 'post' | 'tiktok' | 'shorts';
+
+export interface RevisionEntry {
+  reason: string;
+  requestedAt: string;
+  revisedAt?: string;
+  revisedCaption?: string;
+}
+
+export interface ReviewMessage {
+  from: string;
+  role: 'creator' | 'restaurant' | 'system';
+  text: string;
+  timestamp: string;
+}
+
+export interface ContentReview {
+  contentReviewId: string;
+  creatorId: string;
+  restaurantId: string;
+  restaurantName: string;
+  campaignId?: string;
+  platform: ContentPlatform;
+  contentType: ContentType;
+  contentUrl: string;
+  caption: string;
+  hashtagsProposed?: string[];
+  callToAction?: string;
+  status: ContentReviewStatus;
+  submittedAt?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  revisionCount: number;
+  revisionHistory: RevisionEntry[];
+  messages: ReviewMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── POS Integration ──────────────────────────────────────────────────────────
+
+export interface PosConnectionStatus {
+  connected: boolean;
+  provider?: 'square';
+  status?: 'connected' | 'pending_oauth' | 'failed' | 'revoked';
+  merchantId?: string;
+  merchantName?: string;
+  connectedAt?: string;
+  lastSyncedAt?: string;
+  lastMetrics?: {
+    avgCheckValue: number;
+    repeatCustomerRate: number;
+  };
+}
+
 // ─── Notifications ──────────────────────────────────────────────────────────
 
 export type NotificationType =
@@ -353,7 +414,11 @@ export type NotificationType =
   | 'raffle_entry'
   | 'raffle_winner'
   | 'qr_milestone'
-  | 'proposal_expiring';
+  | 'proposal_expiring'
+  | 'content_review_submitted'
+  | 'content_review_revision_requested'
+  | 'content_review_approved'
+  | 'content_review_rejected';
 
 export interface Notification {
   notificationId: string;

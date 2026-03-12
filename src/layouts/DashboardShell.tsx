@@ -29,6 +29,7 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
       { to: '/app/campaigns', label: 'Campaign Pipeline', icon: '\uD83D\uDCC8' },
       { to: '/app/proposals', label: 'Proposals', icon: '📩' },
       { to: '/app/raffles', label: 'Raffles', icon: '🎟️' },
+      { to: '/app/content-reviews', label: 'Content Reviews', icon: '📝' },
       { to: '/app/offers', label: 'Deals & QR', icon: '\uD83C\uDF9F' },
       { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
       { to: '/app/insights', label: 'AI Insights', icon: '\u2728' },

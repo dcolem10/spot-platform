@@ -1,12 +1,12 @@
-import { useMemo, memo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, memo, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_CAMPAIGNS, DEMO_OFFERS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
 import PartnerOnboarding from '../onboarding/PartnerOnboarding';
-import type { Campaign, Offer, CampaignReport } from '../../types';
+import type { Campaign, Offer, CampaignReport, PosConnectionStatus } from '../../types';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -97,6 +97,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function PartnerPortal() {
   const { name, orgId } = useAuth();
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   // Fetch dashboard data
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -135,6 +136,44 @@ export default function PartnerPortal() {
     staleTime: 5 * 60 * 1000,      // 5 min — analytics don't need real-time
     gcTime: 10 * 60 * 1000,         // Keep in cache 10 min
     refetchOnWindowFocus: false,
+  });
+
+  // Fetch POS status
+  const { data: posStatus, refetch: refetchPosStatus } = useQuery({
+    queryKey: ['pos-status', orgId],
+    queryFn: async () => {
+      if (isDemoMode()) return { connected: false } as PosConnectionStatus;
+      const res = await api.get<PosConnectionStatus>('/api/pos/status');
+      return res.data ?? { connected: false };
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Connect Square POS mutation
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post<{ authorizationUrl: string }>('/api/pos/connect/square', { restaurantId: orgId });
+      if (res.data?.authorizationUrl) {
+        window.open(res.data.authorizationUrl, '_blank');
+      }
+      return res.data;
+    },
+    onSuccess: () => {
+      refetchPosStatus();
+    },
+  });
+
+  // Disconnect POS mutation
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      await api.put('/api/pos/disconnect', {});
+      return null;
+    },
+    onSuccess: () => {
+      setShowDisconnectConfirm(false);
+      refetchPosStatus();
+    },
   });
 
   const dashboard = data ?? (isDemoMode()
@@ -278,6 +317,137 @@ export default function PartnerPortal() {
           />
         </div>
       </section>
+
+      {/* ─── POS Connection ─── */}
+      <section style={{ marginBottom: 'var(--space-6)' }}>
+        {!posStatus?.connected ? (
+          <div className="card" style={{
+            padding: 'var(--space-5)',
+            background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(59, 130, 246, 0.06) 100%)',
+            borderColor: 'rgba(59, 130, 246, 0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+              <div style={{ fontSize: '24px', marginTop: 'var(--space-1)' }}>🔗</div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-2)' }}>
+                  Connect Your POS for Real Revenue Data
+                </h3>
+                <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
+                  Replace industry estimates with your actual transaction data from Square.
+                </p>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => connectMutation.mutate()}
+                  disabled={connectMutation.isPending}
+                  style={{
+                    background: 'var(--color-success)',
+                    color: 'white',
+                    marginBottom: 'var(--space-3)',
+                  }}
+                >
+                  {connectMutation.isPending ? 'Connecting...' : 'Connect Square ▸'}
+                </button>
+                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', lineHeight: 1.6 }}>
+                  Currently using: Industry averages ($45 avg check, 35% repeat rate)
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="card" style={{
+            padding: 'var(--space-5)',
+            background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(16, 185, 129, 0.06) 100%)',
+            borderColor: 'rgba(16, 185, 129, 0.2)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)', justifyContent: 'space-between' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                  <span style={{ fontSize: '20px' }}>✅</span>
+                  <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-success)' }}>
+                    Square POS Connected
+                  </h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                  <div>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Merchant</div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.merchantName || 'Connected'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Connected</div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.connectedAt ? fmtDate(posStatus.connectedAt) : '--'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Last sync</div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.lastSyncedAt ? fmtDate(posStatus.lastSyncedAt) : 'Pending'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Avg check</div>
+                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>
+                      {posStatus.lastMetrics ? fmtMoney(posStatus.lastMetrics.avgCheckValue) : '--'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="btn"
+                onClick={() => setShowDisconnectConfirm(true)}
+                style={{
+                  color: 'var(--color-error)',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  fontSize: 'var(--font-sm)',
+                  flexShrink: 0,
+                }}
+              >
+                Disconnect
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Disconnect Confirmation Modal */}
+      {showDisconnectConfirm && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+        }}>
+          <div className="card" style={{ maxWidth: 400, padding: 'var(--space-6)' }}>
+            <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
+              Disconnect Square POS?
+            </h3>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-4)', lineHeight: 1.6 }}>
+              You will return to using industry average estimates for revenue calculations. You can reconnect anytime.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setShowDisconnectConfirm(false)}
+                disabled={disconnectMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn"
+                onClick={() => disconnectMutation.mutate()}
+                disabled={disconnectMutation.isPending}
+                style={{
+                  background: 'var(--color-error)',
+                  color: 'white',
+                }}
+              >
+                {disconnectMutation.isPending ? 'Disconnecting...' : 'Disconnect'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Pending Actions ─── */}
       {pendingActions.length > 0 && (
@@ -491,7 +661,10 @@ export default function PartnerPortal() {
         textAlign: 'center',
         lineHeight: 1.6,
       }}>
-        {stats.assumptions.note} &middot; Avg check: {fmtMoney(stats.assumptions.avgCheckValue)} &middot; Repeat visit rate: {Math.round(stats.assumptions.repeatVisitRate * 100)}%
+        {posStatus?.connected
+          ? 'Revenue metrics powered by Square POS data'
+          : 'Revenue estimates based on industry averages. Connect POS for real numbers.'
+        } &middot; Avg check: {fmtMoney(stats.assumptions.avgCheckValue)} &middot; Repeat visit rate: {Math.round(stats.assumptions.repeatVisitRate * 100)}%
       </div>
     </div>
   );

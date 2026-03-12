@@ -9,7 +9,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import { randomUUID, randomInt } from 'crypto';
+import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp } from './helpers.mjs';
 
 const client = new DynamoDBClient({});
@@ -1125,6 +1125,27 @@ async function getPartnerAnalytics(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
+  // Check for POS connection to use real metrics
+  let AVG_CHECK_VALUE = 45;
+  let REPEAT_VISIT_RATE = 0.35;
+  let metricsSource = 'industry_average';
+
+  // Try to find restaurant's POS connection
+  try {
+    const posResult = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: { ':pk': `RESTAURANT#${userId}`, ':sk': 'POS_CONNECTION#square' },
+      Limit: 1,
+    }));
+    const posConn = posResult.Items?.[0];
+    if (posConn?.status === 'connected' && posConn.lastMetrics) {
+      AVG_CHECK_VALUE = posConn.lastMetrics.avgCheckValue || 45;
+      REPEAT_VISIT_RATE = posConn.lastMetrics.repeatCustomerRate || 0.35;
+      metricsSource = 'square_pos';
+    }
+  } catch (e) { console.warn('POS lookup failed, using industry defaults:', e.message); }
+
   // Fetch campaigns, offers, and reports in parallel
   const [campaignResult, offerResult, reportResult, proposalResult] = await Promise.all([
     ddb.send(new QueryCommand({
@@ -1177,8 +1198,6 @@ async function getPartnerAnalytics(event) {
   const estimatedVisits = reports.reduce((sum, r) => sum + (r.metrics?.estimatedVisits || 0), 0);
 
   // Margin-first calculations
-  const AVG_CHECK_VALUE = 45; // Placeholder — Phase 4 will pull from POS
-  const REPEAT_VISIT_RATE = 0.35; // Industry average for creator-referred diners
   const estimatedRevenue = Math.round(totalRedemptions * AVG_CHECK_VALUE * (1 + REPEAT_VISIT_RATE));
   const costPerAcquisition = totalRedemptions > 0 ? Math.round(totalBudgetSpent / totalRedemptions) : 0;
   const roi = totalBudgetSpent > 0 ? parseFloat(((estimatedRevenue - totalBudgetSpent) / totalBudgetSpent * 100).toFixed(1)) : 0;
@@ -1243,9 +1262,781 @@ async function getPartnerAnalytics(event) {
     assumptions: {
       avgCheckValue: AVG_CHECK_VALUE,
       repeatVisitRate: REPEAT_VISIT_RATE,
-      note: 'Revenue estimates based on industry averages. Connect POS for real numbers.',
+      source: metricsSource,
+      note: metricsSource === 'square_pos'
+        ? 'Revenue estimates based on Square POS data.'
+        : 'Revenue estimates based on industry averages. Connect POS for real numbers.',
     },
   });
+}
+
+// ─── Content Reviews ──────────────────────────────────────────────────────────
+
+const VALID_PLATFORMS = ['instagram', 'tiktok', 'youtube'];
+const VALID_CONTENT_TYPES = ['reel', 'story', 'post', 'tiktok', 'shorts'];
+const VALID_REVIEW_STATUSES = ['draft', 'submitted', 'revision_requested', 'revised', 'approved', 'rejected'];
+
+/**
+ * POST /api/content-reviews — Creator creates a draft content review request
+ * Body: { restaurantId, restaurantName, campaignId?, platform, contentType, contentUrl, caption, hashtagsProposed?, callToAction? }
+ */
+async function createContentReview(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CONTENT_REVIEW', 20))) {
+    return respond(429, { error: 'Too many content reviews. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const restaurantId = sanitize(body.restaurantId, 64);
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
+
+  const platform = sanitize(body.platform, 30);
+  const contentType = sanitize(body.contentType, 30);
+
+  if (!VALID_PLATFORMS.includes(platform))
+    return respond(400, { error: `Invalid platform. Must be one of: ${VALID_PLATFORMS.join(', ')}` });
+  if (!VALID_CONTENT_TYPES.includes(contentType))
+    return respond(400, { error: `Invalid contentType. Must be one of: ${VALID_CONTENT_TYPES.join(', ')}` });
+
+  const reviewId = randomUUID();
+  const now = new Date().toISOString();
+  const ttl = Math.floor(Date.now() / 1000) + (90 * 24 * 60 * 60); // 90 days
+
+  const item = {
+    PK: `CREATOR#${userId}`,
+    SK: `CONTENT_REVIEW#${reviewId}`,
+    GSI1PK: `RESTAURANT#${restaurantId}#CONTENT_REVIEWS`,
+    GSI1SK: `draft#${now}`,
+    reviewId,
+    creatorId: userId,
+    restaurantId,
+    restaurantName: sanitize(body.restaurantName, 200),
+    campaignId: body.campaignId ? sanitize(body.campaignId, 64) : null,
+    platform,
+    contentType,
+    contentUrl: sanitize(body.contentUrl, 500),
+    caption: sanitize(body.caption, 2000),
+    hashtagsProposed: Array.isArray(body.hashtagsProposed)
+      ? body.hashtagsProposed.slice(0, 30).map((h) => sanitize(h, 50))
+      : [],
+    callToAction: body.callToAction ? sanitize(body.callToAction, 200) : null,
+    status: 'draft',
+    revisionCount: 0,
+    revisionHistory: [],
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+    ttl,
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+  return respond(201, stripDdbKeys(item));
+}
+
+// ─── POS Integration (Square OAuth) ───────────────────────────────────────
+
+/**
+ * Helper: Convert buffer to base64url (no padding)
+ */
+function toBase64Url(buf) {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
+ * Helper: Compute code challenge from verifier using S256
+ */
+function computeCodeChallenge(verifier) {
+  const hash = createHash('sha256').update(verifier).digest();
+  return toBase64Url(hash);
+}
+
+/**
+ * POST /api/pos/connect/square — Initiate Square OAuth flow
+ * Body: { restaurantId }
+ */
+async function initSquareOAuth(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = parseBody(event);
+  const restaurantId = sanitize(body.restaurantId || '', 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  // Rate limit: max 5 connection attempts per user
+  const allowed = await checkUserMutationRate(userId, 'POS_CONNECT', 5);
+  if (!allowed) return respond(429, { error: 'Too many connection attempts. Try again later.' });
+
+  try {
+    // Generate PKCE parameters
+    const state = randomUUID();
+    const codeVerifier = toBase64Url(randomBytes(32));
+    const codeChallenge = computeCodeChallenge(codeVerifier);
+
+    const now = new Date();
+    const ttlSeconds = 600; // 10 minutes
+    const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+
+    // Store pending connection in DDB
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: `RESTAURANT#${restaurantId}`,
+          SK: 'POS_CONNECTION#square',
+          status: 'pending_oauth',
+          oauthState: state,
+          codeVerifier: codeVerifier,
+          createdAt: now.toISOString(),
+          expiresAt: expiresAt,
+          ttl: Math.floor(now.getTime() / 1000) + ttlSeconds,
+        },
+      })
+    );
+
+    // Build authorization URL
+    const SQUARE_APP_ID = process.env.SQUARE_APP_ID;
+    const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT || 'sandbox';
+    const baseUrl = SQUARE_ENVIRONMENT === 'production'
+      ? 'https://connect.squareup.com'
+      : 'https://connect.squareupsandbox.com';
+    const authUrl = `${baseUrl}/oauth2/authorize?client_id=${SQUARE_APP_ID}&response_type=code&scope=MERCHANT_PROFILE_READ+ORDERS_READ+PAYMENTS_READ&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+
+    return respond(200, {
+      authorizationUrl: authUrl,
+      state: state,
+      expiresIn: 600,
+    });
+  } catch (err) {
+    console.error('initSquareOAuth error:', err.message);
+    return respond(500, { error: 'Failed to initiate Square OAuth' });
+  }
+}
+
+/**
+ * GET /api/pos/callback/square — Handle Square OAuth callback
+ * Query params: code, state, restaurantId
+ */
+async function handleSquareCallback(event) {
+  const params = event.queryStringParameters || {};
+  const code = sanitize(params.code || '', 512);
+  const state = sanitize(params.state || '', 512);
+  const restaurantId = sanitize(params.restaurantId || '', 256);
+
+  if (!code || !state || !restaurantId) {
+    return respond(400, { error: 'Missing required callback parameters' });
+  }
+
+  try {
+    // Look up pending connection
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
+      })
+    );
+
+    if (!lookup.Item) {
+      return respond(400, { error: 'No pending Square connection found' });
+    }
+
+    const pending = lookup.Item;
+    if (pending.status !== 'pending_oauth') {
+      return respond(400, { error: 'Connection is not in pending state' });
+    }
+
+    // Validate state
+    if (pending.oauthState !== state) {
+      return respond(400, { error: 'OAuth state mismatch — possible CSRF attack' });
+    }
+
+    // Development mode: if no SQUARE_APP_SECRET, simulate success
+    const SQUARE_APP_SECRET = process.env.SQUARE_APP_SECRET;
+    if (!SQUARE_APP_SECRET) {
+      // Dev mode — simulate successful connection
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
+          UpdateExpression: 'SET #s = :connected, merchantId = :merchantId, connectedAt = :now, lastSyncedAt = :now, lastMetrics = :metrics, #env = :dev',
+          ExpressionAttributeNames: {
+            '#s': 'status',
+            '#env': 'environment',
+          },
+          ExpressionAttributeValues: {
+            ':connected': 'connected',
+            ':merchantId': 'MOCK_MERCHANT_' + randomUUID().substring(0, 8),
+            ':now': new Date().toISOString(),
+            ':metrics': {
+              avgCheckValue: 45,
+              repeatCustomerRate: 0.35,
+            },
+            ':dev': 'development',
+          },
+        })
+      );
+      return respond(200, {
+        status: 'connected',
+        provider: 'square',
+        mode: 'development',
+        message: 'Development mode — using simulated merchant data',
+      });
+    }
+
+    // Production mode: exchange code for tokens
+    const SQUARE_APP_ID = process.env.SQUARE_APP_ID;
+    const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT || 'sandbox';
+    const tokenUrl = SQUARE_ENVIRONMENT === 'production'
+      ? 'https://connect.squareup.com/oauth2/token'
+      : 'https://connect.squareupsandbox.com/oauth2/token';
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: SQUARE_APP_ID,
+        client_secret: SQUARE_APP_SECRET,
+        code: code,
+        grant_type: 'authorization_code',
+        code_verifier: pending.codeVerifier,
+      }).toString(),
+    });
+
+    if (!tokenResponse.ok) {
+      console.error('Square token exchange failed:', tokenResponse.status, tokenResponse.statusText);
+      return respond(400, { error: 'Failed to exchange Square authorization code' });
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+    const refreshToken = tokenData.refresh_token;
+    const expiresAt = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000).toISOString();
+
+    // Fetch merchant info
+    let merchantId = 'unknown';
+    try {
+      const merchantRes = await fetch('https://connect.squareup.com/v2/merchants/me', {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      if (merchantRes.ok) {
+        const merchantData = await merchantRes.json();
+        merchantId = merchantData.merchant?.id || merchantId;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch merchant info:', e.message);
+    }
+
+    // Update connection with tokens (plaintext for now — KMS in Phase 5)
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
+        UpdateExpression: 'SET #s = :connected, merchantId = :merchantId, accessToken = :accessToken, refreshToken = :refreshToken, tokenExpiresAt = :expiresAt, connectedAt = :now, lastSyncedAt = :now',
+        ExpressionAttributeNames: {
+          '#s': 'status',
+        },
+        ExpressionAttributeValues: {
+          ':connected': 'connected',
+          ':merchantId': merchantId,
+          ':accessToken': accessToken,
+          ':refreshToken': refreshToken,
+          ':expiresAt': expiresAt,
+          ':now': new Date().toISOString(),
+        },
+      })
+    );
+
+    return respond(200, {
+      status: 'connected',
+      provider: 'square',
+      merchantId: merchantId,
+      connectedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('handleSquareCallback error:', err.message);
+    return respond(500, { error: 'Failed to complete Square OAuth callback' });
+  }
+}
+
+/**
+ * GET /api/pos/status — Get POS connection status
+ * Query param: restaurantId
+ */
+async function getPosStatus(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const restaurantId = sanitize(params.restaurantId || userId, 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  try {
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
+      })
+    );
+
+    if (!lookup.Item) {
+      return respond(200, { connected: false });
+    }
+
+    const conn = lookup.Item;
+    if (conn.status !== 'connected') {
+      return respond(200, { connected: false });
+    }
+
+    // Return safe subset (NO tokens)
+    return respond(200, {
+      connected: true,
+      provider: 'square',
+      status: conn.status,
+      merchantId: conn.merchantId,
+      connectedAt: conn.connectedAt,
+      lastSyncedAt: conn.lastSyncedAt,
+    });
+  } catch (err) {
+    console.error('getPosStatus error:', err.message);
+    return respond(500, { error: 'Failed to fetch POS status' });
+  }
+}
+
+/**
+ * PUT /api/pos/disconnect — Disconnect POS provider
+ * Body: { restaurantId }
+ */
+async function disconnectPos(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = parseBody(event);
+  const restaurantId = sanitize(body.restaurantId || '', 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  // Rate limit: max 3 disconnections per user
+  const allowed = await checkUserMutationRate(userId, 'POS_DISCONNECT', 3);
+  if (!allowed) return respond(429, { error: 'Too many disconnection attempts. Try again later.' });
+
+  try {
+    // Check connection exists
+    const lookup = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
+      })
+    );
+
+    if (!lookup.Item) {
+      return respond(404, { error: 'No POS connection found' });
+    }
+
+    const conn = lookup.Item;
+
+    // In production: call Square's revoke endpoint
+    const SQUARE_APP_SECRET = process.env.SQUARE_APP_SECRET;
+    if (SQUARE_APP_SECRET && conn.accessToken) {
+      const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT || 'sandbox';
+      const revokeUrl = SQUARE_ENVIRONMENT === 'production'
+        ? 'https://connect.squareup.com/oauth2/revoke'
+        : 'https://connect.squareupsandbox.com/oauth2/revoke';
+
+      try {
+        await fetch(revokeUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: process.env.SQUARE_APP_ID,
+            access_token: conn.accessToken,
+          }).toString(),
+        });
+      } catch (e) {
+        console.warn('Failed to revoke Square token:', e.message);
+      }
+    }
+
+    // Delete the connection item from DDB
+    await ddb.send(
+      new DeleteCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
+      })
+    );
+
+    return respond(200, { message: 'POS connection disconnected', provider: 'square' });
+  } catch (err) {
+    console.error('disconnectPos error:', err.message);
+    return respond(500, { error: 'Failed to disconnect POS' });
+  }
+}
+
+/**
+ * PUT /api/content-reviews/{reviewId}/submit — Creator submits draft for restaurant review
+ */
+async function submitContentReview(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CONTENT_REVIEW_SUBMIT', 30))) {
+    return respond(429, { error: 'Too many submissions. Please try again later.' });
+  }
+
+  // Find the review by creator PK first
+  const find = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}`,
+        ':sk': `CONTENT_REVIEW#${reviewId}`,
+      },
+    })
+  );
+
+  if (!find.Items?.length) return respond(404, { error: 'Content review not found' });
+  const existing = find.Items[0];
+
+  if (existing.status !== 'draft' && existing.status !== 'revision_requested') {
+    return respond(400, { error: `Cannot submit from status '${existing.status}'` });
+  }
+
+  const now = new Date().toISOString();
+  const gsi1sk = `submitted#${existing.createdAt}`;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: 'SET #s = :submitted, submittedAt = :now, #u = :now, GSI1SK = :gsi1sk',
+      ExpressionAttributeNames: { '#s': 'status', '#u': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':submitted': 'submitted',
+        ':now': now,
+        ':gsi1sk': gsi1sk,
+      },
+    })
+  );
+
+  // Notify restaurant
+  await createNotification(
+    existing.restaurantId,
+    'content_review_submitted',
+    'New Content Review',
+    `Creator submitted content for review: ${existing.contentType} on ${existing.platform}`,
+    `/app/content-reviews/${reviewId}`,
+    ''
+  );
+
+  return respond(200, { message: 'Content review submitted', reviewId });
+}
+
+/**
+ * GET /api/content-reviews — List reviews
+ * Query: ?inbox=true (for restaurant's pending reviews), or creator's own reviews
+ */
+async function listContentReviews(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
+  const statusFilter = params.status ? sanitize(params.status, 30) : null;
+
+  let result;
+
+  if (params.inbox === 'true') {
+    // Restaurant's pending reviews via GSI1
+    result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: {
+          ':pk': `RESTAURANT#${userId}#CONTENT_REVIEWS`,
+        },
+        ScanIndexForward: false, // newest first
+        Limit: limit,
+      })
+    );
+  } else {
+    // Creator's own reviews
+    result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        ExpressionAttributeValues: {
+          ':pk': `CREATOR#${userId}`,
+          ':prefix': 'CONTENT_REVIEW#',
+        },
+        ScanIndexForward: false,
+        Limit: limit,
+      })
+    );
+  }
+
+  let items = result.Items || [];
+
+  // Optional status filter
+  if (statusFilter && VALID_REVIEW_STATUSES.includes(statusFilter)) {
+    items = items.filter((r) => r.status === statusFilter);
+  }
+
+  return respond(200, stripAll(items));
+}
+
+/**
+ * GET /api/content-reviews/{reviewId} — Get content review detail
+ */
+async function getContentReview(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Try creator's PK first
+  let result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}`,
+        ':sk': `CONTENT_REVIEW#${reviewId}`,
+      },
+    })
+  );
+
+  if (result.Items?.length) {
+    return respond(200, stripDdbKeys(result.Items[0]));
+  }
+
+  // Fall back to GSI1 for restaurant access
+  result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${userId}#CONTENT_REVIEWS`,
+      },
+      Limit: 100,
+    })
+  );
+
+  const item = (result.Items || []).find((r) => r.reviewId === reviewId);
+  if (!item) return respond(404, { error: 'Content review not found' });
+
+  return respond(200, stripDdbKeys(item));
+}
+
+/**
+ * PUT /api/content-reviews/{reviewId}/request-revision — Restaurant requests revision
+ */
+async function requestContentRevision(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CONTENT_REVIEW_REVISE', 30))) {
+    return respond(429, { error: 'Too many revision requests. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const reason = sanitize(body.reason, 500);
+  if (!reason) return respond(400, { error: 'Reason is required' });
+
+  // Query via GSI1 to verify restaurant ownership
+  const find = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${userId}#CONTENT_REVIEWS`,
+      },
+      Limit: 100,
+    })
+  );
+
+  const existing = (find.Items || []).find((r) => r.reviewId === reviewId);
+  if (!existing) return respond(404, { error: 'Content review not found' });
+
+  if (existing.status !== 'submitted' && existing.status !== 'revised') {
+    return respond(400, { error: `Cannot request revision from status '${existing.status}'` });
+  }
+
+  if ((existing.revisionCount || 0) >= 3) {
+    return respond(400, { error: 'Maximum 3 revisions reached. Please approve or reject.' });
+  }
+  const revisionCount = (existing.revisionCount || 0) + 1;
+  const revisionHistory = existing.revisionHistory || [];
+  revisionHistory.push({
+    count: revisionCount,
+    requestedAt: new Date().toISOString(),
+    reason,
+  });
+
+  const now = new Date().toISOString();
+  const gsi1sk = `revision_requested#${existing.createdAt}`;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: 'SET #s = :status, revisionCount = :count, revisionHistory = :history, #u = :now, GSI1SK = :gsi1sk',
+      ExpressionAttributeNames: { '#s': 'status', '#u': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':status': 'revision_requested',
+        ':count': revisionCount,
+        ':history': revisionHistory,
+        ':now': now,
+        ':gsi1sk': gsi1sk,
+      },
+    })
+  );
+
+  // Notify creator
+  await createNotification(
+    existing.creatorId,
+    'content_review_revision_requested',
+    'Revision Requested',
+    `${existing.restaurantName} requested changes: ${reason}`,
+    `/app/content-reviews/${reviewId}`,
+    ''
+  );
+
+  return respond(200, { message: 'Revision requested', reviewId, revisionCount });
+}
+
+/**
+ * PUT /api/content-reviews/{reviewId}/approve — Restaurant approves
+ */
+async function approveContentReview(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CONTENT_REVIEW_APPROVE', 50))) {
+    return respond(429, { error: 'Too many approvals. Please try again later.' });
+  }
+
+  // Query via GSI1 to verify restaurant ownership
+  const find = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${userId}#CONTENT_REVIEWS`,
+      },
+      Limit: 100,
+    })
+  );
+
+  const existing = (find.Items || []).find((r) => r.reviewId === reviewId);
+  if (!existing) return respond(404, { error: 'Content review not found' });
+
+  if (existing.status !== 'submitted' && existing.status !== 'revised') {
+    return respond(400, { error: `Cannot approve from status '${existing.status}'` });
+  }
+
+  const now = new Date().toISOString();
+  const gsi1sk = `approved#${existing.createdAt}`;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: 'SET #s = :approved, approvedAt = :now, approvedBy = :userId, #u = :now, GSI1SK = :gsi1sk',
+      ExpressionAttributeNames: { '#s': 'status', '#u': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':approved': 'approved',
+        ':now': now,
+        ':userId': userId,
+        ':gsi1sk': gsi1sk,
+      },
+    })
+  );
+
+  // Notify creator
+  await createNotification(
+    existing.creatorId,
+    'content_review_approved',
+    'Content Approved',
+    `${existing.restaurantName} approved your ${existing.contentType} content`,
+    `/app/content-reviews/${reviewId}`,
+    ''
+  );
+
+  return respond(200, { message: 'Content review approved', reviewId });
+}
+
+/**
+ * PUT /api/content-reviews/{reviewId}/reject — Restaurant rejects
+ */
+async function rejectContentReview(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CONTENT_REVIEW_REJECT', 50))) {
+    return respond(429, { error: 'Too many rejections. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const reason = sanitize(body.reason, 500);
+  if (!reason) return respond(400, { error: 'Rejection reason is required' });
+
+  // Query via GSI1 to verify restaurant ownership
+  const find = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${userId}#CONTENT_REVIEWS`,
+      },
+      Limit: 100,
+    })
+  );
+
+  const existing = (find.Items || []).find((r) => r.reviewId === reviewId);
+  if (!existing) return respond(404, { error: 'Content review not found' });
+
+  if (existing.status !== 'submitted' && existing.status !== 'revised') {
+    return respond(400, { error: `Cannot reject from status '${existing.status}'` });
+  }
+
+  const now = new Date().toISOString();
+  const gsi1sk = `rejected#${existing.createdAt}`;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: 'SET #s = :rejected, rejectedAt = :now, rejectionReason = :reason, #u = :now, GSI1SK = :gsi1sk',
+      ExpressionAttributeNames: { '#s': 'status', '#u': 'updatedAt' },
+      ExpressionAttributeValues: {
+        ':rejected': 'rejected',
+        ':now': now,
+        ':reason': reason,
+        ':gsi1sk': gsi1sk,
+      },
+    })
+  );
+
+  // Notify creator
+  await createNotification(
+    existing.creatorId,
+    'content_review_rejected',
+    'Content Rejected',
+    `${existing.restaurantName} rejected your content: ${reason}`,
+    `/app/content-reviews/${reviewId}`,
+    ''
+  );
+
+  return respond(200, { message: 'Content review rejected', reviewId });
 }
 
 /**
@@ -4208,6 +4999,22 @@ export const handler = async (event) => {
     if (path.match(/\/api\/notifications\/read$/) && method === 'PUT')
       return markNotificationsRead(event);
 
+    // Content Reviews
+    if (path.match(/\/api\/content-reviews$/) && method === 'POST')
+      return createContentReview(event);
+    if (path.match(/\/api\/content-reviews$/) && method === 'GET')
+      return listContentReviews(event);
+    if (path.match(/\/api\/content-reviews\/[^/]+\/submit$/) && method === 'PUT')
+      return submitContentReview(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/content-reviews\/[^/]+\/request-revision$/) && method === 'PUT')
+      return requestContentRevision(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/content-reviews\/[^/]+\/approve$/) && method === 'PUT')
+      return approveContentReview(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/content-reviews\/[^/]+\/reject$/) && method === 'PUT')
+      return rejectContentReview(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/content-reviews\/[^/]+$/) && method === 'GET')
+      return getContentReview(pathParts[pathParts.length - 1], event);
+
     // Multi-Creator Collaborations
     if (path.match(/\/api\/campaigns\/[^/]+\/collaborators$/) && method === 'POST') {
       const campaignId = pathParts[pathParts.length - 2];
@@ -4228,6 +5035,16 @@ export const handler = async (event) => {
       const creatorId = pathParts[pathParts.length - 1];
       return removeCollaborator(campaignId, creatorId, event);
     }
+
+    // POS Integration (Square)
+    if (path.match(/\/api\/pos\/connect\/square$/) && method === 'POST')
+      return initSquareOAuth(event);
+    if (path.match(/\/api\/pos\/callback\/square$/) && method === 'GET')
+      return handleSquareCallback(event);
+    if (path.match(/\/api\/pos\/status$/) && method === 'GET')
+      return getPosStatus(event);
+    if (path.match(/\/api\/pos\/disconnect$/) && method === 'PUT')
+      return disconnectPos(event);
 
     return respond(404, { error: 'Not found' });
   } catch (err) {

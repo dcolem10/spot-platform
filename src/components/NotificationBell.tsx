@@ -79,6 +79,10 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   raffle_winner: '🏆',
   qr_milestone: '📈',
   proposal_expiring: '⏰',
+  content_review_submitted: '📝',
+  content_review_revision_requested: '🔄',
+  content_review_approved: '✅',
+  content_review_rejected: '❌',
 };
 
 function timeAgo(isoDate: string): string {
