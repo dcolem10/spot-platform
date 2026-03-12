@@ -31,6 +31,10 @@ Parameters:
     Type: String
     Default: 'networth589@gmail.com'
     Description: Verified SES sender email address
+  PosKmsKeyArn:
+    Type: String
+    Default: 'arn:aws:kms:us-east-1:827235146020:key/48905979-29e4-4546-a52d-c946abd17020'
+    Description: KMS key ARN for encrypting POS OAuth tokens at rest
 
 Resources:
   # ─── DynamoDB ─────────────────────────────────────────────────────────────
@@ -186,6 +190,7 @@ Resources:
         Variables:
           SECRETS_ARN: !Ref SecretsArn
           EMAIL_FUNCTION_NAME: !Ref EmailFunction
+          POS_KMS_KEY_ID: !Ref PosKmsKeyArn
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
@@ -197,6 +202,12 @@ Resources:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource: !Ref SecretsArn
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !Ref PosKmsKeyArn
       Events:
         # Authenticated endpoints (default Cognito authorizer applies)
         ProxyApi:

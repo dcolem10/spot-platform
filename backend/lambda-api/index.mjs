@@ -10,6 +10,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp, escapeHtml } from './helpers.mjs';
 
@@ -17,7 +18,28 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const sesClient = new SESClient({});
+const kmsClient = new KMSClient({});
 const TABLE = process.env.TABLE_NAME;
+const KMS_KEY_ID = process.env.POS_KMS_KEY_ID;
+
+// ─── KMS Helpers for POS Token Encryption ────────────────────────────────────
+
+async function encryptPosToken(plaintext) {
+  if (!KMS_KEY_ID || !plaintext) return plaintext; // Graceful fallback if key not configured
+  const result = await kmsClient.send(new EncryptCommand({
+    KeyId: KMS_KEY_ID,
+    Plaintext: Buffer.from(plaintext, 'utf-8'),
+  }));
+  return `kms:${Buffer.from(result.CiphertextBlob).toString('base64')}`;
+}
+
+async function decryptPosToken(ciphertext) {
+  if (!ciphertext || !ciphertext.startsWith('kms:')) return ciphertext; // Plaintext fallback for migration
+  const result = await kmsClient.send(new DecryptCommand({
+    CiphertextBlob: Buffer.from(ciphertext.slice(4), 'base64'),
+  }));
+  return Buffer.from(result.Plaintext).toString('utf-8');
+}
 if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@tryspot.app';
 const ORIGIN = process.env.ALLOWED_ORIGIN || '';
@@ -1742,24 +1764,28 @@ async function handleSquareCallback(event) {
       console.warn('Failed to fetch merchant info:', e.message);
     }
 
-    // ⚠️ SECURITY: OAuth tokens stored in PLAINTEXT — MUST encrypt with KMS before production launch.
-    // TODO: Create KMS key, add EncryptCommand/DecryptCommand helpers, encrypt accessToken + refreshToken at rest.
-    // DynamoDB at-rest encryption (SSE) provides baseline protection but KMS envelope encryption is required for PCI/SOC2.
+    // KMS envelope encryption for POS OAuth tokens at rest
+    const [encAccessToken, encRefreshToken] = await Promise.all([
+      encryptPosToken(accessToken),
+      encryptPosToken(refreshToken),
+    ]);
+
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
-        UpdateExpression: 'SET #s = :connected, merchantId = :merchantId, accessToken = :accessToken, refreshToken = :refreshToken, tokenExpiresAt = :expiresAt, connectedAt = :now, lastSyncedAt = :now',
+        UpdateExpression: 'SET #s = :connected, merchantId = :merchantId, accessToken = :accessToken, refreshToken = :refreshToken, tokenExpiresAt = :expiresAt, connectedAt = :now, lastSyncedAt = :now, tokenEncrypted = :enc',
         ExpressionAttributeNames: {
           '#s': 'status',
         },
         ExpressionAttributeValues: {
           ':connected': 'connected',
           ':merchantId': merchantId,
-          ':accessToken': accessToken,
-          ':refreshToken': refreshToken,
+          ':accessToken': encAccessToken,
+          ':refreshToken': encRefreshToken,
           ':expiresAt': expiresAt,
           ':now': new Date().toISOString(),
+          ':enc': true,
         },
       })
     );
@@ -1975,6 +2001,9 @@ async function initToastAuth(event) {
 
     const tokenData = await resp.json();
 
+    // KMS envelope encryption for Toast OAuth token
+    const encToastToken = await encryptPosToken(tokenData.token?.accessToken);
+
     await ddb.send(new PutCommand({
       TableName: TABLE,
       Item: {
@@ -1982,12 +2011,13 @@ async function initToastAuth(event) {
         SK: 'POS_CONNECTION#toast',
         provider: 'toast',
         status: 'connected',
-        accessToken: tokenData.token?.accessToken,
+        accessToken: encToastToken,
         tokenExpiresAt: tokenData.token?.expiresIn
           ? new Date(Date.now() + tokenData.token.expiresIn * 1000).toISOString()
           : null,
         merchantId: restaurantId,
         environment: 'production',
+        tokenEncrypted: true,
         connectedAt: now,
         lastSyncedAt: now,
         createdAt: now,
@@ -2134,17 +2164,21 @@ async function handleCloverCallback(event) {
 
     const tokenData = await tokenResp.json();
 
+    // KMS envelope encryption for Clover OAuth token
+    const encCloverToken = await encryptPosToken(tokenData.access_token);
+
     await ddb.send(new UpdateCommand({
       TableName: TABLE,
       Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#clover' },
-      UpdateExpression: 'SET #s = :connected, accessToken = :token, merchantId = :mid, environment = :env, connectedAt = :now, lastSyncedAt = :now, updatedAt = :now REMOVE oauthState, codeVerifier, expiresAt, #ttl',
+      UpdateExpression: 'SET #s = :connected, accessToken = :token, merchantId = :mid, environment = :env, connectedAt = :now, lastSyncedAt = :now, updatedAt = :now, tokenEncrypted = :enc REMOVE oauthState, codeVerifier, expiresAt, #ttl',
       ExpressionAttributeNames: { '#s': 'status', '#ttl': 'ttl' },
       ExpressionAttributeValues: {
         ':connected': 'connected',
-        ':token': tokenData.access_token,
+        ':token': encCloverToken,
         ':mid': tokenData.merchant_id || restaurantId,
         ':env': process.env.CLOVER_ENVIRONMENT || 'sandbox',
         ':now': now,
+        ':enc': true,
       },
     }));
 
