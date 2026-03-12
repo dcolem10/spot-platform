@@ -267,7 +267,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
   };
 
   const handleSubmit = () => {
-    if (!selectedRestaurant) return;
+    if (!selectedRestaurant || !form.package || !form.startDate) return;
     onSubmit({
       restaurantId: selectedRestaurant.restaurantId,
       restaurantName: selectedRestaurant.restaurantName,

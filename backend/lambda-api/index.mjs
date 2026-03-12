@@ -924,38 +924,47 @@ async function saveRestaurant(event, restaurantId) {
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
-  await ddb.send(
-    new PutCommand({
-      TableName: TABLE,
-      Item: {
-        PK: `AUDIENCE#${userId}`,
-        SK: `SAVE#${restaurantId}`,
-        restaurantId,
-        savedAt: new Date().toISOString(),
-        notes: sanitize(body.notes, 500),
-        occasion: sanitize(body.occasion, 100),
-      },
-    })
-  );
-
-  return respond(201, { message: 'Saved' });
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: `AUDIENCE#${userId}`,
+          SK: `SAVE#${restaurantId}`,
+          restaurantId,
+          savedAt: new Date().toISOString(),
+          notes: sanitize(body.notes, 500),
+          occasion: sanitize(body.occasion, 100),
+        },
+      })
+    );
+    return respond(201, { message: 'Saved' });
+  } catch (err) {
+    console.error('saveRestaurant error:', err.message);
+    return respond(500, { error: 'Failed to save restaurant' });
+  }
 }
 
 async function listSaves(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `AUDIENCE#${userId}`,
-        ':sk': 'SAVE#',
-      },
-      Limit: 100, // Cap to prevent unbounded reads
-    })
-  );
-  return respond(200, stripAll(result.Items || []));
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': `AUDIENCE#${userId}`,
+          ':sk': 'SAVE#',
+        },
+        Limit: 100, // Cap to prevent unbounded reads
+      })
+    );
+    return respond(200, stripAll(result.Items || []));
+  } catch (err) {
+    console.error('listSaves error:', err.message);
+    return respond(500, { error: 'Failed to load saves' });
+  }
 }
 
 // ─── SpotOps Pipeline ─────────────────────────────────────────────────────────
@@ -964,30 +973,35 @@ async function getSpotOpsPipeline(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
-    })
-  );
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
+      })
+    );
 
-  const campaigns = result.Items || [];
-  const byStatus = { inquiry: 0, negotiation: 0, active: 0, completed: 0, cancelled: 0 };
-  let totalRevenue = 0;
+    const campaigns = result.Items || [];
+    const byStatus = { inquiry: 0, negotiation: 0, active: 0, completed: 0, cancelled: 0 };
+    let totalRevenue = 0;
 
-  campaigns.forEach((c) => {
-    if (byStatus[c.status] !== undefined) byStatus[c.status]++;
-    totalRevenue += c.budget || 0;
-  });
+    campaigns.forEach((c) => {
+      if (byStatus[c.status] !== undefined) byStatus[c.status]++;
+      totalRevenue += c.budget || 0;
+    });
 
-  return respond(200, {
-    total: campaigns.length,
-    byStatus,
-    totalRevenue,
-    avgDealSize: campaigns.length > 0 ? Math.round(totalRevenue / campaigns.length) : 0,
-  });
+    return respond(200, {
+      total: campaigns.length,
+      byStatus,
+      totalRevenue,
+      avgDealSize: campaigns.length > 0 ? Math.round(totalRevenue / campaigns.length) : 0,
+    });
+  } catch (err) {
+    console.error('getSpotOpsPipeline error:', err.message);
+    return respond(500, { error: 'Failed to load pipeline' });
+  }
 }
 
 // ─── Offers (List) ───────────────────────────────────────────────────────────
@@ -996,17 +1010,21 @@ async function listOffers(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
-      Limit: 200,
-    })
-  );
-
-  return respond(200, stripAll(result.Items || []));
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+        Limit: 200,
+      })
+    );
+    return respond(200, stripAll(result.Items || []));
+  } catch (err) {
+    console.error('listOffers error:', err.message);
+    return respond(500, { error: 'Failed to load offers' });
+  }
 }
 
 // ─── Restaurant Offers (public — for campaign linking) ───────────────────────
@@ -1014,24 +1032,28 @@ async function listOffers(event) {
 async function listRestaurantOffers(restaurantId) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
 
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-      ExpressionAttributeValues: {
-        ':pk': `RESTAURANT#${restaurantId}`,
-        ':sk': 'OFFER#',
-      },
-      Limit: 50,
-    })
-  );
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': `RESTAURANT#${restaurantId}`,
+          ':sk': 'OFFER#',
+        },
+        Limit: 50,
+      })
+    );
 
-  // Only return active offers
-  const activeOffers = (result.Items || [])
-    .filter((o) => o.isActive !== false)
-    .map((o) => stripDdbKeys(o));
+    const activeOffers = (result.Items || [])
+      .filter((o) => o.isActive !== false)
+      .map((o) => stripDdbKeys(o));
 
-  return respond(200, activeOffers);
+    return respond(200, activeOffers);
+  } catch (err) {
+    console.error('listRestaurantOffers error:', err.message);
+    return respond(500, { error: 'Failed to load offers' });
+  }
 }
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
@@ -1040,17 +1062,165 @@ async function listReports(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#REPORTS` },
-      Limit: 200,
-    })
-  );
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#REPORTS` },
+        Limit: 200,
+      })
+    );
+    return respond(200, stripAll(result.Items || []));
+  } catch (err) {
+    console.error('listReports error:', err.message);
+    return respond(500, { error: 'Failed to load reports' });
+  }
+}
 
-  return respond(200, stripAll(result.Items || []));
+// ─── Editorial Calendar ──────────────────────────────────────────────────────
+
+async function listCalendarSlots(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        ExpressionAttributeValues: {
+          ':pk': `CREATOR#${userId}`,
+          ':prefix': 'CALSLOT#',
+        },
+        Limit: 200,
+      })
+    );
+    return respond(200, stripAll(result.Items || []));
+  } catch (err) {
+    console.error('listCalendarSlots error:', err.message);
+    return respond(500, { error: 'Failed to load calendar' });
+  }
+}
+
+async function createCalendarSlot(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const slotId = randomUUID();
+  const date = sanitize(body.date, 10);
+  const restaurantName = sanitize(body.restaurantName, 200);
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return respond(400, { error: 'Invalid date format (YYYY-MM-DD)' });
+  if (!restaurantName) return respond(400, { error: 'Restaurant name is required' });
+
+  const type = ['sponsored', 'organic', 'reshoot'].includes(body.type) ? body.type : 'organic';
+  const status = ['planned', 'shot', 'editing', 'published'].includes(body.status) ? body.status : 'planned';
+
+  const item = {
+    PK: `CREATOR#${userId}`,
+    SK: `CALSLOT#${slotId}`,
+    slotId,
+    date,
+    restaurantName,
+    type,
+    status,
+    notes: sanitize(body.notes || '', 500),
+    campaignId: body.campaignId && isValidId(body.campaignId) ? body.campaignId : undefined,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+    return respond(201, stripDdbKeys(item));
+  } catch (err) {
+    console.error('createCalendarSlot error:', err.message);
+    return respond(500, { error: 'Failed to create slot' });
+  }
+}
+
+async function updateCalendarSlot(slotId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(slotId)) return respond(400, { error: 'Invalid slot ID' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const allowed = ['date', 'restaurantName', 'type', 'status', 'notes', 'campaignId'];
+  const updates = [];
+  const names = {};
+  const values = {};
+
+  for (const field of allowed) {
+    if (body[field] !== undefined) {
+      const alias = `#f${updates.length}`;
+      const valAlias = `:v${updates.length}`;
+      names[alias] = field;
+      if (field === 'date') {
+        const d = sanitize(body.date, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return respond(400, { error: 'Invalid date' });
+        values[valAlias] = d;
+      } else if (field === 'type') {
+        values[valAlias] = ['sponsored', 'organic', 'reshoot'].includes(body.type) ? body.type : 'organic';
+      } else if (field === 'status') {
+        values[valAlias] = ['planned', 'shot', 'editing', 'published'].includes(body.status) ? body.status : 'planned';
+      } else if (field === 'campaignId') {
+        values[valAlias] = isValidId(body.campaignId) ? body.campaignId : null;
+      } else {
+        values[valAlias] = sanitize(String(body[field]), field === 'notes' ? 500 : 200);
+      }
+      updates.push(`${alias} = ${valAlias}`);
+    }
+  }
+
+  if (updates.length === 0) return respond(400, { error: 'No valid fields to update' });
+
+  values[':now'] = new Date().toISOString();
+  names['#ua'] = 'updatedAt';
+  updates.push('#ua = :now');
+
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: `CALSLOT#${slotId}` },
+        UpdateExpression: `SET ${updates.join(', ')}`,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ConditionExpression: 'attribute_exists(PK)',
+      })
+    );
+    return respond(200, { message: 'Slot updated' });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') return respond(404, { error: 'Slot not found' });
+    console.error('updateCalendarSlot error:', err.message);
+    return respond(500, { error: 'Failed to update slot' });
+  }
+}
+
+async function deleteCalendarSlot(slotId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(slotId)) return respond(400, { error: 'Invalid slot ID' });
+
+  try {
+    await ddb.send(
+      new DeleteCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: `CALSLOT#${slotId}` },
+        ConditionExpression: 'attribute_exists(PK)',
+      })
+    );
+    return respond(200, { message: 'Slot deleted' });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') return respond(404, { error: 'Slot not found' });
+    console.error('deleteCalendarSlot error:', err.message);
+    return respond(500, { error: 'Failed to delete slot' });
+  }
 }
 
 // ─── Insider Deals ───────────────────────────────────────────────────────────
@@ -1136,14 +1306,18 @@ async function removeSave(restaurantId, event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  await ddb.send(
-    new DeleteCommand({
-      TableName: TABLE,
-      Key: { PK: `AUDIENCE#${userId}`, SK: `SAVE#${restaurantId}` },
-    })
-  );
-
-  return respond(200, { message: 'Removed' });
+  try {
+    await ddb.send(
+      new DeleteCommand({
+        TableName: TABLE,
+        Key: { PK: `AUDIENCE#${userId}`, SK: `SAVE#${restaurantId}` },
+      })
+    );
+    return respond(200, { message: 'Removed' });
+  } catch (err) {
+    console.error('removeSave error:', err.message);
+    return respond(500, { error: 'Failed to remove save' });
+  }
 }
 
 async function updateSaveNotes(restaurantId, event) {
@@ -1153,20 +1327,24 @@ async function updateSaveNotes(restaurantId, event) {
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: `AUDIENCE#${userId}`, SK: `SAVE#${restaurantId}` },
-      UpdateExpression: 'SET #notes = :notes, #occasion = :occasion',
-      ExpressionAttributeNames: { '#notes': 'notes', '#occasion': 'occasion' },
-      ExpressionAttributeValues: {
-        ':notes': sanitize(body.notes, 500),
-        ':occasion': sanitize(body.occasion, 100),
-      },
-    })
-  );
-
-  return respond(200, { message: 'Updated' });
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: `AUDIENCE#${userId}`, SK: `SAVE#${restaurantId}` },
+        UpdateExpression: 'SET #notes = :notes, #occasion = :occasion',
+        ExpressionAttributeNames: { '#notes': 'notes', '#occasion': 'occasion' },
+        ExpressionAttributeValues: {
+          ':notes': sanitize(body.notes, 500),
+          ':occasion': sanitize(body.occasion, 100),
+        },
+      })
+    );
+    return respond(200, { message: 'Updated' });
+  } catch (err) {
+    console.error('updateSaveNotes error:', err.message);
+    return respond(500, { error: 'Failed to update notes' });
+  }
 }
 
 // ─── Google Places JIT ───────────────────────────────────────────────────────
@@ -1296,15 +1474,20 @@ async function getProfile(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
-  const result = await ddb.send(
-    new GetCommand({
-      TableName: TABLE,
-      Key: { PK: `CREATOR#${userId}`, SK: 'PROFILE' },
-    })
-  );
+  try {
+    const result = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: 'PROFILE' },
+      })
+    );
 
-  if (!result.Item) return respond(404, { error: 'Profile not found' });
-  return respond(200, stripDdbKeys(result.Item));
+    if (!result.Item) return respond(404, { error: 'Profile not found' });
+    return respond(200, stripDdbKeys(result.Item));
+  } catch (err) {
+    console.error('getProfile error:', err.message);
+    return respond(500, { error: 'Failed to load profile' });
+  }
 }
 
 async function upsertProfile(event) {
@@ -2016,6 +2199,16 @@ export const handler = async (event) => {
       return getSpotOpsPipeline(event);
     if (path.match(/\/api\/spotops\/campaigns$/) && method === 'GET')
       return listCampaigns(event);
+
+    // Editorial Calendar
+    if (path.match(/\/api\/spotops\/calendar$/) && method === 'GET')
+      return listCalendarSlots(event);
+    if (path.match(/\/api\/spotops\/calendar$/) && method === 'POST')
+      return createCalendarSlot(event);
+    if (path.match(/\/api\/spotops\/calendar\/[^/]+$/) && method === 'PUT')
+      return updateCalendarSlot(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/spotops\/calendar\/[^/]+$/) && method === 'DELETE')
+      return deleteCalendarSlot(pathParts[pathParts.length - 1], event);
 
     // Partner portal
     if (path.match(/\/api\/partner\/campaigns$/) && method === 'GET')

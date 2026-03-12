@@ -74,5 +74,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   setDemoOnboarded: (onboarded) => set({ demoOnboarded: onboarded }),
   setDemoProfile: (profile) => set({ demoProfile: profile }),
   setLoading: (loading) => set({ isLoading: loading }),
-  reset: () => set(initialState),
+  reset: () => {
+    // Revoke Cognito session on logout (fire-and-forget)
+    import('aws-amplify/auth')
+      .then(({ signOut }) => signOut({ global: true }))
+      .catch(() => {}); // Ignore errors (e.g. demo mode, already signed out)
+    set(initialState);
+  },
 }));
