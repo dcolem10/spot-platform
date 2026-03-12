@@ -186,6 +186,9 @@ async function getRestaurant(restaurantId) {
 async function createRestaurant(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CREATE_REST', 20))) {
+    return respond(429, { error: 'Too many restaurant creations. Please try again later.' });
+  }
 
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
@@ -422,6 +425,9 @@ async function restoreCampaign(campaignId, event) {
 async function createCampaign(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CREATE_CAMP', 30))) {
+    return respond(429, { error: 'Too many campaign creations. Please try again later.' });
+  }
 
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
@@ -557,6 +563,9 @@ async function createOffer(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CREATE_OFFER', 30))) {
+    return respond(429, { error: 'Too many offer creations. Please try again later.' });
+  }
 
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
@@ -765,6 +774,28 @@ async function checkPublicRateLimit(event) {
   } catch (err) {
     console.error('Rate limit check failed (fail-closed):', err.message);
     return false; // fail closed — reject if we can't verify rate limit
+  }
+}
+
+/**
+ * Per-user mutation rate limiter. Prevents a single authenticated user from
+ * spamming create operations. Default: 30 mutations per hour (fail-open).
+ */
+async function checkUserMutationRate(userId, label = 'MUTATION', limit = 30) {
+  const hour = Math.floor(Date.now() / 3600000);
+  try {
+    const result = await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RATE#${label}#${userId}`, SK: `HR#${hour}` },
+      UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :inc, #ttl = :ttl',
+      ExpressionAttributeNames: { '#c': 'cnt', '#ttl': 'ttl' },
+      ExpressionAttributeValues: { ':zero': 0, ':inc': 1, ':ttl': Math.floor(Date.now() / 1000) + 7200 },
+      ReturnValues: 'ALL_NEW',
+    }));
+    return (result.Attributes?.cnt || 0) <= limit;
+  } catch (err) {
+    console.error(`User mutation rate check failed (${label}):`, err.message);
+    return true; // fail open for authenticated users
   }
 }
 
@@ -1076,6 +1107,74 @@ async function listReports(event) {
   } catch (err) {
     console.error('listReports error:', err.message);
     return respond(500, { error: 'Failed to load reports' });
+  }
+}
+
+// ─── Content Archive ─────────────────────────────────────────────────────────
+
+async function listContent(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  try {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        ExpressionAttributeValues: {
+          ':pk': `CREATOR#${userId}`,
+          ':prefix': 'CONTENT#',
+        },
+        Limit: 200,
+        ScanIndexForward: false, // most recent first
+      })
+    );
+    return respond(200, stripAll(result.Items || []));
+  } catch (err) {
+    console.error('listContent error:', err.message);
+    return respond(500, { error: 'Failed to load content' });
+  }
+}
+
+async function createContent(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CREATE_CONTENT', 50))) {
+    return respond(429, { error: 'Too many content items. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const id = randomUUID();
+  const platform = ['instagram', 'tiktok', 'youtube'].includes(body.platform) ? body.platform : 'instagram';
+  const restaurantName = sanitize(body.restaurantName, 200);
+  if (!restaurantName) return respond(400, { error: 'Restaurant name is required' });
+
+  const item = {
+    PK: `CREATOR#${userId}`,
+    SK: `CONTENT#${id}`,
+    contentId: id,
+    platform,
+    restaurantName,
+    caption: sanitize(body.caption || '', 1000),
+    reach: Number(body.reach) || 0,
+    likes: Number(body.likes) || 0,
+    comments: Number(body.comments) || 0,
+    saves: Number(body.saves) || 0,
+    shares: Number(body.shares) || 0,
+    postDate: body.postDate || new Date().toISOString().split('T')[0],
+    tags: Array.isArray(body.tags) ? body.tags.slice(0, 10).map(t => sanitize(t, 50)) : [],
+    campaignId: body.campaignId && isValidId(body.campaignId) ? body.campaignId : undefined,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+    return respond(201, stripDdbKeys(item));
+  } catch (err) {
+    console.error('createContent error:', err.message);
+    return respond(500, { error: 'Failed to create content' });
   }
 }
 
@@ -1426,19 +1525,23 @@ async function subscribe(event) {
   const email = sanitize(body.email, 200).toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return respond(400, { error: 'Invalid email' });
 
-  await ddb.send(
-    new PutCommand({
-      TableName: TABLE,
-      Item: {
-        PK: 'SUBSCRIBERS',
-        SK: `EMAIL#${email}`,
-        email,
-        subscribedAt: new Date().toISOString(),
-      },
-    })
-  );
-
-  return respond(201, { message: 'Subscribed' });
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: 'SUBSCRIBERS',
+          SK: `EMAIL#${email}`,
+          email,
+          subscribedAt: new Date().toISOString(),
+        },
+      })
+    );
+    return respond(201, { message: 'Subscribed' });
+  } catch (err) {
+    console.error('subscribe error:', err.message);
+    return respond(500, { error: 'Failed to subscribe' });
+  }
 }
 
 async function unsubscribe(event) {
@@ -1452,20 +1555,24 @@ async function unsubscribe(event) {
   const email = sanitize(body.email, 200).toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return respond(400, { error: 'Invalid email' });
 
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: 'SUBSCRIBERS', SK: `EMAIL#${email}` },
-      UpdateExpression: 'SET unsubscribedAt = :now, #s = :status',
-      ExpressionAttributeNames: { '#s': 'status' },
-      ExpressionAttributeValues: {
-        ':now': new Date().toISOString(),
-        ':status': 'unsubscribed',
-      },
-    })
-  );
-
-  return respond(200, { message: 'Unsubscribed successfully' });
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: 'SUBSCRIBERS', SK: `EMAIL#${email}` },
+        UpdateExpression: 'SET unsubscribedAt = :now, #s = :status',
+        ExpressionAttributeNames: { '#s': 'status' },
+        ExpressionAttributeValues: {
+          ':now': new Date().toISOString(),
+          ':status': 'unsubscribed',
+        },
+      })
+    );
+    return respond(200, { message: 'Unsubscribed successfully' });
+  } catch (err) {
+    console.error('unsubscribe error:', err.message);
+    return respond(500, { error: 'Failed to unsubscribe' });
+  }
 }
 
 // ─── Creator Profile ────────────────────────────────────────────────────────
@@ -2199,6 +2306,12 @@ export const handler = async (event) => {
       return getSpotOpsPipeline(event);
     if (path.match(/\/api\/spotops\/campaigns$/) && method === 'GET')
       return listCampaigns(event);
+
+    // Content Archive
+    if (path.match(/\/api\/spotops\/content$/) && method === 'GET')
+      return listContent(event);
+    if (path.match(/\/api\/spotops\/content$/) && method === 'POST')
+      return createContent(event);
 
     // Editorial Calendar
     if (path.match(/\/api\/spotops\/calendar$/) && method === 'GET')

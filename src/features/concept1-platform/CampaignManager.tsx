@@ -57,6 +57,8 @@ export default function CampaignManager() {
     },
   });
 
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
   const createMutation = useMutation({
     mutationFn: async (payload: Partial<Campaign>) => {
       const res = await api.post<Campaign>('/api/campaigns', payload);
@@ -66,6 +68,10 @@ export default function CampaignManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       handleCloseWizard();
+      setMutationError(null);
+    },
+    onError: (err: Error) => {
+      setMutationError(`Failed to create campaign: ${err.message}`);
     },
   });
 
@@ -91,6 +97,10 @@ export default function CampaignManager() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       if (data) setSelectedCampaign(data as Campaign);
+      setMutationError(null);
+    },
+    onError: (err: Error) => {
+      setMutationError(`Failed to update campaign: ${err.message}`);
     },
   });
 
@@ -102,6 +112,10 @@ export default function CampaignManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      setMutationError(null);
+    },
+    onError: (err: Error) => {
+      setMutationError(`Failed to move campaign: ${err.message}`);
     },
   });
 
@@ -181,6 +195,39 @@ export default function CampaignManager() {
           + New Campaign
         </button>
       </div>
+
+      {/* Mutation error banner */}
+      {mutationError && (
+        <div
+          style={{
+            padding: 'var(--space-3) var(--space-4)',
+            background: 'var(--color-errorMuted)',
+            color: 'var(--color-error)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--font-sm)',
+            marginBottom: 'var(--space-4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>{mutationError}</span>
+          <button
+            onClick={() => setMutationError(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-error)',
+              cursor: 'pointer',
+              fontSize: 'var(--font-lg)',
+              lineHeight: 1,
+              padding: 'var(--space-1)',
+            }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
 
       {/* Campaign Creation Wizard */}
       <CampaignWizard
