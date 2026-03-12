@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
+import { StyledDatePicker } from '../../components/FormControls';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY } from '../../data/demoData';
 import { useAuthStore } from '../../store/authStore';
 import type { Restaurant, Campaign } from '../../types';
@@ -716,24 +717,22 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                 <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
                   Start Date <span style={{ color: 'var(--color-error)' }}>*</span>
                 </label>
-                <input
-                  type="date"
-                  className="form-input"
+                <StyledDatePicker
                   value={form.startDate}
-                  onChange={(e) => handleFieldChange('startDate', e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box' }}
+                  onChange={(v) => handleFieldChange('startDate', v)}
+                  placeholder="Start date"
+                  min={new Date().toISOString().split('T')[0]}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
                   End Date
                 </label>
-                <input
-                  type="date"
-                  className="form-input"
+                <StyledDatePicker
                   value={form.endDate}
-                  onChange={(e) => handleFieldChange('endDate', e.target.value)}
-                  style={{ width: '100%', boxSizing: 'border-box' }}
+                  onChange={(v) => handleFieldChange('endDate', v)}
+                  placeholder="End date"
+                  min={form.startDate}
                 />
               </div>
             </div>

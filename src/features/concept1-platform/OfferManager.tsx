@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { EmptyState } from '../../components/EmptyState';
+import { StyledSelect, StyledDatePicker } from '../../components/FormControls';
 import { isDemoMode, DEMO_OFFERS, DEMO_CAMPAIGNS } from '../../data/demoData';
 import type { Offer, Campaign } from '../../types';
 
@@ -398,17 +399,19 @@ export default function OfferManager() {
                 Restaurant<span style={{ color: 'var(--color-error)' }}> *</span>
               </span>
               {restaurantOptions.length > 0 ? (
-                <select
-                  className="form-input"
-                  style={{ width: '100%' }}
+                <StyledSelect
                   value={form.restaurantId}
-                  onChange={(e) => handleSelectRestaurant(e.target.value)}
-                >
-                  <option value="">Select a restaurant...</option>
-                  {restaurantOptions.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
+                  onChange={(v) => handleSelectRestaurant(v)}
+                  placeholder="Select a restaurant…"
+                  options={[
+                    { value: '', label: 'Select a restaurant…' },
+                    ...restaurantOptions.map((r) => ({
+                      value: r.id,
+                      label: r.name,
+                      icon: '🍽',
+                    })),
+                  ]}
+                />
               ) : (
                 <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', padding: 'var(--space-2) 0' }}>
                   <Link to="/app/campaigns" style={{ color: 'var(--color-accent)' }}>Create a campaign</Link> first to link a restaurant.
@@ -444,31 +447,31 @@ export default function OfferManager() {
             {/* Link to Campaign (optional) */}
             <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
               <span style={labelStyle}>Link to Campaign</span>
-              <select
-                className="form-input"
-                style={{ width: '100%' }}
+              <StyledSelect
                 value={form.linkedCampaignId}
-                onChange={(e) => handleFormChange('linkedCampaignId', e.target.value)}
-              >
-                <option value="">None (standalone deal)</option>
-                {(campaigns ?? [])
-                  .filter((c) => !form.restaurantId || c.restaurantId === form.restaurantId)
-                  .map((c) => (
-                    <option key={c.campaignId} value={c.campaignId}>
-                      {c.restaurantName} — {c.package}
-                    </option>
-                  ))}
-              </select>
+                onChange={(v) => handleFormChange('linkedCampaignId', v)}
+                placeholder="None (standalone deal)"
+                options={[
+                  { value: '', label: 'None (standalone deal)' },
+                  ...(campaigns ?? [])
+                    .filter((c) => !form.restaurantId || c.restaurantId === form.restaurantId)
+                    .map((c) => ({
+                      value: c.campaignId,
+                      label: `${c.restaurantName} — ${c.package}`,
+                      icon: '🔗',
+                    })),
+                ]}
+              />
             </label>
 
             {/* Expiration */}
             <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
               <span style={labelStyle}>Expiration Date</span>
-              <input
-                type="date"
+              <StyledDatePicker
                 value={form.expiresAt}
-                onChange={(e) => handleFormChange('expiresAt', e.target.value)}
-                style={inputStyle}
+                onChange={(v) => handleFormChange('expiresAt', v)}
+                placeholder="No expiration"
+                min={new Date().toISOString().split('T')[0]}
               />
             </label>
           </div>

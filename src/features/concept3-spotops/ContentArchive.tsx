@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ContentItem } from '../../types';
 import { api } from '../../services/ApiService';
+import { StyledSelect, StyledDatePicker } from '../../components/FormControls';
 import { isDemoMode, DEMO_CONTENT, DEMO_CAMPAIGNS } from '../../data/demoData';
 import { EmptyState } from '../../components/EmptyState';
 
@@ -509,49 +510,56 @@ export default function ContentArchive() {
           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
           onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
         />
-        <select
+        <StyledSelect
           value={platformFilter}
-          onChange={(e) => setPlatformFilter(e.target.value as PlatformFilter)}
-          style={styles.select}
-        >
-          <option value="all">All Platforms</option>
-          <option value="instagram">Instagram</option>
-          <option value="tiktok">TikTok</option>
-          <option value="youtube">YouTube</option>
-        </select>
-        <select
-          value={performanceTier}
-          onChange={(e) => setPerformanceTier(e.target.value as PerformanceTier)}
-          style={styles.select}
-        >
-          <option value="all">All Performance</option>
-          <option value="top10">Top 10%</option>
-          <option value="aboveAvg">Above Average</option>
-          <option value="belowAvg">Below Average</option>
-        </select>
-        <select
-          value={sortMode}
-          onChange={(e) => setSortMode(e.target.value as SortMode)}
-          style={styles.select}
-        >
-          <option value="recent">Most Recent</option>
-          <option value="engagement">Top Engagement</option>
-          <option value="reach">Most Reach</option>
-          <option value="saves">Most Saves</option>
-        </select>
-        <input
-          type="date"
-          value={dateRange.start}
-          onChange={(e) => setDateRange((r) => ({ ...r, start: e.target.value }))}
-          style={styles.dateInput}
-          title="Start date"
+          onChange={(v) => setPlatformFilter(v as PlatformFilter)}
+          size="sm"
+          style={{ maxWidth: '160px' }}
+          options={[
+            { value: 'all', label: 'All Platforms' },
+            { value: 'instagram', label: 'Instagram', icon: '📸' },
+            { value: 'tiktok', label: 'TikTok', icon: '🎵' },
+            { value: 'youtube', label: 'YouTube', icon: '▶️' },
+          ]}
         />
-        <input
-          type="date"
+        <StyledSelect
+          value={performanceTier}
+          onChange={(v) => setPerformanceTier(v as PerformanceTier)}
+          size="sm"
+          style={{ maxWidth: '170px' }}
+          options={[
+            { value: 'all', label: 'All Performance' },
+            { value: 'top10', label: 'Top 10%', icon: '🔥' },
+            { value: 'aboveAvg', label: 'Above Average', icon: '📈' },
+            { value: 'belowAvg', label: 'Below Average', icon: '📉' },
+          ]}
+        />
+        <StyledSelect
+          value={sortMode}
+          onChange={(v) => setSortMode(v as SortMode)}
+          size="sm"
+          style={{ maxWidth: '170px' }}
+          options={[
+            { value: 'recent', label: 'Most Recent', icon: '🕐' },
+            { value: 'engagement', label: 'Top Engagement', icon: '❤️' },
+            { value: 'reach', label: 'Most Reach', icon: '👁' },
+            { value: 'saves', label: 'Most Saves', icon: '🔖' },
+          ]}
+        />
+        <StyledDatePicker
+          value={dateRange.start}
+          onChange={(v) => setDateRange((r) => ({ ...r, start: v }))}
+          placeholder="Start date"
+          size="sm"
+          style={{ maxWidth: '170px' }}
+        />
+        <StyledDatePicker
           value={dateRange.end}
-          onChange={(e) => setDateRange((r) => ({ ...r, end: e.target.value }))}
-          style={styles.dateInput}
-          title="End date"
+          onChange={(v) => setDateRange((r) => ({ ...r, end: v }))}
+          placeholder="End date"
+          size="sm"
+          style={{ maxWidth: '170px' }}
+          min={dateRange.start}
         />
       </div>
 

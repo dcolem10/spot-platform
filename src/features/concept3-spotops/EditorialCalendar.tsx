@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EditorialSlot } from '../../types';
 import { api } from '../../services/ApiService';
+import { StyledSelect } from '../../components/FormControls';
 import { isDemoMode, DEMO_EDITORIAL_SLOTS, DEMO_CAMPAIGNS } from '../../data/demoData';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
@@ -807,38 +808,39 @@ export default function EditorialCalendar() {
 
             <div style={styles.formGroup}>
               <label style={styles.formLabel}>Link to Campaign (optional)</label>
-              <select
-                style={{ ...styles.formInput, cursor: 'pointer' }}
+              <StyledSelect
                 value={formData.campaignId || ''}
-                onChange={(e) => {
-                  const cId = e.target.value;
+                onChange={(v) => {
+                  const cId = v;
                   setFormData(f => ({
                     ...f,
                     campaignId: cId || undefined,
                     restaurantName: cId ? (campaigns.find(c => c.campaignId === cId)?.restaurantName || f.restaurantName) : f.restaurantName,
                   }));
                 }}
-              >
-                <option value="">No campaign</option>
-                {campaigns.map(c => (
-                  <option key={c.campaignId} value={c.campaignId}>
-                    {c.restaurantName}{c.status ? ` (${c.status})` : ''}
-                  </option>
-                ))}
-              </select>
+                placeholder="No campaign"
+                options={[
+                  { value: '', label: 'No campaign' },
+                  ...campaigns.map(c => ({
+                    value: c.campaignId,
+                    label: c.restaurantName + (c.status ? ` (${c.status})` : ''),
+                    icon: '🔗',
+                  })),
+                ]}
+              />
             </div>
 
             <div style={styles.formGroup}>
               <label style={styles.formLabel}>Content Type</label>
-              <select
-                style={{ ...styles.formInput, cursor: 'pointer' }}
+              <StyledSelect
                 value={formData.type}
-                onChange={(e) => setFormData((f) => ({ ...f, type: e.target.value as EditorialSlot['type'] }))}
-              >
-                <option value="sponsored">Sponsored</option>
-                <option value="organic">Organic</option>
-                <option value="reshoot">Reshoot</option>
-              </select>
+                onChange={(v) => setFormData((f) => ({ ...f, type: v as EditorialSlot['type'] }))}
+                options={[
+                  { value: 'sponsored', label: 'Sponsored', icon: '💰' },
+                  { value: 'organic', label: 'Organic', icon: '🌿' },
+                  { value: 'reshoot', label: 'Reshoot', icon: '🔄' },
+                ]}
+              />
             </div>
 
             <div style={styles.formGroup}>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/ApiService';
 import { isDemoMode } from '../data/demoData';
+import { StyledSelect, StyledDatePicker } from './FormControls';
 import type { Campaign, CampaignStatus, Offer, Restaurant } from '../types';
 
 /* ─── Constants (shared) ──────────────────────────────────────────────────── */
@@ -544,19 +545,19 @@ export default function CampaignDetailPanel({
             <DetailSection title="Your Proposed Deal">
               {isEditing ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <select
-                    className="form-input"
+                  <StyledSelect
                     value={editForm.dealType}
-                    onChange={(e) => setEditForm((p) => ({ ...p, dealType: e.target.value }))}
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                  >
-                    <option value="">Select deal type...</option>
-                    {Object.entries(DEAL_TYPE_LABELS).map(([val, label]) => (
-                      <option key={val} value={val}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => setEditForm((p) => ({ ...p, dealType: v }))}
+                    placeholder="Select deal type…"
+                    options={[
+                      { value: '', label: 'Select deal type…' },
+                      ...Object.entries(DEAL_TYPE_LABELS).map(([val, label]) => ({
+                        value: val,
+                        label,
+                        icon: val === 'percent_off' ? '🏷' : val === 'free_item' ? '🎁' : val === 'bogo' ? '🍽' : '💰',
+                      })),
+                    ]}
+                  />
                   <input
                     type="text"
                     className="form-input"
@@ -616,12 +617,10 @@ export default function CampaignDetailPanel({
                     >
                       Start
                     </label>
-                    <input
-                      type="date"
-                      className="form-input"
+                    <StyledDatePicker
                       value={editForm.startDate}
-                      onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
+                      onChange={(v) => setEditForm((p) => ({ ...p, startDate: v }))}
+                      placeholder="Start date"
                     />
                   </div>
                   <div>
@@ -635,12 +634,11 @@ export default function CampaignDetailPanel({
                     >
                       End
                     </label>
-                    <input
-                      type="date"
-                      className="form-input"
+                    <StyledDatePicker
                       value={editForm.endDate}
-                      onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
+                      onChange={(v) => setEditForm((p) => ({ ...p, endDate: v }))}
+                      placeholder="End date"
+                      min={editForm.startDate}
                     />
                   </div>
                 </div>
@@ -737,7 +735,6 @@ export default function CampaignDetailPanel({
             <DetailSection title="Details">
               <DetailRow label="Created" value={formatDate(campaign.createdAt)} />
               <DetailRow label="Updated" value={formatDate(campaign.updatedAt)} />
-              <DetailRow label="Campaign ID" value={campaign.campaignId} />
             </DetailSection>
           </div>
         )}
