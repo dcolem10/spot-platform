@@ -136,7 +136,7 @@ const NotificationItem = memo(function NotificationItem({
         <div style={{
           fontSize: 13,
           fontWeight: notification.isRead ? 400 : 600,
-          color: notification.isRead ? 'rgba(255,255,255,0.6)' : '#fff',
+          color: notification.isRead ? 'var(--color-textMuted)' : 'var(--color-textPrimary)',
           marginBottom: 2,
         }}>
           {notification.title}
@@ -159,7 +159,7 @@ const NotificationItem = memo(function NotificationItem({
           width: 8,
           height: 8,
           borderRadius: '50%',
-          background: '#ff6b35',
+          background: 'var(--color-accent, #ff6b35)',
           flexShrink: 0,
           marginTop: 6,
         }} />
@@ -236,8 +236,8 @@ export default function NotificationBell() {
           color: 'rgba(255,255,255,0.7)',
           transition: 'color 0.15s',
         }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#fff'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.7)'; }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-textPrimary)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-textMuted)'; }}
       >
         🔔
         {unreadCount > 0 && (
@@ -248,7 +248,7 @@ export default function NotificationBell() {
             minWidth: 16,
             height: 16,
             borderRadius: 8,
-            background: '#ff6b35',
+            background: 'var(--color-accent, #ff6b35)',
             color: '#fff',
             fontSize: 10,
             fontWeight: 700,

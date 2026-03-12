@@ -138,11 +138,11 @@ const DEMO_PROPOSALS: Proposal[] = [
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
-  pending: '#f59e0b',
-  accepted: '#10b981',
-  countered: '#6366f1',
-  declined: '#ef4444',
-  expired: '#6b7280',
+  pending: 'var(--color-warning, #f59e0b)',
+  accepted: 'var(--color-success, #10b981)',
+  countered: 'var(--color-accent, #6366f1)',
+  declined: 'var(--color-error, #ef4444)',
+  expired: 'var(--color-textMuted, #6b7280)',
 };
 
 const STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -299,7 +299,7 @@ const ProposalCard = memo(function ProposalCard({ proposal, viewAs, onSelect }: 
         {proposal.status === 'pending' && expiryDays > 0 && (
           <span style={{
             fontSize: '11px',
-            color: expiryDays <= 2 ? '#ef4444' : 'var(--color-textMuted)',
+            color: expiryDays <= 2 ? 'var(--color-error, #ef4444)' : 'var(--color-textMuted)',
           }}>
             {expiryDays}d left
           </span>
@@ -479,7 +479,7 @@ function ProposalDetail({
           {/* Counter Terms */}
           {proposal.counterTerms && (
             <div style={{ marginTop: 'var(--space-4)' }}>
-              <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: 'var(--color-accent, #6366f1)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Counter-Offer
               </h3>
               <div style={{
@@ -578,7 +578,7 @@ function ProposalDetail({
               style={{
                 padding: 'var(--space-2) var(--space-3)',
                 background: 'var(--color-accent)',
-                color: '#fff',
+                color: 'var(--color-textOnAccent, #fff)',
                 border: 'none',
                 borderRadius: 'var(--radius-md)',
                 fontSize: 'var(--font-sm)',
@@ -599,7 +599,7 @@ function ProposalDetail({
             borderTop: '1px solid var(--color-border)',
             background: '#6366f108',
           }}>
-            <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: '#6366f1' }}>
+            <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: 'var(--color-accent, #6366f1)' }}>
               Submit Counter-Offer
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -690,10 +690,10 @@ function ProposalDetail({
                   }}
                   style={{
                     padding: 'var(--space-2) var(--space-4)',
-                    background: '#6366f1',
+                    background: 'var(--color-accent, #6366f1)',
                     border: 'none',
                     borderRadius: 'var(--radius-md)',
-                    color: '#fff',
+                    color: 'var(--color-textOnAccent, #fff)',
                     fontSize: 'var(--font-sm)',
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -714,7 +714,7 @@ function ProposalDetail({
             borderTop: '1px solid var(--color-border)',
             background: '#ef444408',
           }}>
-            <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: '#ef4444' }}>
+            <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: 'var(--color-error, #ef4444)' }}>
               Decline Proposal
             </h3>
             <textarea
@@ -761,10 +761,10 @@ function ProposalDetail({
                 }}
                 style={{
                   padding: 'var(--space-2) var(--space-4)',
-                  background: '#ef4444',
+                  background: 'var(--color-error, #ef4444)',
                   border: 'none',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--color-textOnAccent, #fff)',
                   fontSize: 'var(--font-sm)',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -793,9 +793,9 @@ function ProposalDetail({
                 style={{
                   padding: 'var(--space-2) var(--space-4)',
                   background: 'transparent',
-                  border: '1px solid #ef4444',
+                  border: '1px solid var(--color-error, #ef4444)',
                   borderRadius: 'var(--radius-md)',
-                  color: '#ef4444',
+                  color: 'var(--color-error, #ef4444)',
                   fontSize: 'var(--font-sm)',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -809,9 +809,9 @@ function ProposalDetail({
                 style={{
                   padding: 'var(--space-2) var(--space-4)',
                   background: 'transparent',
-                  border: '1px solid #6366f1',
+                  border: '1px solid var(--color-accent, #6366f1)',
                   borderRadius: 'var(--radius-md)',
-                  color: '#6366f1',
+                  color: 'var(--color-accent, #6366f1)',
                   fontSize: 'var(--font-sm)',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -825,10 +825,10 @@ function ProposalDetail({
                 onClick={() => onAccept(proposal.proposalId)}
                 style={{
                   padding: 'var(--space-2) var(--space-4)',
-                  background: '#10b981',
+                  background: 'var(--color-success, #10b981)',
                   border: 'none',
                   borderRadius: 'var(--radius-md)',
-                  color: '#fff',
+                  color: 'var(--color-textOnAccent, #fff)',
                   fontSize: 'var(--font-sm)',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -996,9 +996,9 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
             alignItems: 'center',
             gap: 'var(--space-2)',
             padding: 'var(--space-2) var(--space-4)',
-            background: '#f59e0b22',
+            background: 'color-mix(in srgb, var(--color-warning, #f59e0b) 13%, transparent)',
             borderRadius: 'var(--radius-full)',
-            color: '#f59e0b',
+            color: 'var(--color-warning, #f59e0b)',
             fontSize: 'var(--font-sm)',
             fontWeight: 600,
           }}>
@@ -1006,7 +1006,7 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              background: '#f59e0b',
+              background: 'var(--color-warning, #f59e0b)',
               animation: 'pulse 2s infinite',
             }} />
             {pendingCount} pending
@@ -1037,7 +1037,7 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
             style={{
               padding: 'var(--space-2) var(--space-4)',
               background: tab === t.key ? 'var(--color-accent)' : 'transparent',
-              color: tab === t.key ? '#fff' : 'var(--color-textSecondary)',
+              color: tab === t.key ? 'var(--color-textOnAccent, #fff)' : 'var(--color-textSecondary)',
               border: 'none',
               borderRadius: 'var(--radius-md)',
               fontSize: 'var(--font-sm)',
@@ -1081,7 +1081,7 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
               background: statusFilter === s
                 ? s === 'all' ? 'var(--color-textSecondary)' : STATUS_COLORS[s]
                 : 'transparent',
-              color: statusFilter === s ? '#fff' : 'var(--color-textMuted)',
+              color: statusFilter === s ? 'var(--color-textOnAccent, #fff)' : 'var(--color-textMuted)',
               fontSize: 'var(--font-xs)',
               fontWeight: statusFilter === s ? 600 : 400,
               cursor: 'pointer',

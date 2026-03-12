@@ -616,11 +616,17 @@ async function createOffer(restaurantId, event) {
           new GetCommand({
             TableName: TABLE,
             Key: { PK: `CREATOR#${userId}`, SK: `CAMPAIGN#${campaignId}` },
-            ProjectionExpression: 'campaignId',
+            ProjectionExpression: 'campaignId, restaurantId',
           })
         );
         if (campaignResult.Item) {
-          validatedCampaignId = campaignId;
+          // Prevent cross-restaurant linking: campaign must belong to same restaurant
+          if (campaignResult.Item.restaurantId && campaignResult.Item.restaurantId !== restaurantId) {
+            console.warn(`Campaign ${campaignId} is for restaurant ${campaignResult.Item.restaurantId}, not ${restaurantId}`);
+            // Don't link — silently drop the invalid link rather than failing the offer creation
+          } else {
+            validatedCampaignId = campaignId;
+          }
         } else {
           console.warn(`linkedCampaignId ${campaignId} not found for user ${userId}`);
         }
@@ -3724,6 +3730,18 @@ async function removeCollaborator(campaignId, creatorId, event) {
 
   if (!campaignFind.Items?.length) return respond(404, { error: 'Campaign not found' });
 
+  // Verify the collaborator actually exists before deleting — prevents confusing 200 on no-op
+  const collabCheck = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CAMPAIGN#${campaignId}`, SK: `COLLAB#${creatorId}` },
+      ProjectionExpression: 'PK',
+    })
+  );
+  if (!collabCheck.Item) {
+    return respond(404, { error: 'Collaborator not found on this campaign' });
+  }
+
   // Atomic delete of both records — prevents orphaned invite if first delete succeeds but second fails
   await ddb.send(
     new TransactWriteCommand({
@@ -3768,15 +3786,31 @@ async function createProposal(event) {
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   const proposalType = sanitize(body.proposalType, 30);
-  const initiatedBy = sanitize(body.initiatedBy, 20);
   const targetId = sanitize(body.targetId, 128);
 
   if (!VALID_PROPOSAL_TYPES.includes(proposalType))
     return respond(400, { error: `Invalid proposalType. Must be one of: ${VALID_PROPOSAL_TYPES.join(', ')}` });
-  if (!VALID_INITIATORS.includes(initiatedBy))
-    return respond(400, { error: 'initiatedBy must be "creator" or "restaurant"' });
   if (!targetId || !isValidId(targetId))
     return respond(400, { error: 'Invalid targetId' });
+
+  // Determine initiatedBy from caller identity — never trust user-supplied role.
+  // Check if the caller is a restaurant listing creator for the targetId's restaurant context.
+  // If they own a restaurant matching the context, they're acting as restaurant; otherwise creator.
+  let initiatedBy = 'creator'; // default: authenticated users are creators
+  const requestedRole = sanitize(body.initiatedBy || 'creator', 20);
+  if (requestedRole === 'restaurant' && body.restaurantId) {
+    const restId = sanitize(body.restaurantId, 64);
+    if (restId && isValidId(restId)) {
+      const restCheck = await ddb.send(
+        new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+      );
+      if (restCheck.Item?.creatorId === userId) {
+        initiatedBy = 'restaurant';
+      } else {
+        return respond(403, { error: 'You are not authorized to initiate proposals as this restaurant' });
+      }
+    }
+  }
 
   // Per-target rate limit: max 3 pending proposals to the same target
   const existingToTarget = await ddb.send(
@@ -4312,14 +4346,14 @@ async function approveOffer(offerId, event) {
   const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
 
-  // Verify the caller is a stakeholder — either the offer creator or the restaurant's listing creator
+  // Only the restaurant's listing creator can approve — creators must NOT self-approve their own offers.
+  // This prevents the attack where a creator submits an offer then immediately approves it themselves.
   const restCheck = await ddb.send(
     new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
   );
-  const isOfferCreator = offer.creatorId === userId;
   const isRestaurantRep = restCheck.Item?.creatorId === userId;
-  if (!isOfferCreator && !isRestaurantRep) {
-    return respond(403, { error: 'You are not authorized to manage this offer' });
+  if (!isRestaurantRep) {
+    return respond(403, { error: 'Only the restaurant representative can approve offers' });
   }
 
   if (offer.approvalStatus !== 'pending_restaurant') {
@@ -4408,14 +4442,13 @@ async function rejectOffer(offerId, event) {
   const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
 
-  // Verify the caller is a stakeholder — either the offer creator or the restaurant's listing creator
+  // Only the restaurant's listing creator can reject — same rationale as approve.
   const restCheck = await ddb.send(
     new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
   );
-  const isOfferCreator = offer.creatorId === userId;
   const isRestaurantRep = restCheck.Item?.creatorId === userId;
-  if (!isOfferCreator && !isRestaurantRep) {
-    return respond(403, { error: 'You are not authorized to manage this offer' });
+  if (!isRestaurantRep) {
+    return respond(403, { error: 'Only the restaurant representative can reject offers' });
   }
 
   if (offer.approvalStatus !== 'pending_restaurant') {
@@ -4467,10 +4500,14 @@ async function pauseOffer(offerId, event) {
   }
 
   const body = parseBody(event);
-  const pauseRole = body?.role || 'creator'; // 'creator' or 'restaurant'
   const reason = body?.reason ? sanitize(body.reason, 500) : '';
 
-  // Find offer by querying creator GSI
+  // Determine caller's actual role — don't trust user-supplied 'role' field.
+  // Try creator GSI first, then restaurant key, to find the offer AND determine role.
+  let offer = null;
+  let callerRole = ''; // will be set to 'creator' or 'restaurant' based on how we found the offer
+
+  // Try as offer creator first
   const gsiResult = await ddb.send(
     new QueryCommand({
       TableName: TABLE,
@@ -4483,13 +4520,15 @@ async function pauseOffer(offerId, event) {
       Limit: 1,
     })
   );
-  let offer = gsiResult.Items?.[0];
+  if (gsiResult.Items?.[0]) {
+    offer = gsiResult.Items[0];
+    callerRole = 'creator';
+  }
 
-  // If not found as creator, try finding via restaurant key (restaurant rep pausing)
+  // If not found as creator, try as restaurant listing creator
   if (!offer && body?.restaurantId) {
     const restId = sanitize(body.restaurantId, 64);
     if (restId && isValidId(restId)) {
-      // Verify caller is the restaurant's listing creator before allowing restaurant-side pause
       const restCheck = await ddb.send(
         new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
       );
@@ -4500,7 +4539,10 @@ async function pauseOffer(offerId, event) {
             Key: { PK: `RESTAURANT#${restId}`, SK: `OFFER#${offerId}` },
           })
         );
-        offer = restResult.Item;
+        if (restResult.Item) {
+          offer = restResult.Item;
+          callerRole = 'restaurant';
+        }
       }
     }
   }
@@ -4510,7 +4552,8 @@ async function pauseOffer(offerId, event) {
     return respond(400, { error: 'Can only pause active/approved offers' });
   }
 
-  const pausedBy = pauseRole === 'restaurant' ? 'restaurant' : 'creator';
+  // callerRole is derived from HOW we found the offer, not user input
+  const pausedBy = callerRole;
   const nowISO = new Date().toISOString();
 
   await ddb.send(
@@ -4568,6 +4611,10 @@ async function resumeOffer(offerId, event) {
     return respond(429, { error: 'Too many requests.' });
   }
 
+  // Same role-derivation pattern as pauseOffer — determine role from how we find the offer
+  let offer = null;
+  let callerRole = '';
+
   const gsiResult = await ddb.send(
     new QueryCommand({
       TableName: TABLE,
@@ -4580,13 +4627,15 @@ async function resumeOffer(offerId, event) {
       Limit: 1,
     })
   );
-  let offer = gsiResult.Items?.[0];
+  if (gsiResult.Items?.[0]) {
+    offer = gsiResult.Items[0];
+    callerRole = 'creator';
+  }
 
   const body = parseBody(event);
   if (!offer && body?.restaurantId) {
     const restId = sanitize(body.restaurantId, 64);
     if (restId && isValidId(restId)) {
-      // Verify caller is the restaurant's listing creator before allowing restaurant-side resume
       const restCheck = await ddb.send(
         new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
       );
@@ -4597,7 +4646,10 @@ async function resumeOffer(offerId, event) {
             Key: { PK: `RESTAURANT#${restId}`, SK: `OFFER#${offerId}` },
           })
         );
-        offer = restResult.Item;
+        if (restResult.Item) {
+          offer = restResult.Item;
+          callerRole = 'restaurant';
+        }
       }
     }
   }
@@ -5317,7 +5369,7 @@ async function drawRaffleWinner(raffleId, event) {
   if (raffle.status !== 'active' && raffle.status !== 'closed')
     return respond(400, { error: `Cannot draw winner when raffle status is "${raffle.status}"` });
 
-  // Fetch all entries (up to maxEntries cap)
+  // Fetch all entries in pages of 100 (memory-safe pagination)
   const entries = [];
   let lastKey = undefined;
   do {
@@ -5329,7 +5381,7 @@ async function drawRaffleWinner(raffleId, event) {
           ':pk': `RAFFLE#${raffleId}`,
           ':skPrefix': 'ENTRY#',
         },
-        Limit: 1000,
+        Limit: 100,
         ExclusiveStartKey: lastKey,
       })
     );
@@ -5653,7 +5705,15 @@ export const handler = async (event) => {
 
     return respond(404, { error: 'Not found' });
   } catch (err) {
-    console.error('Handler error:', err);
-    return respond(500, { error: 'Internal server error' });
+    const errorId = randomUUID().slice(0, 12);
+    console.error(JSON.stringify({
+      level: 'ERROR',
+      errorId,
+      message: err.message,
+      stack: err.stack?.split('\n').slice(0, 5).join(' | '),
+      path: event?.rawPath || event?.path,
+      method: event?.requestContext?.http?.method,
+    }));
+    return respond(500, { error: 'Internal server error', errorId });
   }
 };

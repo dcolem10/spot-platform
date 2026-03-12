@@ -35,12 +35,22 @@ const MILESTONE_TEMPLATES = {
   28: 'lifecycle_day28',
 };
 
-export const handler = async () => {
+/** Minimum remaining time (ms) before we stop processing to avoid timeout */
+const TIMEOUT_BUFFER_MS = 10_000;
+
+export const handler = async (_event, context) => {
   console.log('Lifecycle scheduler starting...');
   const now = new Date();
   let processed = 0;
   let sent = 0;
   let errors = 0;
+  let timedOut = false;
+
+  // Helper: check if we're running low on Lambda execution time
+  const isRunningLow = () => {
+    if (!context?.getRemainingTimeInMillis) return false;
+    return context.getRemainingTimeInMillis() < TIMEOUT_BUFFER_MS;
+  };
 
   try {
     // Scan all creator profiles
@@ -57,6 +67,11 @@ export const handler = async () => {
         console.warn(`Hit email cap (${MAX_EMAILS_PER_RUN}). Stopping.`);
         break;
       }
+      if (isRunningLow()) {
+        timedOut = true;
+        console.warn(`Approaching Lambda timeout — stopping early. Processed: ${processed}, Sent: ${sent}`);
+        break;
+      }
       processed++;
       try {
         const result = await processCreator(creator, now);
@@ -67,8 +82,8 @@ export const handler = async () => {
       }
     }
 
-    console.log(`Lifecycle complete: processed=${processed}, sent=${sent}, errors=${errors}`);
-    return { statusCode: 200, processed, sent, errors };
+    console.log(`Lifecycle complete: processed=${processed}, sent=${sent}, errors=${errors}, timedOut=${timedOut}`);
+    return { statusCode: 200, processed, sent, errors, timedOut };
   } catch (err) {
     console.error(`Lifecycle scheduler failed: ${err.message}`);
     return { statusCode: 500, error: err.message };

@@ -203,6 +203,15 @@ async function hydrateContacts(options = {}) {
     (r) => r.googlePlaceId && (!r.phone || !r.website)
   );
 
+  // Deduplicate by googlePlaceId — multiple restaurants can share the same Place ID
+  // (e.g. franchise locations). Only hydrate each unique Place ID once to avoid wasted API calls.
+  const seenPlaceIds = new Set();
+  needsHydration = needsHydration.filter((r) => {
+    if (seenPlaceIds.has(r.googlePlaceId)) return false;
+    seenPlaceIds.add(r.googlePlaceId);
+    return true;
+  });
+
   // Optionally filter by city
   if (targetCities) {
     needsHydration = needsHydration.filter((r) => targetCities.includes(r.city));
