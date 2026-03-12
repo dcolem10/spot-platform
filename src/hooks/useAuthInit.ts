@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 
-const demoEnabled = import.meta.env.VITE_DEMO_MODE === 'true';
+// Demo mode: only allowed on localhost/127.0.0.1 — never in production
+const isLocalhost = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const demoEnabled = import.meta.env.VITE_DEMO_MODE === 'true' && isLocalhost;
 
 export function useAuthInit() {
   const ran = useRef(false);
