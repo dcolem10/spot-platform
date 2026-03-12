@@ -18,6 +18,7 @@ const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const sesClient = new SESClient({});
 const TABLE = process.env.TABLE_NAME;
+if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@tryspot.app';
 const ORIGIN = process.env.ALLOWED_ORIGIN || '';
 if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
@@ -389,11 +390,15 @@ async function archiveCampaign(campaignId, event) {
   if (!find.Items?.length) return respond(404, { error: 'Campaign not found' });
   const existing = find.Items[0];
 
+  // Prevent double-archive
+  if (existing.deletedAt) return respond(400, { error: 'Campaign is already archived' });
+
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE,
       Key: { PK: existing.PK, SK: existing.SK },
       UpdateExpression: 'SET #deletedAt = :deletedAt, #updatedAt = :updatedAt',
+      ConditionExpression: 'attribute_not_exists(#deletedAt)', // Atomic guard against concurrent archive
       ExpressionAttributeNames: { '#deletedAt': 'deletedAt', '#updatedAt': 'updatedAt' },
       ExpressionAttributeValues: {
         ':deletedAt': new Date().toISOString(),
@@ -509,6 +514,9 @@ async function updateCampaign(campaignId, event) {
 
   if (!find.Items?.length) return respond(404, { error: 'Campaign not found' });
   const existing = find.Items[0];
+
+  // Prevent updates to soft-deleted (archived) campaigns
+  if (existing.deletedAt) return respond(410, { error: 'This campaign has been archived' });
 
   // C3: Allowlisted fields only — prevent mass assignment of PK/SK/GSI keys
   const ALLOWED_STATUSES = ['inquiry', 'negotiation', 'active', 'completed', 'cancelled'];
@@ -690,6 +698,7 @@ async function createOffer(restaurantId, event) {
               expiresAt: item.expiresAt,
               createdAt: item.createdAt,
             },
+            ConditionExpression: 'attribute_not_exists(PK)', // Enforce offer code uniqueness at DB level
           },
         },
       ],
@@ -770,19 +779,35 @@ async function updateOffer(offerId, event) {
     })
   );
 
-  // Also update the lookup record if isActive changed
-  if (typeof body.isActive === 'boolean' && existing.code) {
-    try {
-      await ddb.send(
-        new UpdateCommand({
-          TableName: TABLE,
-          Key: { PK: `OFFER_CODE#${existing.code}`, SK: 'LOOKUP' },
-          UpdateExpression: 'SET isActive = :val',
-          ExpressionAttributeValues: { ':val': body.isActive },
-        })
-      );
-    } catch (err) {
-      console.warn(`Failed to update lookup record for ${existing.code}: ${err.message}`);
+  // Keep lookup record in sync — update isActive and expiresAt if changed
+  // Note: scan/redeem now fetch the live offer for validation, so this is best-effort consistency
+  if (existing.code) {
+    const lookupUpdates = [];
+    const lookupValues = {};
+    if (typeof body.isActive === 'boolean') {
+      lookupUpdates.push('isActive = :isActive');
+      lookupValues[':isActive'] = body.isActive;
+    }
+    if (typeof body.expiresAt === 'string') {
+      const parsed = new Date(sanitize(body.expiresAt, 30));
+      if (!isNaN(parsed.getTime())) {
+        lookupUpdates.push('expiresAt = :expiresAt');
+        lookupValues[':expiresAt'] = parsed.toISOString();
+      }
+    }
+    if (lookupUpdates.length > 0) {
+      try {
+        await ddb.send(
+          new UpdateCommand({
+            TableName: TABLE,
+            Key: { PK: `OFFER_CODE#${existing.code}`, SK: 'LOOKUP' },
+            UpdateExpression: `SET ${lookupUpdates.join(', ')}`,
+            ExpressionAttributeValues: lookupValues,
+          })
+        );
+      } catch (err) {
+        console.warn(`Failed to update lookup record for ${existing.code}: ${err.message}`);
+      }
     }
   }
 
@@ -876,7 +901,17 @@ async function trackScan(code, event) {
     );
 
     if (!lookup.Item) return respond(404, { error: 'Offer not found' });
-    const offer = lookup.Item;
+    const lookupRec = lookup.Item;
+
+    // Fetch the LIVE offer record for current isActive/expiresAt — lookup may be stale
+    const liveOffer = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: lookupRec.restaurantPK, SK: lookupRec.offerSK },
+        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId',
+      })
+    );
+    const offer = liveOffer.Item || lookupRec; // fallback to lookup if offer record missing
 
     // Validate offer is active and not expired
     const check = validateOffer(offer);
@@ -960,7 +995,17 @@ async function redeemOffer(code, event) {
     );
 
     if (!lookup.Item) return respond(404, { error: 'Offer not found' });
-    const offer = lookup.Item;
+    const lookupRec = lookup.Item;
+
+    // Fetch the LIVE offer record for current isActive/expiresAt — lookup may be stale
+    const liveOffer = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: lookupRec.restaurantPK, SK: lookupRec.offerSK },
+        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId',
+      })
+    );
+    const offer = liveOffer.Item || lookupRec; // fallback to lookup if offer record missing
 
     // Validate offer is active and not expired
     const check = validateOffer(offer);
@@ -4038,21 +4083,31 @@ async function acceptProposal(proposalId, event) {
   }
 
   const now = new Date().toISOString();
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: proposal.PK, SK: proposal.SK },
-      UpdateExpression: 'SET #s = :status, updatedAt = :now, acceptedAt = :now, GSI2PK = :g2pk, GSI2SK = :g2sk',
-      ExpressionAttributeNames: { '#s': 'status' },
-      ExpressionAttributeValues: {
-        ':status': 'accepted',
-        ':now': now,
-        // Move out of pending inbox — prefix with ACCEPTED so it no longer appears in pending queries
-        ':g2pk': `PROPOSAL#ACCEPTED#${proposal.targetId}`,
-        ':g2sk': now,
-      },
-    })
-  );
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: proposal.PK, SK: proposal.SK },
+        UpdateExpression: 'SET #s = :status, updatedAt = :now, acceptedAt = :now, GSI2PK = :g2pk, GSI2SK = :g2sk',
+        // Atomic guard: only accept if still pending/countered and not expired
+        ConditionExpression: '#s IN (:pending, :countered) AND (attribute_not_exists(expiresAt) OR expiresAt > :now)',
+        ExpressionAttributeNames: { '#s': 'status' },
+        ExpressionAttributeValues: {
+          ':status': 'accepted',
+          ':pending': 'pending',
+          ':countered': 'countered',
+          ':now': now,
+          ':g2pk': `PROPOSAL#ACCEPTED#${proposal.targetId}`,
+          ':g2sk': now,
+        },
+      })
+    );
+  } catch (condErr) {
+    if (condErr.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'Proposal was already actioned or has expired (concurrent request)' });
+    }
+    throw condErr;
+  }
 
   // Notify initiator their proposal was accepted
   await createNotification(

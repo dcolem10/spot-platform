@@ -1,7 +1,8 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
 const ses = new SESClient({ region: 'us-east-1' });
-const FROM_EMAIL = process.env.FROM_EMAIL || 'networth589@gmail.com';
+const FROM_EMAIL = process.env.FROM_EMAIL;
+if (!FROM_EMAIL) throw new Error('FROM_EMAIL env var is required — Lambda misconfigured');
 const MAX_EMAILS = 10; // Safety cap per invocation
 
 export const handler = async (event) => {

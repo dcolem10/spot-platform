@@ -17,7 +17,9 @@ const ddb = DynamoDBDocumentClient.from(ddbClient);
 const lambda = new LambdaClient({});
 
 const TABLE = process.env.TABLE_NAME;
+if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 const EMAIL_FUNCTION = process.env.EMAIL_FUNCTION_NAME;
+if (!EMAIL_FUNCTION) throw new Error('EMAIL_FUNCTION_NAME env var is required — Lambda misconfigured');
 
 /** Day milestones to check (in days since signup) */
 const MILESTONES = [1, 14, 28];

@@ -7,6 +7,7 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
+if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 
 // ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
 let _syncSecrets = null;

@@ -1,8 +1,6 @@
 # Dependencies
 node_modules/
-backend/lambda-api/node_modules/
-backend/lambda-ai/node_modules/
-backend/lambda-sync/node_modules/
+backend/lambda-*/node_modules/
 
 # Build
 dist/

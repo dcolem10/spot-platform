@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 type Step = 1 | 2 | 3;
@@ -7,12 +7,26 @@ export function WelcomeModal() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [isDismissed, setIsDismissed] = useState(true);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Check localStorage on mount to see if user has already seen the modal
   useEffect(() => {
     const hasSeenWelcome = localStorage.getItem('spot-welcome-dismissed');
     if (!hasSeenWelcome) {
       setIsDismissed(false);
+    }
+  }, []);
+
+  // Focus the modal when it opens and handle Escape key
+  useEffect(() => {
+    if (!isDismissed && modalRef.current) {
+      modalRef.current.focus();
+    }
+  }, [isDismissed, currentStep]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      dismissModal();
     }
   }, []);
 
@@ -38,6 +52,9 @@ export function WelcomeModal() {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Welcome to Spot"
       style={{
         position: 'fixed',
         inset: 0,
@@ -50,9 +67,12 @@ export function WelcomeModal() {
         backdropFilter: 'blur(4px)',
       }}
       onClick={dismissModal}
+      onKeyDown={handleKeyDown}
     >
       {/* Modal Card */}
       <div
+        ref={modalRef}
+        tabIndex={-1}
         style={{
           maxWidth: '520px',
           width: '100%',
@@ -63,6 +83,7 @@ export function WelcomeModal() {
           animation: 'fadeSlideUp 0.4s ease',
           margin: '0 var(--space-4)',
           position: 'relative',
+          outline: 'none',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -373,10 +394,13 @@ export function WelcomeModal() {
             }}
           >
             {/* Progress Dots */}
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }} role="tablist" aria-label="Welcome steps">
               {[1, 2, 3].map((step) => (
-                <div
+                <button
                   key={step}
+                  role="tab"
+                  aria-selected={step === currentStep}
+                  aria-label={`Go to step ${step}`}
                   style={{
                     width: '8px',
                     height: '8px',
@@ -385,6 +409,8 @@ export function WelcomeModal() {
                       step === currentStep ? 'var(--color-accent)' : 'var(--color-border)',
                     transition: 'all var(--transition-fast)',
                     cursor: 'pointer',
+                    border: 'none',
+                    padding: 0,
                   }}
                   onClick={() => setCurrentStep(step as Step)}
                 />
