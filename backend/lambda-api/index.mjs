@@ -1088,6 +1088,9 @@ async function saveRestaurant(event, restaurantId) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'SAVE_REST', 60))) {
+    return respond(429, { error: 'Too many save operations. Please try again later.' });
+  }
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
@@ -3015,6 +3018,9 @@ async function removeSave(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'SAVE_REST', 60))) {
+    return respond(429, { error: 'Too many save operations. Please try again later.' });
+  }
 
   try {
     await ddb.send(
@@ -3034,6 +3040,9 @@ async function updateSaveNotes(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'SAVE_REST', 60))) {
+    return respond(429, { error: 'Too many save operations. Please try again later.' });
+  }
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
@@ -4494,13 +4503,22 @@ async function approveOffer(offerId, event) {
   }
 
   const nowISO = new Date().toISOString();
+  // H22: Bound all numeric fields to prevent Infinity/NaN injection
+  const safeNum = (v, fallback, min, max) => {
+    const n = Number(v ?? fallback ?? 0);
+    return Number.isFinite(n) ? Math.max(min, Math.min(n, max)) : fallback ?? 0;
+  };
   const restaurantTerms = body.restaurantTerms ? {
     discountType: body.restaurantTerms.discountType || offer.creatorTerms?.discountType,
-    discountValue: Number(body.restaurantTerms.discountValue ?? offer.creatorTerms?.discountValue ?? 0),
-    maxRedemptions: body.restaurantTerms.maxRedemptions ? Math.max(1, Number(body.restaurantTerms.maxRedemptions)) : offer.creatorTerms?.maxRedemptions,
+    discountValue: safeNum(body.restaurantTerms.discountValue, offer.creatorTerms?.discountValue, 0, 100),
+    maxRedemptions: body.restaurantTerms.maxRedemptions
+      ? safeNum(body.restaurantTerms.maxRedemptions, offer.creatorTerms?.maxRedemptions, 1, 100000)
+      : offer.creatorTerms?.maxRedemptions,
     blackoutDates: Array.isArray(body.restaurantTerms.blackoutDates) ? body.restaurantTerms.blackoutDates.slice(0, 30) : offer.creatorTerms?.blackoutDates,
-    validDays: Array.isArray(body.restaurantTerms.validDays) ? body.restaurantTerms.validDays : offer.creatorTerms?.validDays,
-    minSpend: body.restaurantTerms.minSpend ?? offer.creatorTerms?.minSpend,
+    validDays: Array.isArray(body.restaurantTerms.validDays) ? body.restaurantTerms.validDays.slice(0, 7) : offer.creatorTerms?.validDays,
+    minSpend: body.restaurantTerms.minSpend != null
+      ? safeNum(body.restaurantTerms.minSpend, 0, 0, 10000)
+      : offer.creatorTerms?.minSpend,
     notes: body.restaurantTerms.notes ? sanitize(body.restaurantTerms.notes, 500) : undefined,
   } : offer.creatorTerms;
 
