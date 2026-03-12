@@ -263,9 +263,10 @@ export default function RestaurantDirectory() {
         return DEMO_RESTAURANTS_BY_CITY[selectedCity] ?? [];
       }
       const params = selectedCity ? `?city=${encodeURIComponent(selectedCity)}&limit=100` : '?limit=100';
-      const res = await api.get<Restaurant[]>(`/api/restaurants${params}`);
+      const res = await api.get<{ items: Restaurant[]; nextPage?: string }>(`/api/restaurants${params}`);
       if (res.error) throw new Error(res.error);
-      return res.data ?? [];
+      // Backend returns paginated { items, nextPage } format
+      return res.data?.items ?? [];
     },
   });
 
@@ -278,11 +279,12 @@ export default function RestaurantDirectory() {
       const counts: Record<string, number> = {};
       const results = await Promise.all(
         CITY_OPTIONS.map(async (city) => {
-          const res = await api.get<Restaurant[]>(
+          const res = await api.get<{ items: Restaurant[]; nextPage?: string }>(
             `/api/restaurants?city=${encodeURIComponent(city)}&limit=200`,
             { public: true }
           );
-          return { city, count: res.data?.length ?? 0 };
+          // Backend returns paginated { items, nextPage } format
+          return { city, count: res.data?.items?.length ?? 0 };
         })
       );
       results.forEach(({ city, count }) => { counts[city] = count; });

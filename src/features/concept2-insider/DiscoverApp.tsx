@@ -368,12 +368,14 @@ export function DiscoverApp() {
         return;
       }
 
-      const result = await api.get<Restaurant[]>('/api/restaurants', { public: true });
+      const result = await api.get<{ items: Restaurant[]; nextPage?: string }>('/api/restaurants', { public: true });
 
       if (cancelled) return;
 
-      if (result.status === 'success' && result.data && result.data.length > 0) {
-        setRestaurants(result.data);
+      // Backend returns paginated { items, nextPage } format
+      const items = result.data?.items ?? [];
+      if (result.status === 'success' && items.length > 0) {
+        setRestaurants(items);
       } else if (result.error) {
         setError(result.error);
       }

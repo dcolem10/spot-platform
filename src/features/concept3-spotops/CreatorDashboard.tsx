@@ -229,7 +229,7 @@ export default function CreatorDashboard() {
 
     const [pipelineRes, campaignsRes] = await Promise.all([
       api.get<PartnershipPipeline>('/api/spotops/pipeline'),
-      api.get<Campaign[]>('/api/spotops/campaigns'),
+      api.get<{ items: Campaign[]; nextPage?: string }>('/api/spotops/campaigns'),
     ]);
 
     if (pipelineRes.error || campaignsRes.error) {
@@ -240,8 +240,10 @@ export default function CreatorDashboard() {
       setPipeline(pipelineRes.data);
     }
 
-    if (campaignsRes.data && campaignsRes.data.length > 0) {
-      setActivity(deriveActivity(campaignsRes.data));
+    // Backend returns paginated { items, nextPage } format
+    const campaignItems = campaignsRes.data?.items ?? [];
+    if (campaignItems.length > 0) {
+      setActivity(deriveActivity(campaignItems));
     }
 
     setLoading(false);

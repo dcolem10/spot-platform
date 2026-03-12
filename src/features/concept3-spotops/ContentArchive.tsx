@@ -300,8 +300,9 @@ export default function ContentArchive() {
     queryKey: ['archiveCampaigns'],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_CAMPAIGNS;
-      const res = await api.get<Array<{ campaignId: string; restaurantName: string }>>('/api/campaigns');
-      return res.data ?? [];
+      const res = await api.get<{ items: Array<{ campaignId: string; restaurantName: string }>; nextPage?: string }>('/api/campaigns');
+      // Backend returns paginated { items, nextPage } format
+      return res.data?.items ?? [];
     },
   });
 

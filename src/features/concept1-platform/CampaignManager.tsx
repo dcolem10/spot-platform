@@ -51,9 +51,10 @@ export default function CampaignManager() {
     queryKey: ['campaigns'],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_CAMPAIGNS;
-      const res = await api.get<Campaign[]>('/api/campaigns');
+      const res = await api.get<{ items: Campaign[]; nextPage?: string }>('/api/campaigns');
       if (res.error) throw new Error(res.error);
-      return res.data ?? [];
+      // Backend returns paginated { items, nextPage } format
+      return res.data?.items ?? [];
     },
   });
 

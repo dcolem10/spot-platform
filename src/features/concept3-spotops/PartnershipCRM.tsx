@@ -198,9 +198,10 @@ export default function PartnershipCRM() {
     queryKey: ['crmCampaigns'],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_CAMPAIGNS;
-      const res = await api.get<Campaign[]>('/api/spotops/campaigns');
+      const res = await api.get<{ items: Campaign[]; nextPage?: string }>('/api/spotops/campaigns');
       if (res.error) throw new Error(res.error);
-      return res.data ?? [];
+      // Backend returns paginated { items, nextPage } format
+      return res.data?.items ?? [];
     },
   });
 

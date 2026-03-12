@@ -162,8 +162,9 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
       const params = new URLSearchParams({ limit: '8' });
       if (activeCity) params.set('city', activeCity);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
-      const res = await api.get<Restaurant[]>(`/api/restaurants?${params.toString()}`, { public: true });
-      return res.data ?? [];
+      const res = await api.get<{ items: Restaurant[]; nextPage?: string }>(`/api/restaurants?${params.toString()}`, { public: true });
+      // Backend returns paginated { items, nextPage } format
+      return res.data?.items ?? [];
     },
     enabled: isOpen && !hasRestaurant && step === 1,
     staleTime: 10_000,
