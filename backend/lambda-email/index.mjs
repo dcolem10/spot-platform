@@ -492,11 +492,11 @@ function getLifecycleDay14Template(data) {
   const activitySection = hasActivity
     ? `<div class="stat-row">
         <div class="stat-box">
-          <div class="stat-number">${campaignCount}</div>
+          <div class="stat-number">${escapeHtml(String(campaignCount))}</div>
           <div class="stat-label">Campaigns</div>
         </div>
         <div class="stat-box">
-          <div class="stat-number">${scanCount}</div>
+          <div class="stat-number">${escapeHtml(String(scanCount))}</div>
           <div class="stat-label">Offer Scans</div>
         </div>
       </div>
@@ -622,15 +622,15 @@ function getLifecycleDay28Template(data) {
       <p style="text-align:center;"><span class="tier-badge">${escapeHtml(tier)} Ambassador</span></p>
       <div class="stat-row">
         <div class="stat-box">
-          <div class="stat-number">${campaignCount}</div>
+          <div class="stat-number">${escapeHtml(String(campaignCount))}</div>
           <div class="stat-label">Campaigns</div>
         </div>
         <div class="stat-box">
-          <div class="stat-number">${scanCount}</div>
+          <div class="stat-number">${escapeHtml(String(scanCount))}</div>
           <div class="stat-label">Scans</div>
         </div>
         <div class="stat-box">
-          <div class="stat-number">${redemptionCount}</div>
+          <div class="stat-number">${escapeHtml(String(redemptionCount))}</div>
           <div class="stat-label">Redemptions</div>
         </div>
       </div>

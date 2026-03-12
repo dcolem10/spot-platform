@@ -87,6 +87,8 @@ async function getAllCreators() {
   const SCAN_CAP = MAX_CREATORS_PER_RUN * 2; // Safety margin for filtered scans
 
   do {
+    // TODO: Replace Scan with GSI query when USERS_BY_CREATED GSI is added.
+    // For now, Limit per page bounds memory usage per iteration.
     const result = await ddb.send(new ScanCommand({
       TableName: TABLE,
       FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
@@ -95,6 +97,7 @@ async function getAllCreators() {
         ':sk': 'PROFILE',
       },
       ExclusiveStartKey: lastKey,
+      Limit: 200, // Page size cap — prevents single scan page from exhausting Lambda memory
     }));
 
     if (result.Items) items.push(...result.Items);
@@ -189,12 +192,13 @@ async function getCreatorActivity(userId) {
     }));
     activity.campaignCount = campaigns.Count || 0;
 
-    // Count scans and redemptions across all offers
+    // Count scans and redemptions across all offers (cap at 200 to bound memory)
     const offers = await ddb.send(new QueryCommand({
       TableName: TABLE,
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
       ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+      Limit: 200,
     }));
 
     if (offers.Items) {

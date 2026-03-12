@@ -921,7 +921,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
               disabled={isSubmitting}
               style={{ flex: 1 }}
             >
-              {!isSubmitting && 'Launch Campaign'}
+              {isSubmitting ? 'Launching...' : 'Launch Campaign'}
             </button>
           )}
         </div>

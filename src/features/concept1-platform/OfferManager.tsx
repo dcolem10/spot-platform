@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
@@ -141,6 +141,16 @@ export default function OfferManager() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<CreateOfferForm>(emptyForm);
   const [expandedQR, setExpandedQR] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null);
+
+  // Auto-clear feedback after 4 seconds
+  useEffect(() => {
+    if (actionFeedback) {
+      const timer = setTimeout(() => setActionFeedback(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionFeedback]);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['offers'],
@@ -171,8 +181,13 @@ export default function OfferManager() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offers'] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       setShowForm(false);
       setForm(emptyForm);
+      setActionFeedback({ type: 'success', message: 'Offer created successfully!' });
+    },
+    onError: (err: Error) => {
+      setActionFeedback({ type: 'error', message: err.message || 'Failed to create offer' });
     },
   });
 
@@ -185,7 +200,9 @@ export default function OfferManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offers'] });
     },
-    onError: (err: Error) => console.error('Toggle offer failed:', err.message),
+    onError: (err: Error) => {
+      setActionFeedback({ type: 'error', message: `Failed to toggle offer: ${err.message}` });
+    },
   });
 
   const submitForApprovalMutation = useMutation({
@@ -196,7 +213,9 @@ export default function OfferManager() {
       return res.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
-    onError: (err: Error) => console.error('Submit for approval failed:', err.message),
+    onError: (err: Error) => {
+      setActionFeedback({ type: 'error', message: `Approval submission failed: ${err.message}` });
+    },
   });
 
   const pauseOfferMutation = useMutation({
@@ -207,7 +226,9 @@ export default function OfferManager() {
       return res.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
-    onError: (err: Error) => console.error('Pause offer failed:', err.message),
+    onError: (err: Error) => {
+      setActionFeedback({ type: 'error', message: `Failed to pause offer: ${err.message}` });
+    },
   });
 
   const resumeOfferMutation = useMutation({
@@ -218,7 +239,9 @@ export default function OfferManager() {
       return res.data;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
-    onError: (err: Error) => console.error('Resume offer failed:', err.message),
+    onError: (err: Error) => {
+      setActionFeedback({ type: 'error', message: `Failed to resume offer: ${err.message}` });
+    },
   });
 
   const offers = data?.length ? data : (isDemoMode() ? DEMO_OFFERS : []);
@@ -339,6 +362,60 @@ export default function OfferManager() {
 
   return (
     <div className="page-container">
+      {/* Action feedback toast */}
+      {actionFeedback && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed', top: 'var(--space-4)', right: 'var(--space-4)', zIndex: 9999,
+            padding: 'var(--space-3) var(--space-4)',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: actionFeedback.type === 'error' ? '#fef2f2' : '#f0fdf4',
+            color: actionFeedback.type === 'error' ? '#991b1b' : '#166534',
+            border: `1px solid ${actionFeedback.type === 'error' ? '#fca5a5' : '#86efac'}`,
+            fontSize: 'var(--font-sm)', fontWeight: 500,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            cursor: 'pointer',
+            maxWidth: '400px',
+          }}
+          onClick={() => setActionFeedback(null)}
+        >
+          {actionFeedback.message}
+        </div>
+      )}
+
+      {/* Confirmation dialog for destructive actions */}
+      {confirmAction && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)',
+          }}
+          onClick={() => setConfirmAction(null)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: '400px', padding: 'var(--space-5)', textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-md)', color: 'var(--color-textPrimary)' }}>
+              {confirmAction.message}
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
+              <button className="btn" onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                style={{ backgroundColor: '#ef4444' }}
+                onClick={() => { confirmAction.onConfirm(); setConfirmAction(null); }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 className="page-title">Deals & QR</h1>
@@ -351,10 +428,10 @@ export default function OfferManager() {
         </button>
       </div>
 
-      {/* Summary Stats */}
+      {/* Summary Stats — responsive grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
         gap: 'var(--space-4)',
         marginBottom: 'var(--space-6)',
       }} className="stagger-children">
@@ -571,7 +648,7 @@ export default function OfferManager() {
               onClick={handleSubmit}
               disabled={createMutation.isPending || !form.description.trim() || !form.restaurantId}
             >
-              {!createMutation.isPending && 'Create Deal'}
+              {createMutation.isPending ? 'Creating...' : 'Create Deal'}
             </button>
           </div>
 
@@ -603,6 +680,7 @@ export default function OfferManager() {
                 onResume={resumeOfferMutation}
                 onDownload={handleDownloadQR}
                 onPrint={handlePrint}
+                onConfirm={(msg, action) => setConfirmAction({ message: msg, onConfirm: action })}
               />
             ))}
           </div>
@@ -629,6 +707,7 @@ export default function OfferManager() {
                 onResume={resumeOfferMutation}
                 onDownload={handleDownloadQR}
                 onPrint={handlePrint}
+                onConfirm={(msg, action) => setConfirmAction({ message: msg, onConfirm: action })}
               />
             ))}
           </div>
@@ -673,6 +752,7 @@ const OfferRow = memo(function OfferRow({
   onResume,
   onDownload,
   onPrint,
+  onConfirm,
 }: {
   offer: Offer;
   linkedCampaign?: Campaign;
@@ -684,6 +764,7 @@ const OfferRow = memo(function OfferRow({
   onResume: any;
   onDownload: (offer: Offer) => void;
   onPrint: (offer: Offer) => void;
+  onConfirm: (message: string, action: () => void) => void;
 }) {
   const expired = isExpired(offer.expiresAt);
   const convRate = offer.scans > 0 ? Math.round((offer.redemptions / offer.scans) * 100) : 0;
@@ -717,15 +798,28 @@ const OfferRow = memo(function OfferRow({
             >
               {offer.type === 'qr' ? 'QR Code' : offer.type === 'promo' ? 'Promo Code' : 'Link'}
             </span>
-            <span style={{
-              fontFamily: 'monospace',
-              fontSize: 'var(--font-xs)',
-              fontWeight: 600,
-              color: 'var(--color-textSecondary)',
-              background: 'var(--color-bgElevated)',
-              padding: '2px var(--space-2)',
-              borderRadius: 'var(--radius-sm)',
-            }}>
+            <span
+              style={{
+                fontFamily: 'monospace',
+                fontSize: 'var(--font-xs)',
+                fontWeight: 600,
+                color: 'var(--color-textSecondary)',
+                background: 'var(--color-bgElevated)',
+                padding: '2px var(--space-2)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+              }}
+              title="Click to copy"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(offer.code).then(() => {
+                  const el = e.currentTarget;
+                  el.style.background = '#dcfce7';
+                  el.textContent = 'Copied!';
+                  setTimeout(() => { el.style.background = ''; el.textContent = offer.code; }, 1500);
+                });
+              }}
+            >
               {offer.code}
             </span>
             {expired && <span className="badge badge--error">Expired</span>}
@@ -842,7 +936,15 @@ const OfferRow = memo(function OfferRow({
           <button
             className={`btn ${offer.isActive ? 'btn-ghost' : 'btn-primary'}`}
             style={{ fontSize: 'var(--font-xs)' }}
-            onClick={() => onToggleActive.mutate({ offerId: offer.offerId, isActive: !offer.isActive })}
+            onClick={() => {
+              if (offer.isActive) {
+                onConfirm('Deactivate this deal? It will stop appearing for new scans.', () =>
+                  onToggleActive.mutate({ offerId: offer.offerId, isActive: false })
+                );
+              } else {
+                onToggleActive.mutate({ offerId: offer.offerId, isActive: true });
+              }
+            }}
             disabled={onToggleActive.isPending}
           >
             {offer.isActive ? 'Deactivate' : 'Activate'}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Breadcrumb } from '../../components/Breadcrumb';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -238,6 +239,12 @@ export default function CampaignReport() {
 
   return (
     <div className="page-container">
+      {/* Breadcrumb navigation */}
+      <Breadcrumb items={[
+        { label: 'Attribution', to: '/app/reports' },
+        { label: report.restaurantName || 'Campaign Report' },
+      ]} />
+
       {/* Header */}
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
         <div>

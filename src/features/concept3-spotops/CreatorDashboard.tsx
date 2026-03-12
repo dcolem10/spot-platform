@@ -202,6 +202,8 @@ export default function CreatorDashboard() {
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
+  const [isStale, setIsStale] = useState(false);
 
   const deriveActivity = (campaigns: Campaign[]): ActivityEvent[] =>
     campaigns
@@ -243,11 +245,23 @@ export default function CreatorDashboard() {
     }
 
     setLoading(false);
+    setLastFetchedAt(new Date());
+    setIsStale(false);
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Mark data as stale after 5 minutes, check every 30s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (lastFetchedAt && Date.now() - lastFetchedAt.getTime() > 5 * 60 * 1000) {
+        setIsStale(true);
+      }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [lastFetchedAt]);
 
   // Compute hero metrics
   const totalPartners = pipeline?.total ?? 0;
@@ -322,9 +336,28 @@ export default function CreatorDashboard() {
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">Creator Dashboard</h1>
-        <p className="page-subtitle">Your attribution overview at a glance</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+        <div>
+          <h1 className="page-title">Creator Dashboard</h1>
+          <p className="page-subtitle">Your attribution overview at a glance</p>
+        </div>
+        {/* Stale data indicator + refresh */}
+        {lastFetchedAt && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-xs)', color: isStale ? 'var(--color-warning)' : 'var(--color-textMuted)' }}>
+            {isStale && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-warning)', flexShrink: 0 }} />}
+            <span>
+              {isStale ? 'Data may be outdated' : `Updated ${timeAgo(lastFetchedAt.toISOString())}`}
+            </span>
+            <button
+              className="btn btn-ghost"
+              onClick={fetchData}
+              disabled={loading}
+              style={{ padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--font-xs)' }}
+            >
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Error */}

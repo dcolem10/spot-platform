@@ -41,6 +41,8 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
@@ -53,6 +55,10 @@ Resources:
           AttributeType: S
         - AttributeName: GSI1SK
           AttributeType: S
+        - AttributeName: GSI2PK
+          AttributeType: S
+        - AttributeName: GSI2SK
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -64,6 +70,14 @@ Resources:
             - AttributeName: GSI1PK
               KeyType: HASH
             - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI2
+          KeySchema:
+            - AttributeName: GSI2PK
+              KeyType: HASH
+            - AttributeName: GSI2SK
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
@@ -82,7 +96,7 @@ Resources:
         CorsRules:
           - AllowedOrigins: ['*']
             AllowedMethods: [GET]
-            AllowedHeaders: ['*']
+            AllowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
             MaxAge: 86400
       LifecycleConfiguration:
         Rules:
@@ -148,6 +162,7 @@ Resources:
       CodeUri: lambda-api/
       Handler: index.handler
       Timeout: 15
+      # ReservedConcurrentExecutions: 50  # Enable after requesting quota increase (default account limit is 10)
       Environment:
         Variables:
           SECRETS_ARN: !Ref SecretsArn
@@ -271,6 +286,7 @@ Resources:
       Handler: index.handler
       Timeout: 60
       MemorySize: 512
+      # ReservedConcurrentExecutions: 10  # Enable after requesting quota increase
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
@@ -308,6 +324,7 @@ Resources:
       Handler: index.handler
       Timeout: 300
       MemorySize: 1024
+      # ReservedConcurrentExecutions: 5  # Enable after requesting quota increase
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
@@ -340,6 +357,7 @@ Resources:
       Handler: index.handler
       Timeout: 30
       MemorySize: 256
+      # ReservedConcurrentExecutions: 10  # Enable after requesting quota increase
       Environment:
         Variables:
           TABLE_NAME: !Ref DataTable
@@ -426,7 +444,13 @@ Resources:
               Action:
                 - ses:SendEmail
                 - ses:SendRawEmail
-              Resource: '*'
+              Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${FromEmail}'
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SESConfigurationSet}'
         - Statement:
             - Effect: Allow
               Action: sqs:SendMessage

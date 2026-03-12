@@ -6,6 +6,7 @@ import {
   GetCommand,
   DeleteCommand,
   UpdateCommand,
+  TransactWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
@@ -24,7 +25,7 @@ if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-
 // ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
 let _apiSecrets = null;
 let _apiSecretsLoadedAt = 0;
-const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+const SECRETS_CACHE_TTL = 300 * 1000; // 5 minutes — shorter window for secret rotation
 
 async function getApiSecrets() {
   const now = Date.now();
@@ -176,7 +177,10 @@ async function listRestaurants(event) {
     }
   }
 
-  return respond(200, stripAll(items));
+  const nextPage = result.LastEvaluatedKey
+    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+    : null;
+  return respond(200, { items: stripAll(items), nextPage });
 }
 
 async function getRestaurant(restaurantId) {
@@ -358,7 +362,10 @@ async function listCampaigns(event) {
     items = items.filter((c) => !c.deletedAt);
   }
 
-  return respond(200, stripAll(items));
+  const nextPage = result.LastEvaluatedKey
+    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+    : null;
+  return respond(200, { items: stripAll(items), nextPage });
 }
 
 async function archiveCampaign(campaignId, event) {
@@ -578,6 +585,18 @@ async function createOffer(restaurantId, event) {
     return respond(429, { error: 'Too many offer creations. Please try again later.' });
   }
 
+  // Verify the restaurant exists before creating an offer (creators partner with restaurants they don't own)
+  const restExistsCheck = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
+      ProjectionExpression: 'restaurantId',
+    })
+  );
+  if (!restExistsCheck.Item) {
+    return respond(404, { error: 'Restaurant not found' });
+  }
+
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
   const id = randomUUID();
@@ -643,26 +662,31 @@ async function createOffer(restaurantId, event) {
     createdAt: new Date().toISOString(),
   };
 
-  await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
-
-  // H2: Write a lookup record so trackScan/redeemOffer can do direct GetItem by code
+  // Atomic write: offer + lookup record together — prevents orphaned records on partial failure
   await ddb.send(
-    new PutCommand({
-      TableName: TABLE,
-      Item: {
-        PK: `OFFER_CODE#${code}`,
-        SK: 'LOOKUP',
-        restaurantPK: `RESTAURANT#${restaurantId}`,
-        offerSK: `OFFER#${id}`,
-        offerId: id,
-        restaurantId,
-        code,
-        description: item.description,
-        landingPageUrl: item.landingPageUrl,
-        isActive: item.isActive,
-        expiresAt: item.expiresAt,
-        createdAt: item.createdAt,
-      },
+    new TransactWriteCommand({
+      TransactItems: [
+        { Put: { TableName: TABLE, Item: item } },
+        {
+          Put: {
+            TableName: TABLE,
+            Item: {
+              PK: `OFFER_CODE#${code}`,
+              SK: 'LOOKUP',
+              restaurantPK: `RESTAURANT#${restaurantId}`,
+              offerSK: `OFFER#${id}`,
+              offerId: id,
+              restaurantId,
+              code,
+              description: item.description,
+              landingPageUrl: item.landingPageUrl,
+              isActive: item.isActive,
+              expiresAt: item.expiresAt,
+              createdAt: item.createdAt,
+            },
+          },
+        },
+      ],
     })
   );
 
@@ -857,12 +881,42 @@ async function trackScan(code, event) {
     const ALLOWED_SOURCES = ['instagram', 'tiktok', 'youtube', 'twitter', 'web', 'in_person', 'email', 'direct'];
     const source = ALLOWED_SOURCES.includes(qs.src) ? qs.src : 'direct';
 
-    // Increment total scans + per-source counter
+    // Dedup scans per IP per code per day (prevent scan count inflation)
+    const scanIp = (event.requestContext?.identity?.sourceIp) || 'unknown';
+    const scanIpHash = hashIp(scanIp, code);
+    const scanDay = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE,
+          Item: {
+            PK: `RATE#SCAN_IP#${scanIpHash}`,
+            SK: `CODE#${code}#DAY#${scanDay}`,
+            ttl: Math.floor(Date.now() / 1000) + 172800, // 2 days
+          },
+          ConditionExpression: 'attribute_not_exists(PK)',
+        })
+      );
+    } catch (condErr) {
+      if (condErr.name === 'ConditionalCheckFailedException') {
+        // Already counted this IP+code today — return success but don't increment
+        return respond(200, {
+          restaurantId: offer.restaurantId,
+          landingPageUrl: offer.landingPageUrl,
+          description: offer.description,
+          source,
+          deduplicated: true,
+        });
+      }
+      throw condErr;
+    }
+
+    // Increment total scans + per-source counter (only for unique scans)
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-        UpdateExpression: 'SET scans = scans + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
+        UpdateExpression: 'SET scans = if_not_exists(scans, :zero) + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
         ExpressionAttributeNames: { '#src': source },
         ExpressionAttributeValues: { ':inc': 1, ':zero': 0 },
       })
@@ -945,7 +999,7 @@ async function redeemOffer(code, event) {
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-        UpdateExpression: 'SET redemptions = redemptions + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
+        UpdateExpression: 'SET redemptions = if_not_exists(redemptions, :zero) + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
         ExpressionAttributeNames: { '#src': `redeem_${source}` },
         ExpressionAttributeValues: { ':inc': 1, ':zero': 0 },
       })
@@ -1413,6 +1467,14 @@ async function initSquareOAuth(event) {
   const restaurantId = sanitize(body.restaurantId || '', 256);
   if (!restaurantId) return respond(400, { error: 'restaurantId required' });
 
+  // Only the restaurant's listing creator can manage POS integrations
+  const restOwner = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwner.Item || restOwner.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the creator who listed this restaurant can manage POS integrations' });
+  }
+
   // Rate limit: max 5 connection attempts per user
   const allowed = await checkUserMutationRate(userId, 'POS_CONNECT', 5);
   if (!allowed) return respond(429, { error: 'Too many connection attempts. Try again later.' });
@@ -1619,8 +1681,16 @@ async function getPosStatus(event) {
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
   const params = event.queryStringParameters || {};
-  const restaurantId = sanitize(params.restaurantId || userId, 256);
+  const restaurantId = sanitize(params.restaurantId || '', 256);
   if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  // Only the restaurant's listing creator can view POS status
+  const restOwnerStatus = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwnerStatus.Item || restOwnerStatus.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the creator who listed this restaurant can view POS status' });
+  }
 
   try {
     const found = await findConnectedPos(restaurantId);
@@ -1655,6 +1725,14 @@ async function disconnectPos(event) {
   const body = parseBody(event);
   const restaurantId = sanitize(body.restaurantId || '', 256);
   if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  // Only the restaurant's listing creator can disconnect POS
+  const restOwnerDisc = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwnerDisc.Item || restOwnerDisc.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the creator who listed this restaurant can disconnect POS' });
+  }
 
   // Rate limit: max 3 disconnections per user
   const allowed = await checkUserMutationRate(userId, 'POS_DISCONNECT', 3);
@@ -1740,6 +1818,14 @@ async function initToastAuth(event) {
   if (!body) return respond(400, { error: 'Invalid JSON body' });
   const restaurantId = sanitize(body.restaurantId || '', 256);
   if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  // Only the restaurant's listing creator can manage POS integrations
+  const restOwnerToast = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwnerToast.Item || restOwnerToast.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the creator who listed this restaurant can manage POS integrations' });
+  }
 
   const now = new Date().toISOString();
 
@@ -1829,6 +1915,14 @@ async function initCloverOAuth(event) {
   if (!body) return respond(400, { error: 'Invalid JSON body' });
   const restaurantId = sanitize(body.restaurantId || '', 256);
   if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  // Only the restaurant's listing creator can manage POS integrations
+  const restOwnerClover = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwnerClover.Item || restOwnerClover.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the creator who listed this restaurant can manage POS integrations' });
+  }
 
   const state = randomUUID();
   const codeVerifier = toBase64Url(randomBytes(32));
@@ -3630,19 +3724,23 @@ async function removeCollaborator(campaignId, creatorId, event) {
 
   if (!campaignFind.Items?.length) return respond(404, { error: 'Campaign not found' });
 
-  // Delete from campaign collabs
+  // Atomic delete of both records — prevents orphaned invite if first delete succeeds but second fails
   await ddb.send(
-    new DeleteCommand({
-      TableName: TABLE,
-      Key: { PK: `CAMPAIGN#${campaignId}`, SK: `COLLAB#${creatorId}` },
-    })
-  );
-
-  // Delete from creator's invites
-  await ddb.send(
-    new DeleteCommand({
-      TableName: TABLE,
-      Key: { PK: `CREATOR#${creatorId}`, SK: `COLLAB_INVITE#${campaignId}` },
+    new TransactWriteCommand({
+      TransactItems: [
+        {
+          Delete: {
+            TableName: TABLE,
+            Key: { PK: `CAMPAIGN#${campaignId}`, SK: `COLLAB#${creatorId}` },
+          },
+        },
+        {
+          Delete: {
+            TableName: TABLE,
+            Key: { PK: `CREATOR#${creatorId}`, SK: `COLLAB_INVITE#${campaignId}` },
+          },
+        },
+      ],
     })
   );
 
@@ -3679,6 +3777,25 @@ async function createProposal(event) {
     return respond(400, { error: 'initiatedBy must be "creator" or "restaurant"' });
   if (!targetId || !isValidId(targetId))
     return respond(400, { error: 'Invalid targetId' });
+
+  // Per-target rate limit: max 3 pending proposals to the same target
+  const existingToTarget = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI2',
+      KeyConditionExpression: 'GSI2PK = :pk',
+      FilterExpression: 'initiatorId = :uid',
+      ExpressionAttributeValues: {
+        ':pk': `PROPOSAL#PENDING#${targetId}`,
+        ':uid': userId,
+      },
+      Select: 'COUNT',
+      Limit: 10,
+    })
+  );
+  if ((existingToTarget.Count || 0) >= 3) {
+    return respond(429, { error: 'You already have 3 pending proposals to this recipient. Wait for a response before sending more.' });
+  }
 
   // Validate terms — flexible JSON but cap size
   const terms = body.terms && typeof body.terms === 'object' ? body.terms : {};
@@ -3736,12 +3853,17 @@ async function listProposalInbox(event) {
   const params = event.queryStringParameters || {};
   const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
 
+  const nowISO = new Date().toISOString();
   const result = await ddb.send(
     new QueryCommand({
       TableName: TABLE,
       IndexName: 'GSI2',
       KeyConditionExpression: 'GSI2PK = :pk',
-      ExpressionAttributeValues: { ':pk': `PROPOSAL#PENDING#${userId}` },
+      FilterExpression: 'attribute_not_exists(expiresAt) OR expiresAt > :now',
+      ExpressionAttributeValues: {
+        ':pk': `PROPOSAL#PENDING#${userId}`,
+        ':now': nowISO,
+      },
       ScanIndexForward: false, // newest first
       Limit: limit,
     })
@@ -3875,6 +3997,11 @@ async function acceptProposal(proposalId, event) {
   if (!proposal) return respond(404, { error: 'Proposal not found' });
   if (proposal.status !== 'pending' && proposal.status !== 'countered')
     return respond(400, { error: `Cannot accept a proposal with status "${proposal.status}"` });
+
+  // Check if proposal has expired
+  if (proposal.expiresAt && new Date(proposal.expiresAt) < new Date()) {
+    return respond(410, { error: 'This proposal has expired and can no longer be accepted' });
+  }
 
   const now = new Date().toISOString();
   await ddb.send(
@@ -4175,15 +4302,7 @@ async function approveOffer(offerId, event) {
   const restaurantId = sanitize(body.restaurantId, 64);
   if (!restaurantId || !isValidId(restaurantId)) return respond(400, { error: 'restaurantId is required' });
 
-  // Verify the caller owns this restaurant
-  const restCheck = await ddb.send(
-    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' } })
-  );
-  if (!restCheck.Item || restCheck.Item.creatorId !== userId) {
-    return respond(403, { error: 'You do not own this restaurant' });
-  }
-
-  // Find offer for this restaurant
+  // Find the offer
   const result = await ddb.send(
     new GetCommand({
       TableName: TABLE,
@@ -4192,6 +4311,16 @@ async function approveOffer(offerId, event) {
   );
   const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
+
+  // Verify the caller is a stakeholder — either the offer creator or the restaurant's listing creator
+  const restCheck = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  const isOfferCreator = offer.creatorId === userId;
+  const isRestaurantRep = restCheck.Item?.creatorId === userId;
+  if (!isOfferCreator && !isRestaurantRep) {
+    return respond(403, { error: 'You are not authorized to manage this offer' });
+  }
 
   if (offer.approvalStatus !== 'pending_restaurant') {
     return respond(400, { error: 'This offer is not pending restaurant approval' });
@@ -4208,19 +4337,29 @@ async function approveOffer(offerId, event) {
     notes: body.restaurantTerms.notes ? sanitize(body.restaurantTerms.notes, 500) : undefined,
   } : offer.creatorTerms;
 
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: offer.PK, SK: offer.SK },
-      UpdateExpression: 'SET approvalStatus = :status, restaurantTerms = :terms, mutuallyApproved = :approved, approvedAt = :now, updatedAt = :now',
-      ExpressionAttributeValues: {
-        ':status': 'approved',
-        ':terms': restaurantTerms,
-        ':approved': true,
-        ':now': nowISO,
-      },
-    })
-  );
+  // Conditional update prevents duplicate approvals from concurrent requests
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: offer.PK, SK: offer.SK },
+        UpdateExpression: 'SET approvalStatus = :status, restaurantTerms = :terms, mutuallyApproved = :approved, approvedAt = :now, updatedAt = :now',
+        ConditionExpression: 'approvalStatus = :pending',
+        ExpressionAttributeValues: {
+          ':status': 'approved',
+          ':terms': restaurantTerms,
+          ':approved': true,
+          ':now': nowISO,
+          ':pending': 'pending_restaurant',
+        },
+      })
+    );
+  } catch (condErr) {
+    if (condErr.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'This offer has already been processed' });
+    }
+    throw condErr;
+  }
 
   // Notify the creator
   await createNotification(
@@ -4259,14 +4398,7 @@ async function rejectOffer(offerId, event) {
   const restaurantId = sanitize(body?.restaurantId, 64);
   if (!restaurantId || !isValidId(restaurantId)) return respond(400, { error: 'restaurantId is required' });
 
-  // Verify the caller owns this restaurant
-  const restCheck = await ddb.send(
-    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' } })
-  );
-  if (!restCheck.Item || restCheck.Item.creatorId !== userId) {
-    return respond(403, { error: 'You do not own this restaurant' });
-  }
-
+  // Find the offer
   const result = await ddb.send(
     new GetCommand({
       TableName: TABLE,
@@ -4276,21 +4408,40 @@ async function rejectOffer(offerId, event) {
   const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
 
+  // Verify the caller is a stakeholder — either the offer creator or the restaurant's listing creator
+  const restCheck = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  const isOfferCreator = offer.creatorId === userId;
+  const isRestaurantRep = restCheck.Item?.creatorId === userId;
+  if (!isOfferCreator && !isRestaurantRep) {
+    return respond(403, { error: 'You are not authorized to manage this offer' });
+  }
+
   if (offer.approvalStatus !== 'pending_restaurant') {
     return respond(400, { error: 'This offer is not pending approval' });
   }
 
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: offer.PK, SK: offer.SK },
-      UpdateExpression: 'SET approvalStatus = :status, updatedAt = :now',
-      ExpressionAttributeValues: {
-        ':status': 'rejected',
-        ':now': new Date().toISOString(),
-      },
-    })
-  );
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: offer.PK, SK: offer.SK },
+        UpdateExpression: 'SET approvalStatus = :status, updatedAt = :now',
+        ConditionExpression: 'approvalStatus = :pending',
+        ExpressionAttributeValues: {
+          ':status': 'rejected',
+          ':now': new Date().toISOString(),
+          ':pending': 'pending_restaurant',
+        },
+      })
+    );
+  } catch (condErr) {
+    if (condErr.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'This offer has already been processed' });
+    }
+    throw condErr;
+  }
 
   await createNotification(
     offer.creatorId,
@@ -4334,15 +4485,24 @@ async function pauseOffer(offerId, event) {
   );
   let offer = gsiResult.Items?.[0];
 
-  // If not found as creator, try finding via restaurant key
+  // If not found as creator, try finding via restaurant key (restaurant rep pausing)
   if (!offer && body?.restaurantId) {
-    const restResult = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${body.restaurantId}`, SK: `OFFER#${offerId}` },
-      })
-    );
-    offer = restResult.Item;
+    const restId = sanitize(body.restaurantId, 64);
+    if (restId && isValidId(restId)) {
+      // Verify caller is the restaurant's listing creator before allowing restaurant-side pause
+      const restCheck = await ddb.send(
+        new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+      );
+      if (restCheck.Item?.creatorId === userId) {
+        const restResult = await ddb.send(
+          new GetCommand({
+            TableName: TABLE,
+            Key: { PK: `RESTAURANT#${restId}`, SK: `OFFER#${offerId}` },
+          })
+        );
+        offer = restResult.Item;
+      }
+    }
   }
   if (!offer) return respond(404, { error: 'Offer not found' });
 
@@ -4424,13 +4584,22 @@ async function resumeOffer(offerId, event) {
 
   const body = parseBody(event);
   if (!offer && body?.restaurantId) {
-    const restResult = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${body.restaurantId}`, SK: `OFFER#${offerId}` },
-      })
-    );
-    offer = restResult.Item;
+    const restId = sanitize(body.restaurantId, 64);
+    if (restId && isValidId(restId)) {
+      // Verify caller is the restaurant's listing creator before allowing restaurant-side resume
+      const restCheck = await ddb.send(
+        new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+      );
+      if (restCheck.Item?.creatorId === userId) {
+        const restResult = await ddb.send(
+          new GetCommand({
+            TableName: TABLE,
+            Key: { PK: `RESTAURANT#${restId}`, SK: `OFFER#${offerId}` },
+          })
+        );
+        offer = restResult.Item;
+      }
+    }
   }
   if (!offer) return respond(404, { error: 'Offer not found' });
 
@@ -5037,7 +5206,26 @@ async function enterRaffle(raffleId, event) {
     throw err; // unexpected error
   }
 
-  // Create entry
+  // Atomically increment entry count FIRST — prevents race condition where two concurrent
+  // requests both pass the entryCount check and both create entries, exceeding maxEntries.
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: raffle.PK, SK: raffle.SK },
+        UpdateExpression: 'SET entryCount = if_not_exists(entryCount, :zero) + :inc',
+        ConditionExpression: 'attribute_not_exists(entryCount) OR entryCount < :maxEntries',
+        ExpressionAttributeValues: { ':zero': 0, ':inc': 1, ':maxEntries': raffle.maxEntries },
+      })
+    );
+  } catch (condErr) {
+    if (condErr.name === 'ConditionalCheckFailedException') {
+      return respond(400, { error: 'This raffle has reached its entry limit' });
+    }
+    throw condErr;
+  }
+
+  // Create entry only after count was successfully reserved
   const entryId = randomUUID();
   const now = new Date().toISOString();
   const entry = {
@@ -5056,24 +5244,6 @@ async function enterRaffle(raffleId, event) {
   };
 
   await ddb.send(new PutCommand({ TableName: TABLE, Item: entry }));
-
-  // Increment entry count atomically with max-entries guard
-  try {
-    await ddb.send(
-      new UpdateCommand({
-        TableName: TABLE,
-        Key: { PK: raffle.PK, SK: raffle.SK },
-        UpdateExpression: 'SET entryCount = if_not_exists(entryCount, :zero) + :inc',
-        ConditionExpression: 'entryCount < :maxEntries',
-        ExpressionAttributeValues: { ':zero': 0, ':inc': 1, ':maxEntries': raffle.maxEntries },
-      })
-    );
-  } catch (condErr) {
-    if (condErr.name === 'ConditionalCheckFailedException') {
-      return respond(400, { error: 'This raffle has reached its entry limit' });
-    }
-    throw condErr;
-  }
 
   return respond(201, { entryId, email, message: 'Entry submitted successfully' });
 }
@@ -5183,22 +5353,32 @@ async function drawRaffleWinner(raffleId, event) {
     drawnAt: now,
   };
 
-  // Update raffle with winner + status
-  await ddb.send(
-    new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
-      UpdateExpression: 'SET winner = :winner, #s = :status, updatedAt = :now, GSI1SK = :g1sk, GSI2PK = :g2pk',
-      ExpressionAttributeNames: { '#s': 'status' },
-      ExpressionAttributeValues: {
-        ':winner': winner,
-        ':status': 'drawn',
-        ':now': now,
-        ':g1sk': 'STATUS#drawn',
-        ':g2pk': 'RAFFLE#DRAWN',
-      },
-    })
-  );
+  // Update raffle with winner + status — conditional lock prevents concurrent draws
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
+        UpdateExpression: 'SET winner = :winner, #s = :status, updatedAt = :now, GSI1SK = :g1sk, GSI2PK = :g2pk',
+        ConditionExpression: 'attribute_not_exists(winner) AND #s IN (:active, :closed)',
+        ExpressionAttributeNames: { '#s': 'status' },
+        ExpressionAttributeValues: {
+          ':winner': winner,
+          ':status': 'drawn',
+          ':now': now,
+          ':g1sk': 'STATUS#drawn',
+          ':g2pk': 'RAFFLE#DRAWN',
+          ':active': 'active',
+          ':closed': 'closed',
+        },
+      })
+    );
+  } catch (condErr) {
+    if (condErr.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'Winner has already been drawn (concurrent request)' });
+    }
+    throw condErr;
+  }
 
   return respond(200, {
     message: 'Winner drawn!',

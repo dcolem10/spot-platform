@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY, DEMO_CAMPAIGNS, DEMO_OFFERS } from '../../data/demoData';
+import { Breadcrumb } from '../../components/Breadcrumb';
 import type { Restaurant, Campaign, Offer } from '../../types';
 
 interface GoogleReview {
@@ -138,14 +139,11 @@ export default function RestaurantDetail() {
 
   return (
     <div className="page-container">
-      {/* Back button */}
-      <button
-        className="btn btn-ghost"
-        onClick={() => navigate('/app/restaurants')}
-        style={{ marginBottom: 'var(--space-4)', fontSize: 'var(--font-sm)' }}
-      >
-        &larr; Back to Directory
-      </button>
+      {/* Breadcrumb navigation */}
+      <Breadcrumb items={[
+        { label: 'Restaurants', to: '/app/restaurants' },
+        { label: restaurant?.name || 'Details' },
+      ]} />
 
       {/* Hero banner */}
       <div

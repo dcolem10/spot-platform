@@ -13,7 +13,7 @@ const CACHE_TTL = 3600;
 // ─── Secrets (cached with TTL for key rotation support) ──────────────────────
 let _secrets = null;
 let _secretsLoadedAt = 0;
-const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+const SECRETS_CACHE_TTL = 300 * 1000; // 5 minutes — shorter window for secret rotation
 
 async function getSecrets() {
   const now = Date.now();

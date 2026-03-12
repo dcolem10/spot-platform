@@ -48,8 +48,15 @@ async function request<T>(
           const { fetchAuthSession } = await import('aws-amplify/auth');
           await fetchAuthSession({ forceRefresh: true });
         } catch {
-          // Token refresh failed — session is truly expired
-          console.warn('Session expired — auth refresh failed');
+          // Token refresh failed — session is truly expired, redirect to sign-in
+          console.warn('Session expired — redirecting to sign-in');
+          try {
+            const { signOut } = await import('aws-amplify/auth');
+            await signOut();
+          } catch { /* best-effort */ }
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+            window.location.href = '/auth/sign-in?expired=true';
+          }
         }
       }
       const err = await res.json().catch(() => ({ error: res.statusText }));

@@ -35,10 +35,21 @@ export function StyledSelect({
 }: StyledSelectProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
+  const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const selected = options.find((o) => o.value === value);
+  const showSearch = options.length > 5;
+
+  // Filter options by search term
+  const filteredOptions = searchTerm
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (o.subtitle && o.subtitle.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    : options;
 
   // Close on outside click
   useEffect(() => {
@@ -46,11 +57,19 @@ export function StyledSelect({
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setSearchTerm('');
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
+
+  // Auto-focus search input when dropdown opens
+  useEffect(() => {
+    if (open && showSearch) {
+      setTimeout(() => searchRef.current?.focus(), 0);
+    }
+  }, [open, showSearch]);
 
   // Scroll focused item into view
   useEffect(() => {
@@ -68,6 +87,7 @@ export function StyledSelect({
         if (['Enter', ' ', 'ArrowDown'].includes(e.key)) {
           e.preventDefault();
           setOpen(true);
+          setSearchTerm('');
           const idx = options.findIndex((o) => o.value === value);
           setFocusIdx(idx >= 0 ? idx : 0);
         }
@@ -77,34 +97,35 @@ export function StyledSelect({
         case 'Escape':
           e.preventDefault();
           setOpen(false);
+          setSearchTerm('');
           break;
         case 'ArrowDown':
           e.preventDefault();
           setFocusIdx((i) => {
             let next = i + 1;
-            while (next < options.length && options[next]?.disabled) next++;
-            return next < options.length ? next : i;
+            while (next < filteredOptions.length && filteredOptions[next]?.disabled) next++;
+            return next < filteredOptions.length ? next : i;
           });
           break;
         case 'ArrowUp':
           e.preventDefault();
           setFocusIdx((i) => {
             let next = i - 1;
-            while (next >= 0 && options[next]?.disabled) next--;
+            while (next >= 0 && filteredOptions[next]?.disabled) next--;
             return next >= 0 ? next : i;
           });
           break;
         case 'Enter':
-        case ' ':
           e.preventDefault();
-          if (focusIdx >= 0 && focusIdx < options.length && !options[focusIdx]?.disabled) {
-            onChange(options[focusIdx].value);
+          if (focusIdx >= 0 && focusIdx < filteredOptions.length && !filteredOptions[focusIdx]?.disabled) {
+            onChange(filteredOptions[focusIdx].value);
             setOpen(false);
+            setSearchTerm('');
           }
           break;
       }
     },
-    [open, focusIdx, options, value, onChange, disabled]
+    [open, focusIdx, filteredOptions, options, value, onChange, disabled]
   );
 
   const isSm = size === 'sm';
@@ -125,8 +146,10 @@ export function StyledSelect({
         aria-expanded={open}
         onClick={() => {
           if (!disabled) {
-            setOpen(!open);
-            if (!open) {
+            const willOpen = !open;
+            setOpen(willOpen);
+            if (willOpen) {
+              setSearchTerm('');
               const idx = options.findIndex((o) => o.value === value);
               setFocusIdx(idx >= 0 ? idx : 0);
             }
@@ -193,15 +216,11 @@ export function StyledSelect({
       {/* Dropdown menu */}
       {open && (
         <div
-          ref={listRef}
-          role="listbox"
           style={{
             position: 'absolute',
             top: 'calc(100% + 4px)',
             left: 0,
             right: 0,
-            maxHeight: '240px',
-            overflowY: 'auto',
             background: 'var(--color-bgSecondary)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--radius-md)',
@@ -210,7 +229,40 @@ export function StyledSelect({
             padding: 'var(--space-1)',
           }}
         >
-          {options.map((opt, i) => {
+          {/* Type-ahead search — shown when there are more than 5 options */}
+          {showSearch && (
+            <div style={{ padding: 'var(--space-1) var(--space-2) var(--space-2)' }}>
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setFocusIdx(0);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Search…"
+                style={{
+                  width: '100%',
+                  padding: isSm ? 'var(--space-1) var(--space-2)' : 'var(--space-2) var(--space-3)',
+                  background: 'var(--color-bgElevated)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-textPrimary)',
+                  fontSize,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          )}
+          <div
+            ref={listRef}
+            role="listbox"
+            style={{ maxHeight: '200px', overflowY: 'auto' }}
+          >
+          {filteredOptions.map((opt, i) => {
             const isActive = opt.value === value;
             const isFocused = i === focusIdx;
             return (
@@ -223,6 +275,7 @@ export function StyledSelect({
                   if (!opt.disabled) {
                     onChange(opt.value);
                     setOpen(false);
+                    setSearchTerm('');
                   }
                 }}
                 style={{
@@ -280,11 +333,12 @@ export function StyledSelect({
               </div>
             );
           })}
-          {options.length === 0 && (
+          {filteredOptions.length === 0 && (
             <div style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--color-textMuted)', fontSize }}>
-              No options available
+              {searchTerm ? 'No matches found' : 'No options available'}
             </div>
           )}
+          </div>
         </div>
       )}
     </div>

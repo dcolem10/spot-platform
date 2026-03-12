@@ -11,7 +11,7 @@ const TABLE = process.env.TABLE_NAME;
 // ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
 let _syncSecrets = null;
 let _syncSecretsLoadedAt = 0;
-const SECRETS_CACHE_TTL = 3600 * 1000; // 1 hour
+const SECRETS_CACHE_TTL = 300 * 1000; // 5 minutes — shorter window for secret rotation
 
 async function getGoogleKey() {
   const now = Date.now();
@@ -109,6 +109,7 @@ async function runValidation() {
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
       ExpressionAttributeValues: { ':pk': 'RESTAURANTS' },
+      Limit: 100, // Page size cap — prevents single query from exhausting Lambda memory
     };
     if (exclusiveStartKey) {
       queryParams.ExclusiveStartKey = exclusiveStartKey;
@@ -186,6 +187,7 @@ async function hydrateContacts(options = {}) {
       IndexName: 'GSI1',
       KeyConditionExpression: 'GSI1PK = :pk',
       ExpressionAttributeValues: { ':pk': 'RESTAURANTS' },
+      Limit: 100, // Page size cap — prevents single query from exhausting Lambda memory
     };
     if (exclusiveStartKey) params.ExclusiveStartKey = exclusiveStartKey;
 

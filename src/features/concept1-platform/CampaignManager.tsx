@@ -238,12 +238,13 @@ export default function CampaignManager() {
         restaurantContext={restaurantContext}
       />
 
-      {/* Kanban board */}
+      {/* Kanban board — responsive: horizontal scroll on mobile, grid on desktop */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
         gap: 'var(--space-4)',
         alignItems: 'flex-start',
+        overflowX: 'auto',
       }}>
         {STAGES.map((stage) => (
           <KanbanColumn
@@ -389,13 +390,19 @@ const KanbanColumn = memo(function KanbanColumn({
                 }}
               >
                 {/* Restaurant name */}
-                <h4 style={{
-                  fontSize: 'var(--font-sm)',
-                  fontWeight: 600,
-                  color: 'var(--color-textPrimary)',
-                  marginBottom: 'var(--space-2)',
-                  lineHeight: 1.3,
-                }}>
+                <h4
+                  title={campaign.restaurantName}
+                  style={{
+                    fontSize: 'var(--font-sm)',
+                    fontWeight: 600,
+                    color: 'var(--color-textPrimary)',
+                    marginBottom: 'var(--space-2)',
+                    lineHeight: 1.3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {campaign.restaurantName}
                 </h4>
 

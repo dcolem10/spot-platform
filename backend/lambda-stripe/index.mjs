@@ -128,7 +128,10 @@ async function createCheckoutSession(event) {
   }
 
   try {
-    // Verify restaurant exists and user owns it
+    // Verify restaurant exists and user is the listing creator (manages billing)
+    // NOTE: METADATA stores the restaurant-level billing record; creatorId here is whoever
+    // listed (added) the restaurant on Spot — they manage subscriptions on behalf of the restaurant.
+    // Other creators can partner via offers/proposals without needing billing access.
     const restaurantRes = await ddb.send(
       new GetCommand({
         TableName: TABLE,
@@ -137,7 +140,7 @@ async function createCheckoutSession(event) {
     );
 
     if (!restaurantRes.Item || restaurantRes.Item.creatorId !== userId) {
-      return respond(403, { error: 'Forbidden' });
+      return respond(403, { error: 'Only the creator who listed this restaurant can manage its subscription' });
     }
 
     // Create Stripe checkout session
@@ -431,7 +434,7 @@ async function getSubscription(event) {
   }
 
   try {
-    // Verify user owns the restaurant
+    // Verify user is the listing creator (manages billing on behalf of the restaurant)
     const restaurantRes = await ddb.send(
       new GetCommand({
         TableName: TABLE,
@@ -440,7 +443,7 @@ async function getSubscription(event) {
     );
 
     if (!restaurantRes.Item || restaurantRes.Item.creatorId !== userId) {
-      return respond(403, { error: 'Forbidden' });
+      return respond(403, { error: 'Only the creator who listed this restaurant can view its subscription' });
     }
 
     // Get subscription
@@ -493,7 +496,7 @@ async function createPortalSession(event) {
   }
 
   try {
-    // Verify user owns the restaurant
+    // Verify user is the listing creator (manages billing on behalf of the restaurant)
     const restaurantRes = await ddb.send(
       new GetCommand({
         TableName: TABLE,
@@ -502,7 +505,7 @@ async function createPortalSession(event) {
     );
 
     if (!restaurantRes.Item || restaurantRes.Item.creatorId !== userId) {
-      return respond(403, { error: 'Forbidden' });
+      return respond(403, { error: 'Only the creator who listed this restaurant can manage its subscription' });
     }
 
     // Get subscription to get Stripe customer ID

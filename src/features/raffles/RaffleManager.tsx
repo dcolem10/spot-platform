@@ -434,7 +434,7 @@ export default function RaffleManager() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
         {[
           { label: 'Active Raffles', value: raffles.filter(r => r.status === 'active').length, color: '#10b981' },
           { label: 'Total Entries', value: raffles.reduce((sum, r) => sum + r.entryCount, 0), color: 'var(--color-accent)' },
