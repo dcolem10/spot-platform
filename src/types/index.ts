@@ -93,15 +93,20 @@ export interface Deliverable {
   postUrl?: string;
 }
 
+export type SocialPlatform = 'instagram' | 'tiktok' | 'youtube' | 'twitter';
+
 export interface Offer {
   offerId: string;
   restaurantId: string;
+  restaurantName?: string;
+  linkedCampaignId?: string;
   code: string;
   type: 'qr' | 'promo' | 'link';
   description: string;
   landingPageUrl: string;
   scans: number;
   redemptions: number;
+  scansBySource?: Record<string, number>;
   expiresAt?: string;
   isActive: boolean;
   createdAt: string;

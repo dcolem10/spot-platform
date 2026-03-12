@@ -582,12 +582,15 @@ async function createOffer(restaurantId, event) {
     offerId: id,
     creatorId: userId,
     restaurantId,
+    restaurantName: sanitize(body.restaurantName || '', 200),
+    linkedCampaignId: sanitize(body.linkedCampaignId || '', 64),
     code,
     type: offerType,
     description: sanitize(body.description, 500),
     landingPageUrl: `/r/${sanitize(body.slug || restaurantId, 100)}`,
     scans: 0,
     redemptions: 0,
+    scansBySource: {},
     expiresAt,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -690,20 +693,28 @@ async function trackScan(code, event) {
     const check = validateOffer(offer);
     if (!check.valid) return respond(410, { error: check.error });
 
+    // Extract source from query params (e.g., ?src=instagram, ?src=tiktok)
+    const qs = event.queryStringParameters || {};
+    const ALLOWED_SOURCES = ['instagram', 'tiktok', 'youtube', 'twitter', 'web', 'in_person', 'email', 'direct'];
+    const source = ALLOWED_SOURCES.includes(qs.src) ? qs.src : 'direct';
+
+    // Increment total scans + per-source counter
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-        UpdateExpression: 'SET scans = scans + :inc',
-        ExpressionAttributeValues: { ':inc': 1 },
+        UpdateExpression: 'SET scans = scans + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
+        ExpressionAttributeNames: { '#src': source },
+        ExpressionAttributeValues: { ':inc': 1, ':zero': 0 },
       })
     );
 
-    console.log(`Offer scanned: code=${code}, restaurant=${offer.restaurantId}`);
+    console.log(`Offer scanned: code=${code}, restaurant=${offer.restaurantId}, source=${source}`);
     return respond(200, {
       restaurantId: offer.restaurantId,
       landingPageUrl: offer.landingPageUrl,
       description: offer.description,
+      source,
     });
   } catch (err) {
     console.error(`trackScan error: code=${code}, error=${err.message}`);
@@ -736,6 +747,12 @@ async function redeemOffer(code, event) {
     const check = validateOffer(offer);
     if (!check.valid) return respond(410, { error: check.error });
 
+    // Extract source from body or query params
+    const body = parseBody(event) || {};
+    const qs = event.queryStringParameters || {};
+    const ALLOWED_SOURCES = ['instagram', 'tiktok', 'youtube', 'twitter', 'web', 'in_person', 'email', 'direct'];
+    const source = ALLOWED_SOURCES.includes(body.source || qs.src) ? (body.source || qs.src) : 'direct';
+
     // Idempotent redemption — deduplicate by IP + day to prevent attribution fraud
     const ip = event.requestContext?.identity?.sourceIp || 'unknown';
     const day = new Date().toISOString().slice(0, 10);
@@ -749,6 +766,7 @@ async function redeemOffer(code, event) {
             SK: 'IDEMPOTENCY',
             offerId: offer.offerId,
             ip,
+            source,
             redeemedAt: new Date().toISOString(),
             ttl: Math.floor(Date.now() / 1000) + 86400 * 30, // 30-day TTL
           },
@@ -768,13 +786,14 @@ async function redeemOffer(code, event) {
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-        UpdateExpression: 'SET redemptions = redemptions + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc',
+        UpdateExpression: 'SET redemptions = redemptions + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
+        ExpressionAttributeNames: { '#src': `redeem_${source}` },
         ExpressionAttributeValues: { ':inc': 1, ':zero': 0 },
       })
     );
 
-    console.log(`Offer redeemed: code=${code}, restaurant=${offer.restaurantId}`);
-    return respond(200, { message: 'Redeemed', offerId: offer.offerId });
+    console.log(`Offer redeemed: code=${code}, restaurant=${offer.restaurantId}, source=${source}`);
+    return respond(200, { message: 'Redeemed', offerId: offer.offerId, source });
   } catch (err) {
     console.error(`redeemOffer error: code=${code}, error=${err.message}`);
     return respond(500, { error: 'Internal server error' });
