@@ -94,6 +94,9 @@ export default function CampaignDetailPanel({
   const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details');
   const [isEditing, setIsEditing] = useState(false);
   const [newNote, setNewNote] = useState('');
+  const [pendingActivity, setPendingActivity] = useState<
+    { id: string; type: string; message: string; timestamp: string }[]
+  >([]);
   const [editForm, setEditForm] = useState({
     dealType: campaign.dealType || '',
     dealDescription: campaign.dealDescription || '',
@@ -138,21 +141,51 @@ export default function CampaignDetailPanel({
     });
     setIsEditing(false);
     setActiveTab('details');
+    setPendingActivity([]);
   }, [campaign.campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hasPendingChanges = isEditing || pendingActivity.length > 0;
+
   const handleSave = () => {
-    onUpdate({
-      dealType: editForm.dealType || undefined,
-      dealDescription: editForm.dealDescription || undefined,
-      goal: editForm.goal || undefined,
-      notes: editForm.notes || undefined,
-      startDate: editForm.startDate || undefined,
-      endDate: editForm.endDate || undefined,
-    });
+    const updates: Partial<Campaign> = {};
+
+    // Include edit form fields if editing
+    if (isEditing) {
+      updates.dealType = editForm.dealType || undefined;
+      updates.dealDescription = editForm.dealDescription || undefined;
+      updates.goal = editForm.goal || undefined;
+      updates.notes = editForm.notes || undefined;
+      updates.startDate = editForm.startDate || undefined;
+      updates.endDate = editForm.endDate || undefined;
+    }
+
+    // Flush any pending activity items
+    if (pendingActivity.length > 0) {
+      updates.activity = [...(campaign.activity || []), ...pendingActivity];
+    }
+
+    onUpdate(updates);
     setIsEditing(false);
+    setPendingActivity([]);
+  };
+
+  const handleDiscardPending = () => {
+    setIsEditing(false);
+    setPendingActivity([]);
+    setNewNote('');
+    // Reset edit form back to campaign values
+    setEditForm({
+      dealType: campaign.dealType || '',
+      dealDescription: campaign.dealDescription || '',
+      goal: campaign.goal || '',
+      notes: campaign.notes || '',
+      startDate: campaign.startDate || '',
+      endDate: campaign.endDate || '',
+    });
   };
 
   const handleLinkOffer = (offer: Offer) => {
+    // Offer linking is an intentional action — persist immediately
     onUpdate({
       linkedOfferId: offer.offerId,
       linkedOfferCode: offer.code,
@@ -160,6 +193,7 @@ export default function CampaignDetailPanel({
       dealType: offer.type === 'qr' ? 'percent_off' : campaign.dealType || 'percent_off',
       activity: [
         ...(campaign.activity || []),
+        ...pendingActivity,
         {
           id: `act-${Date.now()}`,
           type: 'offer_linked' as const,
@@ -168,36 +202,33 @@ export default function CampaignDetailPanel({
         },
       ],
     });
+    setPendingActivity([]);
   };
 
   const handleAddNote = () => {
     if (!newNote.trim()) return;
-    onUpdate({
-      activity: [
-        ...(campaign.activity || []),
-        {
-          id: `act-${Date.now()}`,
-          type: 'note' as const,
-          message: newNote.trim(),
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    });
+    setPendingActivity((prev) => [
+      ...prev,
+      {
+        id: `act-${Date.now()}`,
+        type: 'note' as const,
+        message: newNote.trim(),
+        timestamp: new Date().toISOString(),
+      },
+    ]);
     setNewNote('');
   };
 
   const handleLogOutreach = (method: string) => {
-    onUpdate({
-      activity: [
-        ...(campaign.activity || []),
-        {
-          id: `act-${Date.now()}`,
-          type: 'outreach' as const,
-          message: `Reached out via ${method}`,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    });
+    setPendingActivity((prev) => [
+      ...prev,
+      {
+        id: `act-${Date.now()}`,
+        type: 'outreach' as const,
+        message: `Reached out via ${method}`,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
   };
 
   const nextStep = NEXT_STEPS[campaign.status];
@@ -844,6 +875,74 @@ export default function CampaignDetailPanel({
 
             {/* Activity Timeline */}
             <DetailSection title="Timeline">
+              {/* Pending items (not yet saved) */}
+              {pendingActivity.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-3)' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'var(--color-warning)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      marginBottom: 'var(--space-2)',
+                    }}
+                  >
+                    Unsaved ({pendingActivity.length})
+                  </div>
+                  {[...pendingActivity].reverse().map((act) => {
+                    const iconMap: Record<string, string> = {
+                      outreach: '📞',
+                      note: '📝',
+                    };
+                    return (
+                      <div
+                        key={act.id}
+                        style={{
+                          display: 'flex',
+                          gap: 'var(--space-3)',
+                          padding: 'var(--space-3)',
+                          marginBottom: 'var(--space-2)',
+                          background: 'rgba(234, 179, 8, 0.08)',
+                          border: '1px dashed var(--color-warning)',
+                          borderRadius: 'var(--radius-md)',
+                        }}
+                      >
+                        <span style={{ fontSize: 'var(--font-base)', flexShrink: 0 }}>
+                          {iconMap[act.type] || '•'}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', lineHeight: 1.4 }}>
+                            {act.message}
+                          </div>
+                          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-warning)', marginTop: '2px', fontWeight: 500 }}>
+                            Pending — click Save to keep
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPendingActivity((prev) => prev.filter((a) => a.id !== act.id))}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--color-textMuted)',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            lineHeight: 1,
+                            padding: '2px',
+                            flexShrink: 0,
+                          }}
+                          title="Remove"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Saved activity */}
               {(campaign.activity?.length ?? 0) > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                   {[...(campaign.activity || [])].reverse().map((act, i) => {
@@ -902,7 +1001,7 @@ export default function CampaignDetailPanel({
                     );
                   })}
                 </div>
-              ) : (
+              ) : pendingActivity.length === 0 ? (
                 <p
                   style={{
                     fontSize: 'var(--font-sm)',
@@ -913,7 +1012,7 @@ export default function CampaignDetailPanel({
                 >
                   No activity yet. Use the buttons above to log your outreach.
                 </p>
-              )}
+              ) : null}
             </DetailSection>
           </div>
         )}
@@ -931,16 +1030,16 @@ export default function CampaignDetailPanel({
           background: 'var(--color-bgSecondary)',
         }}
       >
-        {isEditing ? (
+        {hasPendingChanges ? (
           <>
             <button
               className="btn btn-secondary"
-              onClick={() => setIsEditing(false)}
+              onClick={handleDiscardPending}
             >
-              Cancel Edit
+              Discard
             </button>
             <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : `Save${pendingActivity.length > 0 && !isEditing ? ` (${pendingActivity.length})` : ''}`}
             </button>
           </>
         ) : (
