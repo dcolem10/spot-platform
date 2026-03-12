@@ -567,6 +567,31 @@ async function createOffer(restaurantId, event) {
   const ALLOWED_OFFER_TYPES = ['qr', 'link', 'code', 'promo'];
   const offerType = ALLOWED_OFFER_TYPES.includes(body.type) ? body.type : 'qr';
 
+  // Validate linkedCampaignId belongs to this user (prevent cross-user campaign linking)
+  let validatedCampaignId = '';
+  if (body.linkedCampaignId) {
+    const campaignId = sanitize(body.linkedCampaignId, 64);
+    if (isValidId(campaignId)) {
+      try {
+        const campaignResult = await ddb.send(
+          new GetCommand({
+            TableName: TABLE,
+            Key: { PK: `CREATOR#${userId}`, SK: `CAMPAIGN#${campaignId}` },
+            ProjectionExpression: 'campaignId',
+          })
+        );
+        if (campaignResult.Item) {
+          validatedCampaignId = campaignId;
+        } else {
+          console.warn(`linkedCampaignId ${campaignId} not found for user ${userId}`);
+        }
+      } catch (err) {
+        console.warn(`Campaign ownership check failed: ${err.message}`);
+        // Fail open for campaign linking — still create the offer, just don't link
+      }
+    }
+  }
+
   // Validate expiresAt is a proper ISO date string if provided
   let expiresAt = null;
   if (body.expiresAt) {
@@ -583,7 +608,7 @@ async function createOffer(restaurantId, event) {
     creatorId: userId,
     restaurantId,
     restaurantName: sanitize(body.restaurantName || '', 200),
-    linkedCampaignId: sanitize(body.linkedCampaignId || '', 64),
+    linkedCampaignId: validatedCampaignId,
     code,
     type: offerType,
     description: sanitize(body.description, 500),
@@ -620,6 +645,96 @@ async function createOffer(restaurantId, event) {
   );
 
   return respond(201, item);
+}
+
+async function updateOffer(offerId, event) {
+  if (!isValidId(offerId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  // Look up the offer via GSI1 to verify ownership
+  const ownerResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#OFFERS`,
+        ':sk': `OFFER#${offerId}`,
+      },
+      Limit: 1,
+    })
+  );
+
+  if (!ownerResult.Items?.length) return respond(404, { error: 'Offer not found' });
+  const existing = ownerResult.Items[0];
+
+  // Build update expression for allowed fields only
+  const updates = [];
+  const names = {};
+  const values = {};
+  let idx = 0;
+
+  if (typeof body.isActive === 'boolean') {
+    updates.push(`#f${idx} = :v${idx}`);
+    names[`#f${idx}`] = 'isActive';
+    values[`:v${idx}`] = body.isActive;
+    idx++;
+  }
+  if (typeof body.description === 'string') {
+    updates.push(`#f${idx} = :v${idx}`);
+    names[`#f${idx}`] = 'description';
+    values[`:v${idx}`] = sanitize(body.description, 500);
+    idx++;
+  }
+  if (typeof body.expiresAt === 'string') {
+    const parsed = new Date(sanitize(body.expiresAt, 30));
+    if (!isNaN(parsed.getTime())) {
+      updates.push(`#f${idx} = :v${idx}`);
+      names[`#f${idx}`] = 'expiresAt';
+      values[`:v${idx}`] = parsed.toISOString();
+      idx++;
+    }
+  }
+
+  if (updates.length === 0) return respond(400, { error: 'No valid fields to update' });
+
+  // Always set updatedAt
+  updates.push(`#upd = :upd`);
+  names['#upd'] = 'updatedAt';
+  values[':upd'] = new Date().toISOString();
+
+  const result = await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: existing.PK, SK: existing.SK },
+      UpdateExpression: `SET ${updates.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+      ReturnValues: 'ALL_NEW',
+    })
+  );
+
+  // Also update the lookup record if isActive changed
+  if (typeof body.isActive === 'boolean' && existing.code) {
+    try {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `OFFER_CODE#${existing.code}`, SK: 'LOOKUP' },
+          UpdateExpression: 'SET isActive = :val',
+          ExpressionAttributeValues: { ':val': body.isActive },
+        })
+      );
+    } catch (err) {
+      console.warn(`Failed to update lookup record for ${existing.code}: ${err.message}`);
+    }
+  }
+
+  return respond(200, stripDdbKeys(result.Attributes));
 }
 
 /**
@@ -940,7 +1055,12 @@ async function listReports(event) {
 
 // ─── Insider Deals ───────────────────────────────────────────────────────────
 
-async function listDeals() {
+async function listDeals(event) {
+  // Rate limit public endpoint to prevent scraping
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
   const result = await ddb.send(
     new QueryCommand({
       TableName: TABLE,
@@ -958,6 +1078,25 @@ async function redeemDeal(dealId, event) {
   if (!isValidId(dealId)) return respond(400, { error: 'Invalid deal ID' });
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Rate limit deal redemptions per user (reuse AI rate limiter pattern — 20 redemptions/hour)
+  const hour = Math.floor(Date.now() / 3600000);
+  try {
+    const rateResult = await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RATE#DEAL#${userId}`, SK: `HR#${hour}` },
+      UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :inc, #ttl = :ttl',
+      ExpressionAttributeNames: { '#c': 'cnt', '#ttl': 'ttl' },
+      ExpressionAttributeValues: { ':zero': 0, ':inc': 1, ':ttl': Math.floor(Date.now() / 1000) + 7200 },
+      ReturnValues: 'ALL_NEW',
+    }));
+    if ((rateResult.Attributes?.cnt || 0) > 20) {
+      return respond(429, { error: 'Too many redemptions. Please try again later.' });
+    }
+  } catch (err) {
+    console.error('Deal rate limit check failed:', err.message);
+    // fail open — allow the redemption
+  }
 
   await ddb.send(
     new PutCommand({
@@ -1862,6 +2001,10 @@ export const handler = async (event) => {
     if (path.match(/\/api\/campaigns\/[^/]+\/restore$/) && method === 'POST')
       return restoreCampaign(pathParts[pathParts.length - 2], event);
 
+    // Offer update (authenticated — creator toggles active/inactive)
+    if (path.match(/\/api\/offers\/[^/]+$/) && method === 'PUT')
+      return updateOffer(pathParts[pathParts.length - 1], event);
+
     // Offer tracking (public — rate limited by IP)
     if (path.match(/\/api\/offers\/[^/]+\/scan$/) && method === 'GET')
       return trackScan(pathParts[pathParts.length - 2], event);
@@ -1882,9 +2025,9 @@ export const handler = async (event) => {
     if (path.match(/\/api\/partner\/reports$/) && method === 'GET')
       return listReports(event);
 
-    // Insider deals (public)
+    // Insider deals (public — rate limited by IP)
     if (path.match(/\/api\/insider\/deals$/) && method === 'GET')
-      return listDeals();
+      return listDeals(event);
     if (path.match(/\/api\/insider\/deals\/[^/]+\/redeem$/) && method === 'POST')
       return redeemDeal(pathParts[pathParts.length - 2], event);
 
