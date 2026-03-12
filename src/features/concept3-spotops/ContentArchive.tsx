@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { ContentItem } from '../../types';
 import { api } from '../../services/ApiService';
-import { StyledSelect, StyledDatePicker } from '../../components/FormControls';
+import { StyledSelect } from '../../components/FormControls';
+import { CalendarDatePicker } from '../../components/CalendarDatePicker';
 import { isDemoMode, DEMO_CONTENT, DEMO_CAMPAIGNS } from '../../data/demoData';
 import { EmptyState } from '../../components/EmptyState';
 
@@ -546,14 +547,14 @@ export default function ContentArchive() {
             { value: 'saves', label: 'Most Saves', icon: '🔖' },
           ]}
         />
-        <StyledDatePicker
+        <CalendarDatePicker
           value={dateRange.start}
           onChange={(v) => setDateRange((r) => ({ ...r, start: v }))}
           placeholder="Start date"
           size="sm"
           style={{ maxWidth: '170px' }}
         />
-        <StyledDatePicker
+        <CalendarDatePicker
           value={dateRange.end}
           onChange={(v) => setDateRange((r) => ({ ...r, end: v }))}
           placeholder="End date"

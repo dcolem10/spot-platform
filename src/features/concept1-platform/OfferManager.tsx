@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { EmptyState } from '../../components/EmptyState';
-import { StyledSelect, StyledDatePicker } from '../../components/FormControls';
+import { StyledSelect } from '../../components/FormControls';
+import { CalendarDatePicker } from '../../components/CalendarDatePicker';
 import { isDemoMode, DEMO_OFFERS, DEMO_CAMPAIGNS } from '../../data/demoData';
 import type { Offer, Campaign } from '../../types';
 
@@ -467,7 +468,7 @@ export default function OfferManager() {
             {/* Expiration */}
             <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
               <span style={labelStyle}>Expiration Date</span>
-              <StyledDatePicker
+              <CalendarDatePicker
                 value={form.expiresAt}
                 onChange={(v) => handleFormChange('expiresAt', v)}
                 placeholder="No expiration"

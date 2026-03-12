@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
-import { StyledDatePicker } from '../../components/FormControls';
+import { CalendarDatePicker } from '../../components/CalendarDatePicker';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY } from '../../data/demoData';
 import { useAuthStore } from '../../store/authStore';
 import type { Restaurant, Campaign } from '../../types';
@@ -717,7 +717,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                 <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
                   Start Date <span style={{ color: 'var(--color-error)' }}>*</span>
                 </label>
-                <StyledDatePicker
+                <CalendarDatePicker
                   value={form.startDate}
                   onChange={(v) => handleFieldChange('startDate', v)}
                   placeholder="Start date"
@@ -728,7 +728,7 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
                 <label style={{ display: 'block', fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-2)' }}>
                   End Date
                 </label>
-                <StyledDatePicker
+                <CalendarDatePicker
                   value={form.endDate}
                   onChange={(v) => handleFieldChange('endDate', v)}
                   placeholder="End date"

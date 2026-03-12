@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/ApiService';
 import { isDemoMode } from '../data/demoData';
-import { StyledSelect, StyledDatePicker } from './FormControls';
+import { StyledSelect } from './FormControls';
+import { CalendarDatePicker } from './CalendarDatePicker';
 import type { Campaign, CampaignStatus, Offer, Restaurant } from '../types';
 
 /* ─── Constants (shared) ──────────────────────────────────────────────────── */
@@ -621,7 +622,7 @@ export default function CampaignDetailPanel({
                     >
                       Start
                     </label>
-                    <StyledDatePicker
+                    <CalendarDatePicker
                       value={editForm.startDate}
                       onChange={(v) => setEditForm((p) => ({ ...p, startDate: v }))}
                       placeholder="Start date"
@@ -638,7 +639,7 @@ export default function CampaignDetailPanel({
                     >
                       End
                     </label>
-                    <StyledDatePicker
+                    <CalendarDatePicker
                       value={editForm.endDate}
                       onChange={(v) => setEditForm((p) => ({ ...p, endDate: v }))}
                       placeholder="End date"
