@@ -1115,6 +1115,206 @@ async function listReports(event) {
   }
 }
 
+// ─── Partner Analytics ────────────────────────────────────────────────────────
+
+/**
+ * GET /api/partner/analytics — Aggregated margin-first metrics for restaurant dashboard.
+ * Computes ROI, cost-per-acquisition, estimated revenue from existing data.
+ */
+async function getPartnerAnalytics(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Fetch campaigns, offers, and reports in parallel
+  const [campaignResult, offerResult, reportResult, proposalResult] = await Promise.all([
+    ddb.send(new QueryCommand({
+      TableName: TABLE, IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#CAMPAIGNS` },
+      Limit: 50,
+    })),
+    ddb.send(new QueryCommand({
+      TableName: TABLE, IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+      Limit: 50,
+    })),
+    ddb.send(new QueryCommand({
+      TableName: TABLE, IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#REPORTS` },
+      Limit: 50,
+    })),
+    ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      FilterExpression: '#s = :pending',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}`,
+        ':prefix': 'PROPOSAL#',
+        ':pending': 'pending',
+      },
+      Limit: 20,
+    })),
+  ]);
+
+  const campaigns = campaignResult.Items || [];
+  const offers = offerResult.Items || [];
+  const reports = reportResult.Items || [];
+  const pendingProposals = proposalResult.Items || [];
+
+  // Aggregate metrics
+  const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'negotiation');
+  const totalBudgetSpent = campaigns
+    .filter(c => c.status === 'active' || c.status === 'completed')
+    .reduce((sum, c) => sum + (c.budget || 0), 0);
+
+  const totalScans = offers.reduce((sum, o) => sum + (o.scans || 0), 0);
+  const totalRedemptions = offers.reduce((sum, o) => sum + (o.redemptions || 0), 0);
+  const totalReach = reports.reduce((sum, r) => sum + (r.metrics?.totalReach || 0), 0);
+  const totalImpressions = reports.reduce((sum, r) => sum + (r.metrics?.totalImpressions || 0), 0);
+  const estimatedVisits = reports.reduce((sum, r) => sum + (r.metrics?.estimatedVisits || 0), 0);
+
+  // Margin-first calculations
+  const AVG_CHECK_VALUE = 45; // Placeholder — Phase 4 will pull from POS
+  const REPEAT_VISIT_RATE = 0.35; // Industry average for creator-referred diners
+  const estimatedRevenue = Math.round(totalRedemptions * AVG_CHECK_VALUE * (1 + REPEAT_VISIT_RATE));
+  const costPerAcquisition = totalRedemptions > 0 ? Math.round(totalBudgetSpent / totalRedemptions) : 0;
+  const roi = totalBudgetSpent > 0 ? parseFloat(((estimatedRevenue - totalBudgetSpent) / totalBudgetSpent * 100).toFixed(1)) : 0;
+  const revenuePerDollarSpent = totalBudgetSpent > 0 ? parseFloat((estimatedRevenue / totalBudgetSpent).toFixed(2)) : 0;
+  const scanToRedemptionRate = totalScans > 0 ? parseFloat(((totalRedemptions / totalScans) * 100).toFixed(1)) : 0;
+
+  // Top performing campaign (by redemptions)
+  const campaignRedemptions = campaigns
+    .filter(c => c.status === 'active' || c.status === 'completed')
+    .map(c => {
+      const linkedOffers = offers.filter(o => o.linkedCampaignId === c.campaignId);
+      const redemptions = linkedOffers.reduce((s, o) => s + (o.redemptions || 0), 0);
+      return { campaignId: c.campaignId, restaurantName: c.restaurantName, package: c.package, budget: c.budget, redemptions };
+    })
+    .sort((a, b) => b.redemptions - a.redemptions);
+
+  // Pending actions count
+  const expiringOffers = offers.filter(o => {
+    if (!o.expiresAt || !o.isActive) return false;
+    const daysLeft = (new Date(o.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    return daysLeft > 0 && daysLeft <= 7;
+  });
+
+  // Pending proposals expiring soon (within 2 days of 7-day expiry)
+  const expiringProposals = pendingProposals.filter(p => {
+    if (!p.createdAt) return false;
+    const age = Date.now() - new Date(p.createdAt).getTime();
+    const daysOld = age / (1000 * 60 * 60 * 24);
+    return daysOld >= 5 && daysOld < 7;
+  });
+
+  return respond(200, {
+    // Hero metrics (margin-first)
+    estimatedRevenue,
+    totalBudgetSpent,
+    roi,
+    revenuePerDollarSpent,
+    costPerAcquisition,
+    // Volume metrics
+    activeCampaignCount: activeCampaigns.length,
+    totalScans,
+    totalRedemptions,
+    scanToRedemptionRate,
+    totalReach,
+    totalImpressions,
+    estimatedVisits,
+    // Pending actions
+    pendingProposalCount: pendingProposals.length,
+    expiringOfferCount: expiringOffers.length,
+    expiringProposalCount: expiringProposals.length,
+    // Top performers
+    topCampaigns: campaignRedemptions.slice(0, 5).map(c => ({
+      campaignId: c.campaignId, restaurantName: c.restaurantName,
+      package: c.package, budget: c.budget, redemptions: c.redemptions,
+    })),
+    // Recent redemptions (today + this week from offers)
+    recentRedemptions: {
+      today: totalRedemptions, // Phase 4: real daily tracking from POS
+      thisWeek: totalRedemptions,
+    },
+    // Assumptions (transparent to restaurant)
+    assumptions: {
+      avgCheckValue: AVG_CHECK_VALUE,
+      repeatVisitRate: REPEAT_VISIT_RATE,
+      note: 'Revenue estimates based on industry averages. Connect POS for real numbers.',
+    },
+  });
+}
+
+/**
+ * PUT /api/proposals/expire — Expire stale proposals (7-day TTL).
+ * Called periodically (could be EventBridge schedule).
+ */
+async function expireStaleProposals(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Rate limit: max 1 call per hour per user
+  const allowed = await checkUserMutationRate(userId, 'EXPIRE_PROPOSALS', 1);
+  if (!allowed) return respond(429, { error: 'Proposal expiration already ran recently. Try again later.' });
+
+  // Find pending proposals older than 7 days for this user
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      FilterExpression: '#s = :pending AND createdAt < :cutoff',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}`,
+        ':prefix': 'PROPOSAL#',
+        ':pending': 'pending',
+        ':cutoff': sevenDaysAgo,
+      },
+      Limit: 50,
+    })
+  );
+
+  const expiredItems = result.Items || [];
+  let count = 0;
+
+  // Process in batches of 10
+  for (let i = 0; i < expiredItems.length; i += 10) {
+    const batch = expiredItems.slice(i, i + 10);
+    await Promise.all(batch.map(async (proposal) => {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: proposal.PK, SK: proposal.SK },
+          UpdateExpression: 'SET #s = :expired, updatedAt = :now',
+          ExpressionAttributeNames: { '#s': 'status' },
+          ExpressionAttributeValues: {
+            ':expired': 'expired',
+            ':now': new Date().toISOString(),
+          },
+        })
+      );
+
+      // Notify the initiator
+      await createNotification(
+        proposal.initiatorId,
+        'proposal_expiring',
+        'Proposal Expired',
+        `Your proposal has expired after 7 days without a response.`,
+        '/app/proposals',
+        ''
+      );
+      count++;
+    }));
+  }
+
+  return respond(200, { message: `Expired ${count} stale proposals`, count });
+}
+
 // ─── Content Archive ─────────────────────────────────────────────────────────
 
 async function listContent(event) {
@@ -3913,6 +4113,10 @@ export const handler = async (event) => {
       return listOffers(event);
     if (path.match(/\/api\/partner\/reports$/) && method === 'GET')
       return listReports(event);
+    if (path.match(/\/api\/partner\/analytics$/) && method === 'GET')
+      return getPartnerAnalytics(event);
+    if (path.match(/\/api\/proposals\/expire$/) && method === 'PUT')
+      return expireStaleProposals(event);
 
     // Insider deals (public — rate limited by IP)
     if (path.match(/\/api\/insider\/deals$/) && method === 'GET')

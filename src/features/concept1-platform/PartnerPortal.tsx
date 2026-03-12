@@ -8,21 +8,81 @@ import { isDemoMode, DEMO_CAMPAIGNS, DEMO_OFFERS, DEMO_CAMPAIGN_REPORTS } from '
 import PartnerOnboarding from '../onboarding/PartnerOnboarding';
 import type { Campaign, Offer, CampaignReport } from '../../types';
 
+/* ─── Types ────────────────────────────────────────────────────────────────── */
+
 interface PartnerDashboardData {
   campaigns: Campaign[];
   offers: Offer[];
   reports: CampaignReport[];
 }
 
-function formatNumber(n: number): string {
+interface AnalyticsData {
+  estimatedRevenue: number;
+  totalBudgetSpent: number;
+  roi: number;
+  revenuePerDollarSpent: number;
+  costPerAcquisition: number;
+  activeCampaignCount: number;
+  totalScans: number;
+  totalRedemptions: number;
+  scanToRedemptionRate: number;
+  totalReach: number;
+  totalImpressions: number;
+  estimatedVisits: number;
+  pendingProposalCount: number;
+  expiringOfferCount: number;
+  expiringProposalCount: number;
+  topCampaigns: { campaignId: string; restaurantName: string; package: string; budget: number; redemptions: number }[];
+  assumptions: { avgCheckValue: number; repeatVisitRate: number; note: string };
+}
+
+/* ─── Demo Analytics ───────────────────────────────────────────────────────── */
+
+const DEMO_ANALYTICS: AnalyticsData = {
+  estimatedRevenue: 18_225,
+  totalBudgetSpent: 4_000,
+  roi: 355.6,
+  revenuePerDollarSpent: 4.56,
+  costPerAcquisition: 11,
+  activeCampaignCount: 3,
+  totalScans: 1_077,
+  totalRedemptions: 357,
+  scanToRedemptionRate: 33.1,
+  totalReach: 800_000,
+  totalImpressions: 886_000,
+  estimatedVisits: 620,
+  pendingProposalCount: 2,
+  expiringOfferCount: 1,
+  expiringProposalCount: 1,
+  topCampaigns: [
+    { campaignId: 'c5', restaurantName: 'Rasika', package: 'Feature', budget: 4000, redemptions: 186 },
+    { campaignId: 'c8', restaurantName: "Rose's Luxury", package: 'Feature', budget: 2500, redemptions: 123 },
+    { campaignId: 'c6', restaurantName: 'The Dabney', package: 'Quick Bite', budget: 1200, redemptions: 48 },
+  ],
+  assumptions: {
+    avgCheckValue: 45,
+    repeatVisitRate: 0.35,
+    note: 'Revenue estimates based on industry averages. Connect POS for real numbers.',
+  },
+};
+
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
+
+function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString();
 }
 
-function formatDate(iso: string | undefined): string {
+function fmtMoney(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+  return `$${n.toLocaleString()}`;
+}
+
+function fmtDate(iso: string | undefined): string {
   if (!iso) return '--';
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -33,9 +93,12 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: 'badge--error',
 };
 
+/* ─── Main Component ───────────────────────────────────────────────────────── */
+
 export default function PartnerPortal() {
   const { name, orgId } = useAuth();
 
+  // Fetch dashboard data
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['partner-dashboard', orgId],
     queryFn: async () => {
@@ -52,8 +115,6 @@ export default function PartnerPortal() {
         api.get<CampaignReport[]>('/api/partner/reports'),
       ]);
       if (campaignsRes.error) throw new Error(campaignsRes.error);
-      if (offersRes.error) throw new Error(offersRes.error);
-      if (reportsRes.error) throw new Error(reportsRes.error);
       return {
         campaigns: campaignsRes.data ?? [],
         offers: offersRes.data ?? [],
@@ -62,33 +123,27 @@ export default function PartnerPortal() {
     },
   });
 
+  // Fetch margin analytics
+  const { data: analytics } = useQuery({
+    queryKey: ['partner-analytics', orgId],
+    queryFn: async () => {
+      if (isDemoMode()) return DEMO_ANALYTICS;
+      const res = await api.get<AnalyticsData>('/api/partner/analytics');
+      if (res.status !== 'success' || !res.data) return DEMO_ANALYTICS;
+      return res.data;
+    },
+    staleTime: 5 * 60 * 1000,      // 5 min — analytics don't need real-time
+    gcTime: 10 * 60 * 1000,         // Keep in cache 10 min
+    refetchOnWindowFocus: false,
+  });
+
   const dashboard = data ?? (isDemoMode()
     ? { campaigns: DEMO_CAMPAIGNS, offers: DEMO_OFFERS, reports: DEMO_CAMPAIGN_REPORTS }
     : { campaigns: [], offers: [], reports: [] });
+  const stats = analytics ?? DEMO_ANALYTICS;
 
-  // Check if onboarding is needed (no restaurants/offers exist yet)
   const needsOnboarding = dashboard.offers.length === 0 && dashboard.campaigns.length === 0;
-
-  if (needsOnboarding && !isLoading) {
-    return <PartnerOnboarding />;
-  }
-
-  // Aggregate metrics from all reports
-  const metrics = useMemo(() => {
-    const totals = {
-      totalReach: 0,
-      totalImpressions: 0,
-      qrScans: 0,
-      offerRedemptions: 0,
-    };
-    dashboard.reports.forEach((r) => {
-      totals.totalReach += r.metrics.totalReach;
-      totals.totalImpressions += r.metrics.totalImpressions;
-      totals.qrScans += r.metrics.qrScans;
-      totals.offerRedemptions += r.metrics.offerRedemptions;
-    });
-    return totals;
-  }, [dashboard.reports]);
+  if (needsOnboarding && !isLoading) return <PartnerOnboarding />;
 
   const activeCampaigns = useMemo(
     () => dashboard.campaigns.filter((c) => c.status === 'active' || c.status === 'negotiation'),
@@ -100,6 +155,31 @@ export default function PartnerPortal() {
     [dashboard.offers],
   );
 
+  // Pending actions
+  const pendingActions: { icon: string; label: string; link: string }[] = [];
+  if (stats.pendingProposalCount > 0) {
+    pendingActions.push({
+      icon: '📩',
+      label: `${stats.pendingProposalCount} proposal${stats.pendingProposalCount > 1 ? 's' : ''} awaiting review`,
+      link: '/app/partner/proposals',
+    });
+  }
+  if (stats.expiringOfferCount > 0) {
+    pendingActions.push({
+      icon: '⏰',
+      label: `${stats.expiringOfferCount} offer${stats.expiringOfferCount > 1 ? 's' : ''} expiring in 7 days`,
+      link: '/app/partner/offers',
+    });
+  }
+  if (stats.expiringProposalCount > 0) {
+    pendingActions.push({
+      icon: '🔔',
+      label: `${stats.expiringProposalCount} proposal${stats.expiringProposalCount > 1 ? 's' : ''} expiring soon`,
+      link: '/app/partner/proposals',
+    });
+  }
+
+  /* ─── Loading ─── */
   if (isLoading) {
     return (
       <div className="page-container">
@@ -107,14 +187,9 @@ export default function PartnerPortal() {
           <div className="skeleton" style={{ width: '300px', height: '36px', marginBottom: 'var(--space-3)' }} />
           <div className="skeleton" style={{ width: '220px', height: '20px' }} />
         </div>
-        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="card">
-              <LoadingSkeleton width="60%" height="14px" />
-              <div style={{ marginTop: 'var(--space-3)' }}>
-                <LoadingSkeleton width="80%" height="32px" />
-              </div>
-            </div>
+        <div className="card-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="card"><LoadingSkeleton width="80%" height="48px" /></div>
           ))}
         </div>
         <div style={{ marginTop: 'var(--space-6)' }}>
@@ -124,15 +199,14 @@ export default function PartnerPortal() {
     );
   }
 
+  /* ─── Error ─── */
   if (isError) {
     return (
       <div className="page-container">
         <div className="empty-state">
           <h3>Failed to load partner dashboard</h3>
           <p>{error instanceof Error ? error.message : 'An unexpected error occurred.'}</p>
-          <button className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }} onClick={() => refetch()}>
-            Retry
-          </button>
+          <button className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }} onClick={() => refetch()}>Retry</button>
         </div>
       </div>
     );
@@ -142,48 +216,182 @@ export default function PartnerPortal() {
     <div className="page-container">
       {/* Header */}
       <div className="page-header">
-        <h1 className="page-title">Partner Dashboard</h1>
+        <h1 className="page-title">Your Partnerships at a Glance</h1>
         <p className="page-subtitle">
-          Welcome back{name ? `, ${name}` : ''}. Here&rsquo;s how creators are driving customers to you.
+          Welcome back{name ? `, ${name}` : ''}. Here is what creator partnerships are doing for your business.
         </p>
       </div>
 
-      {/* Performance Metrics */}
+      {/* ─── Hero Metrics: The Numbers That Matter ─── */}
       <section style={{ marginBottom: 'var(--space-8)' }}>
-        <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, marginBottom: 'var(--space-4)', color: 'var(--color-textPrimary)' }}>
-          Performance Summary
-        </h2>
-        <div className="bento-grid">
-          <MetricCard label="Total Reach" value={formatNumber(metrics.totalReach)} icon="&#x1F4E3;" color="var(--color-info)" bg="var(--color-infoMuted)" />
-          <MetricCard label="Impressions" value={formatNumber(metrics.totalImpressions)} icon="&#x1F441;" color="var(--color-accent)" bg="var(--color-accentMuted)" />
-          <MetricCard label="QR Scans" value={formatNumber(metrics.qrScans)} icon="&#x1F4F1;" color="var(--color-success)" bg="var(--color-successMuted)" />
-          <MetricCard label="Offer Redemptions" value={formatNumber(metrics.offerRedemptions)} icon="&#x1F3AB;" color="var(--color-warning)" bg="var(--color-warningMuted)" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
+          {/* Estimated Revenue — THE hero metric */}
+          <div className="card" style={{
+            gridColumn: 'span 1',
+            background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(16, 185, 129, 0.06) 100%)',
+            borderColor: 'rgba(16, 185, 129, 0.2)',
+          }}>
+            <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 'var(--space-2)' }}>
+              Est. Revenue from Partnerships
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-success)', lineHeight: 1 }}>
+              {fmtMoney(stats.estimatedRevenue)}
+            </div>
+            <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-2)' }}>
+              {fmtMoney(stats.revenuePerDollarSpent)} return per $1 spent
+            </div>
+          </div>
+
+          {/* Active Campaigns */}
+          <HeroMetric
+            label="Active Campaigns"
+            value={String(stats.activeCampaignCount)}
+            icon="📈"
+            color="var(--color-info)"
+          />
+
+          {/* QR Scans */}
+          <HeroMetric
+            label="QR Scans"
+            value={fmtNum(stats.totalScans)}
+            sub={`${stats.scanToRedemptionRate}% conversion`}
+            icon="📱"
+            color="var(--color-accent)"
+          />
+
+          {/* Redemptions */}
+          <HeroMetric
+            label="Redemptions"
+            value={fmtNum(stats.totalRedemptions)}
+            sub={`${fmtMoney(stats.costPerAcquisition)} per customer`}
+            icon="🎫"
+            color="var(--color-warning)"
+          />
+
+          {/* ROI */}
+          <HeroMetric
+            label="ROI"
+            value={`${stats.roi > 0 ? '+' : ''}${stats.roi}%`}
+            sub={`on ${fmtMoney(stats.totalBudgetSpent)} spent`}
+            icon="💰"
+            color={stats.roi > 0 ? 'var(--color-success)' : 'var(--color-error)'}
+          />
         </div>
       </section>
 
-      {/* Active Campaigns */}
+      {/* ─── Pending Actions ─── */}
+      {pendingActions.length > 0 && (
+        <section style={{ marginBottom: 'var(--space-6)' }}>
+          <div className="card" style={{
+            padding: 'var(--space-4) var(--space-5)',
+            background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(249, 115, 22, 0.04) 100%)',
+            borderColor: 'rgba(249, 115, 22, 0.15)',
+          }}>
+            <div style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-accent)', marginBottom: 'var(--space-3)' }}>
+              Pending Actions ({pendingActions.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              {pendingActions.map((action, i) => (
+                <Link
+                  key={i}
+                  to={action.link}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-3)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(255,255,255,0.03)',
+                    textDecoration: 'none',
+                    color: 'var(--color-textPrimary)',
+                    fontSize: 'var(--font-sm)',
+                    transition: 'background var(--transition-fast)',
+                  }}
+                >
+                  <span>{action.icon}</span>
+                  <span style={{ flex: 1 }}>{action.label}</span>
+                  <span style={{ color: 'var(--color-accent)', fontSize: 'var(--font-xs)', fontWeight: 600 }}>Review &rarr;</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Top Performing Partnerships ─── */}
+      {stats.topCampaigns.length > 0 && (
+        <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
+          <div className="section-card-header">
+            <h2 className="section-card-title">Top Performing Partnerships</h2>
+            <Link to="/app/reports" className="btn btn-ghost" style={{ fontSize: 'var(--font-sm)' }}>
+              All Reports &rarr;
+            </Link>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+            {stats.topCampaigns.map((c, i) => (
+              <div
+                key={c.campaignId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-4)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: i === 0 ? 'rgba(16, 185, 129, 0.06)' : 'transparent',
+                  borderBottom: i < stats.topCampaigns.length - 1 ? '1px solid var(--color-border)' : 'none',
+                }}
+              >
+                <span style={{
+                  width: 28, height: 28,
+                  borderRadius: 'var(--radius-full)',
+                  background: i === 0 ? 'var(--color-successMuted)' : 'var(--color-bgElevated)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 'var(--font-xs)', fontWeight: 700,
+                  color: i === 0 ? 'var(--color-success)' : 'var(--color-textMuted)',
+                }}>
+                  {i + 1}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
+                    {c.restaurantName}
+                  </div>
+                  <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                    {c.package} &middot; {fmtMoney(c.budget)} budget
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 'var(--font-base)', fontWeight: 700, color: 'var(--color-success)' }}>
+                    {fmtNum(c.redemptions)}
+                  </div>
+                  <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                    redemptions
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Active Campaigns ─── */}
       <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="section-card-header">
           <h2 className="section-card-title">Active Campaigns ({activeCampaigns.length})</h2>
         </div>
-
         {activeCampaigns.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-textMuted)' }}>
-            <p>No active campaigns right now.</p>
+          <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-textMuted)' }}>
+            No active campaigns right now.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
             {activeCampaigns.map((campaign) => {
-              const totalDeliverables = campaign.deliverables.length;
-              const completedDeliverables = campaign.deliverables.filter((d) => d.completed).length;
-              const progressPct = totalDeliverables === 0 ? 0 : Math.round((completedDeliverables / totalDeliverables) * 100);
-
-              // Find matching report if any
+              const total = campaign.deliverables.length;
+              const done = campaign.deliverables.filter((d) => d.completed).length;
+              const pct = total === 0 ? 0 : Math.round((done / total) * 100);
               const report = dashboard.reports.find((r) => r.campaignId === campaign.campaignId);
 
               return (
                 <div key={campaign.campaignId} className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-5)' }}>
-                  {/* Left: Campaign info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
                       <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
@@ -195,48 +403,26 @@ export default function PartnerPortal() {
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                        Package: <strong>{campaign.package}</strong>
+                        {campaign.package} &middot; {fmtMoney(campaign.budget)}
                       </span>
-                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                        {formatDate(campaign.startDate)} - {formatDate(campaign.endDate)}
+                      <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)' }}>
+                        {fmtDate(campaign.startDate)} - {fmtDate(campaign.endDate)}
                       </span>
                     </div>
                   </div>
-
-                  {/* Middle: Deliverable progress */}
-                  {totalDeliverables > 0 && (
-                    <div style={{ width: '140px', flexShrink: 0 }}>
+                  {total > 0 && (
+                    <div style={{ width: 140, flexShrink: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-1)' }}>
                         <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>Deliverables</span>
-                        <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)' }}>
-                          {completedDeliverables}/{totalDeliverables}
-                        </span>
+                        <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-textSecondary)' }}>{done}/{total}</span>
                       </div>
-                      <div style={{
-                        width: '100%',
-                        height: '6px',
-                        background: 'var(--color-bgElevated)',
-                        borderRadius: 'var(--radius-full)',
-                        overflow: 'hidden',
-                      }}>
-                        <div style={{
-                          width: `${progressPct}%`,
-                          height: '100%',
-                          background: progressPct === 100 ? 'var(--color-success)' : 'var(--color-accent)',
-                          borderRadius: 'var(--radius-full)',
-                          transition: 'width var(--transition-slow)',
-                        }} />
+                      <div style={{ width: '100%', height: 6, background: 'var(--color-bgElevated)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--color-success)' : 'var(--color-accent)', borderRadius: 'var(--radius-full)', transition: 'width var(--transition-slow)' }} />
                       </div>
                     </div>
                   )}
-
-                  {/* Right: Report link */}
                   {report && (
-                    <Link
-                      to={`/app/reports/${campaign.campaignId}`}
-                      className="btn btn-secondary"
-                      style={{ flexShrink: 0 }}
-                    >
+                    <Link to={`/app/reports/${campaign.campaignId}`} className="btn btn-secondary" style={{ flexShrink: 0 }}>
                       View Report
                     </Link>
                   )}
@@ -247,82 +433,46 @@ export default function PartnerPortal() {
         )}
       </section>
 
-      {/* Active Offers */}
-      <section className="section-card">
+      {/* ─── Active Offers ─── */}
+      <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="section-card-header">
           <h2 className="section-card-title">Active Offers ({activeOffers.length})</h2>
-          <Link to="/app/offers" className="btn btn-ghost" style={{ fontSize: 'var(--font-sm)' }}>
-            Manage Offers &#8594;
+          <Link to="/app/partner/offers" className="btn btn-ghost" style={{ fontSize: 'var(--font-sm)' }}>
+            Manage Offers &rarr;
           </Link>
         </div>
-
         {activeOffers.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-textMuted)' }}>
-            <p>No active offers. Create one to start tracking engagement.</p>
-            <Link to="/app/offers" className="btn btn-primary" style={{ marginTop: 'var(--space-4)', display: 'inline-flex' }}>
-              Create Offer
-            </Link>
+          <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-textMuted)' }}>
+            No active offers. Create one to start tracking engagement.
           </div>
         ) : (
-          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', marginTop: 'var(--space-3)' }}>
             {activeOffers.map((offer) => (
               <div key={offer.offerId} className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-3)' }}>
-                  <span
-                    className={`badge ${offer.type === 'qr' ? 'badge--info' : offer.type === 'promo' ? 'badge--accent' : 'badge--success'}`}
-                    style={{ textTransform: 'uppercase' }}
-                  >
+                  <span className={`badge ${offer.type === 'qr' ? 'badge--info' : offer.type === 'promo' ? 'badge--accent' : 'badge--success'}`} style={{ textTransform: 'uppercase' }}>
                     {offer.type}
                   </span>
-                  {offer.expiresAt && (
-                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
-                      Expires {formatDate(offer.expiresAt)}
-                    </span>
+                  {offer.approvalStatus === 'approved' && (
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-success)', fontWeight: 600 }}>Approved</span>
                   )}
                 </div>
-
                 <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', marginBottom: 'var(--space-3)', lineHeight: 1.5 }}>
                   {offer.description}
                 </p>
-
-                <div style={{
-                  fontSize: 'var(--font-xs)',
-                  color: 'var(--color-textSecondary)',
-                  fontFamily: 'monospace',
-                  background: 'var(--color-bgElevated)',
-                  padding: 'var(--space-1) var(--space-2)',
-                  borderRadius: 'var(--radius-sm)',
-                  marginBottom: 'var(--space-3)',
-                  display: 'inline-block',
-                }}>
-                  {offer.code}
-                </div>
-
                 <div style={{ display: 'flex', gap: 'var(--space-5)' }}>
                   <div>
-                    <span style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-textPrimary)' }}>
-                      {formatNumber(offer.scans)}
-                    </span>
-                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', display: 'block' }}>
-                      Scans
-                    </span>
+                    <span style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-textPrimary)' }}>{fmtNum(offer.scans)}</span>
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', display: 'block' }}>Scans</span>
                   </div>
                   <div>
-                    <span style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
-                      {formatNumber(offer.redemptions)}
-                    </span>
-                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', display: 'block' }}>
-                      Redemptions
-                    </span>
+                    <span style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>{fmtNum(offer.redemptions)}</span>
+                    <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', display: 'block' }}>Redemptions</span>
                   </div>
                   {offer.scans > 0 && (
                     <div>
-                      <span style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-accent)' }}>
-                        {Math.round((offer.redemptions / offer.scans) * 100)}%
-                      </span>
-                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', display: 'block' }}>
-                        Conv. Rate
-                      </span>
+                      <span style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-accent)' }}>{Math.round((offer.redemptions / offer.scans) * 100)}%</span>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', display: 'block' }}>Conv.</span>
                     </div>
                   )}
                 </div>
@@ -331,47 +481,56 @@ export default function PartnerPortal() {
           </div>
         )}
       </section>
+
+      {/* ─── Assumptions Disclaimer ─── */}
+      <div style={{
+        fontSize: 'var(--font-xs)',
+        color: 'var(--color-textMuted)',
+        padding: 'var(--space-4)',
+        borderTop: '1px solid var(--color-border)',
+        textAlign: 'center',
+        lineHeight: 1.6,
+      }}>
+        {stats.assumptions.note} &middot; Avg check: {fmtMoney(stats.assumptions.avgCheckValue)} &middot; Repeat visit rate: {Math.round(stats.assumptions.repeatVisitRate * 100)}%
+      </div>
     </div>
   );
 }
 
-/* ─── Metric Card ──────────────────────────────────────────────────────────── */
+/* ─── Sub-components ───────────────────────────────────────────────────────── */
 
-const MetricCard = memo(function MetricCard({
-  label,
-  value,
-  icon,
-  color,
-  bg,
+const HeroMetric = memo(function HeroMetric({
+  label, value, sub, icon, color,
 }: {
   label: string;
   value: string;
+  sub?: string;
   icon: string;
   color: string;
-  bg: string;
 }) {
   return (
     <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
       <div style={{
-        width: '48px',
-        height: '48px',
+        width: 44, height: 44,
         borderRadius: 'var(--radius-md)',
-        background: bg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 'var(--font-xl)',
-        flexShrink: 0,
+        background: `color-mix(in srgb, ${color} 12%, transparent)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '20px', flexShrink: 0,
       }}>
         {icon}
       </div>
       <div>
-        <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 'var(--space-1)' }}>
+        <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
           {label}
-        </p>
-        <p style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color, lineHeight: 1 }}>
+        </div>
+        <div style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color, lineHeight: 1 }}>
           {value}
-        </p>
+        </div>
+        {sub && (
+          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 4 }}>
+            {sub}
+          </div>
+        )}
       </div>
     </div>
   );
