@@ -59,6 +59,10 @@ Resources:
           AttributeType: S
         - AttributeName: GSI2SK
           AttributeType: S
+        - AttributeName: GSI3PK
+          AttributeType: S
+        - AttributeName: GSI3SK
+          AttributeType: S
       KeySchema:
         - AttributeName: PK
           KeyType: HASH
@@ -78,6 +82,14 @@ Resources:
             - AttributeName: GSI2PK
               KeyType: HASH
             - AttributeName: GSI2SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: GSI3
+          KeySchema:
+            - AttributeName: GSI3PK
+              KeyType: HASH
+            - AttributeName: GSI3SK
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
@@ -138,6 +150,9 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","method":"$context.httpMethod","path":"$context.resourcePath","status":"$context.status","latency":"$context.responseLatency","error":"$context.error.message"}'
       # H4: API Gateway throttling to protect AI endpoints and control costs.
       # Stage-level default throttle applies to all methods including /api/ai/*.
       # For more granular per-path throttling, use a Usage Plan resource.
@@ -442,6 +457,7 @@ Resources:
         Variables:
           FROM_EMAIL: !Ref FromEmail
           SES_CONFIG_SET: !Ref SESConfigurationSet
+          TABLE_NAME: !Ref DataTable
       Policies:
         - Statement:
             - Effect: Allow
@@ -457,8 +473,90 @@ Resources:
               Resource: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SESConfigurationSet}'
         - Statement:
             - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: !GetAtt DataTable.Arn
+        - Statement:
+            - Effect: Allow
               Action: sqs:SendMessage
               Resource: !GetAtt EmailDLQ.Arn
+
+  # ─── SES Bounce/Complaint Handler Lambda ──────────────────────────────────
+  SESHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub spot-ses-handler-${Environment}
+      CodeUri: lambda-ses-handler/
+      Handler: index.handler
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DataTable
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !GetAtt DataTable.Arn
+      Events:
+        BounceTopic:
+          Type: SNS
+          Properties:
+            Topic: !Ref SESBounceTopic
+        ComplaintTopic:
+          Type: SNS
+          Properties:
+            Topic: !Ref SESComplaintTopic
+
+  # ─── CloudWatch Log Groups ────────────────────────────────────────────────
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-api-${Environment}'
+      RetentionInDays: 30
+
+  AiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-ai-${Environment}'
+      RetentionInDays: 30
+
+  SyncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-sync-${Environment}'
+      RetentionInDays: 30
+
+  StripeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-stripe-${Environment}'
+      RetentionInDays: 30
+
+  LifecycleLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-lifecycle-${Environment}'
+      RetentionInDays: 30
+
+  EmailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-email-${Environment}'
+      RetentionInDays: 30
+
+  SESHandlerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/spot-ses-handler-${Environment}'
+      RetentionInDays: 30
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/spot-api-${Environment}'
+      RetentionInDays: 30
 
   # ─── CloudWatch Alarms ───────────────────────────────────────────────────
   ApiErrorAlarm:

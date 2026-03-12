@@ -1,8 +1,18 @@
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 
 const ses = new SESClient({ region: 'us-east-1' });
+const dynamoDb = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: 'us-east-1' })
+);
+
 const FROM_EMAIL = process.env.FROM_EMAIL;
+const TABLE_NAME = process.env.TABLE_NAME;
+
 if (!FROM_EMAIL) throw new Error('FROM_EMAIL env var is required — Lambda misconfigured');
+if (!TABLE_NAME) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
+
 const MAX_EMAILS = 10; // Safety cap per invocation
 
 export const handler = async (event) => {
@@ -10,6 +20,18 @@ export const handler = async (event) => {
 
   if (!type || !to) return { statusCode: 400, error: 'Missing type or to' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { statusCode: 400, error: 'Invalid email' };
+
+  // Check for suppression record before sending
+  const suppressed = await checkSuppression(to);
+  if (suppressed) {
+    console.warn(JSON.stringify({
+      action: 'email skipped',
+      reason: 'suppressed',
+      email: to,
+      type,
+    }));
+    return { statusCode: 200, message: 'Email suppressed', skipped: true };
+  }
 
   const template = getTemplate(type, data || {});
   if (!template) return { statusCode: 400, error: `Unknown template: ${type}` };
@@ -31,13 +53,48 @@ export const handler = async (event) => {
       emailParams.ConfigurationSetName = process.env.SES_CONFIG_SET;
     }
     await ses.send(new SendEmailCommand(emailParams));
-    console.log(`Email sent: type=${type}`);
+    console.log(JSON.stringify({
+      action: 'email sent',
+      type,
+      email: to,
+    }));
     return { statusCode: 200, message: 'Sent' };
   } catch (err) {
-    console.error(`SES send error: type=${type}, error=${err.message}`);
+    console.error(JSON.stringify({
+      action: 'SES send error',
+      type,
+      email: to,
+      error: err.message,
+    }));
     return { statusCode: 500, error: 'Send failed' };
   }
 };
+
+/**
+ * Check if email address is in suppression list
+ */
+async function checkSuppression(email) {
+  try {
+    const result = await dynamoDb.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: `SUPPRESSED#${email.toLowerCase()}`,
+          SK: 'SUPPRESSION',
+        },
+      })
+    );
+    return !!result.Item;
+  } catch (err) {
+    console.error(JSON.stringify({
+      action: 'suppression check error',
+      email,
+      error: err.message,
+    }));
+    // On error, return false to not block email sending
+    return false;
+  }
+}
 
 /**
  * Returns email template by type

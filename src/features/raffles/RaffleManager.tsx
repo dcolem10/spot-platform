@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
 import { CalendarDatePicker } from '../../components/CalendarDatePicker';
+import { logger } from '../../services/logger';
 import type { Raffle, RaffleEntry, RaffleStatus } from '../../types';
 
 /* ─── Demo Data ─────────────────────────────────────────────────────────────── */
@@ -394,7 +395,7 @@ export default function RaffleManager() {
       return api.put(`/api/raffles/${id}`, { status: 'active' });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['raffles'] }),
-    onError: (err: Error) => console.error('Activate raffle failed:', err.message),
+    onError: (err: Error) => logger.error('Activate raffle failed', { mutation: 'activateRaffle', err }),
   });
 
   const drawMutation = useMutation({
@@ -404,7 +405,7 @@ export default function RaffleManager() {
       return res;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['raffles'] }),
-    onError: (err: Error) => console.error('Draw winner failed:', err.message),
+    onError: (err: Error) => logger.error('Draw winner failed', { mutation: 'drawWinner', err }),
   });
 
   const raffles = rafflesQuery.data || [];

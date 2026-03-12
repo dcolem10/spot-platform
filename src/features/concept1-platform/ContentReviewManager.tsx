@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { isDemoMode } from '../../data/demoData';
+import { logger } from '../../services/logger';
 import type { ContentReview, ContentReviewStatus, ContentPlatform, ContentType } from '../../types';
 
 /* ─── Demo Data ─────────────────────────────────────────────────────────────── */
@@ -709,7 +710,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/submit`, {});
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
-    onError: (err: Error) => console.error('Submit failed:', err.message),
+    onError: (err: Error) => logger.error('Content review submit failed', { mutation: 'submit', err }),
   });
 
   const approveMutation = useMutation({
@@ -718,7 +719,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/approve`, {});
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
-    onError: (err: Error) => console.error('Approve failed:', err.message),
+    onError: (err: Error) => logger.error('Content review approve failed', { mutation: 'approve', err }),
   });
 
   const requestRevisionMutation = useMutation({
@@ -727,7 +728,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/request-revision`, { reason });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
-    onError: (err: Error) => console.error('Revision request failed:', err.message),
+    onError: (err: Error) => logger.error('Content revision request failed', { mutation: 'requestRevision', err }),
   });
 
   const rejectMutation = useMutation({
@@ -736,7 +737,7 @@ export default function ContentReviewManager() {
       return api.put(`/api/content-reviews/${id}/reject`, { reason });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
-    onError: (err: Error) => console.error('Reject failed:', err.message),
+    onError: (err: Error) => logger.error('Content review reject failed', { mutation: 'reject', err }),
   });
 
   const reviews = tab === 'inbox' ? inboxQuery.data || [] : draftsQuery.data || [];

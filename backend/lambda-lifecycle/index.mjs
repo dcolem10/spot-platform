@@ -93,28 +93,27 @@ export const handler = async (_event, context) => {
 };
 
 /**
- * Get all creator profiles from DynamoDB
- * Scans for items where PK starts with USER# and SK = PROFILE.
- * Safety cap prevents runaway scan costs if table grows unexpectedly.
+ * Get all creator profiles from DynamoDB using GSI3
+ * Queries GSI3 for items where GSI3PK = 'USERS' (all creators), sorted by createdAt (GSI3SK).
+ * Pagination prevents memory exhaustion on large result sets.
  */
 async function getAllCreators() {
   const items = [];
   let lastKey;
   let scannedCount = 0;
-  const SCAN_CAP = MAX_CREATORS_PER_RUN * 2; // Safety margin for filtered scans
+  const SCAN_CAP = MAX_CREATORS_PER_RUN * 2; // Safety margin for query results
 
   do {
-    // TODO: Replace Scan with GSI query when USERS_BY_CREATED GSI is added.
-    // For now, Limit per page bounds memory usage per iteration.
-    const result = await ddb.send(new ScanCommand({
+    // Query GSI3 where GSI3PK = 'USERS' to get all creator profiles sorted by createdAt
+    const result = await ddb.send(new QueryCommand({
       TableName: TABLE,
-      FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
+      IndexName: 'GSI3',
+      KeyConditionExpression: 'GSI3PK = :pk',
       ExpressionAttributeValues: {
-        ':prefix': 'USER#',
-        ':sk': 'PROFILE',
+        ':pk': 'USERS',
       },
       ExclusiveStartKey: lastKey,
-      Limit: 200, // Page size cap — prevents single scan page from exhausting Lambda memory
+      Limit: 200, // Page size cap — prevents single query page from exhausting Lambda memory
     }));
 
     if (result.Items) items.push(...result.Items);
@@ -122,13 +121,12 @@ async function getAllCreators() {
     lastKey = result.LastEvaluatedKey;
 
     if (items.length >= SCAN_CAP) {
-      console.warn(`Hit scan safety cap (${SCAN_CAP}). Stopping pagination. Scanned: ${scannedCount}`);
+      console.warn(`Hit query safety cap (${SCAN_CAP}). Stopping pagination. Scanned: ${scannedCount}`);
       break;
     }
   } while (lastKey);
 
-  const efficiency = scannedCount > 0 ? ((items.length / scannedCount) * 100).toFixed(1) : '100';
-  console.log(`Lifecycle scan: ${items.length} creators from ${scannedCount} items (${efficiency}% efficiency)`);
+  console.log(`Lifecycle query: ${items.length} creators from ${scannedCount} items (100% efficiency via GSI3)`);
   return items;
 }
 

@@ -20,6 +20,12 @@ interface StyledSelectProps {
   placeholder?: string;
   disabled?: boolean;
   size?: 'sm' | 'md';
+  /** Show error styling and aria-invalid */
+  error?: boolean;
+  /** Error message shown below the select */
+  errorMessage?: string;
+  /** Accessible label */
+  'aria-label'?: string;
   /** Full-width by default */
   style?: React.CSSProperties;
 }
@@ -31,6 +37,9 @@ export function StyledSelect({
   placeholder = 'Select…',
   disabled = false,
   size = 'md',
+  error = false,
+  errorMessage,
+  'aria-label': ariaLabel,
   style,
 }: StyledSelectProps) {
   const [open, setOpen] = useState(false);
@@ -144,6 +153,8 @@ export function StyledSelect({
         disabled={disabled}
         role="combobox"
         aria-expanded={open}
+        aria-invalid={error || undefined}
+        aria-label={ariaLabel}
         onClick={() => {
           if (!disabled) {
             const willOpen = !open;
@@ -162,7 +173,7 @@ export function StyledSelect({
           width: '100%',
           padding: pad,
           background: disabled ? 'var(--color-bgPrimary)' : 'var(--color-bgElevated)',
-          border: open ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
+          border: error ? '1px solid var(--color-error, #ef4444)' : open ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
           borderRadius: 'var(--radius-md)',
           color: selected ? 'var(--color-textPrimary)' : 'var(--color-textMuted)',
           fontSize,
@@ -341,6 +352,15 @@ export function StyledSelect({
           </div>
         </div>
       )}
+      {error && errorMessage && (
+        <div role="alert" style={{
+          marginTop: 'var(--space-1)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--color-error, #ef4444)',
+        }}>
+          {errorMessage}
+        </div>
+      )}
     </div>
   );
 }
@@ -358,6 +378,8 @@ interface StyledDatePickerProps {
   max?: string;
   disabled?: boolean;
   size?: 'sm' | 'md';
+  error?: boolean;
+  errorMessage?: string;
   style?: React.CSSProperties;
 }
 
@@ -369,6 +391,8 @@ export function StyledDatePicker({
   max,
   disabled = false,
   size = 'md',
+  error = false,
+  errorMessage,
   style,
 }: StyledDatePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -391,6 +415,7 @@ export function StyledDatePicker({
         type="button"
         disabled={disabled}
         aria-label={placeholder}
+        aria-invalid={error || undefined}
         onClick={() => inputRef.current?.showPicker?.()}
         style={{
           display: 'flex',
@@ -399,7 +424,7 @@ export function StyledDatePicker({
           width: '100%',
           padding: pad,
           background: disabled ? 'var(--color-bgPrimary)' : 'var(--color-bgElevated)',
-          border: '1px solid var(--color-border)',
+          border: error ? '1px solid var(--color-error, #ef4444)' : '1px solid var(--color-border)',
           borderRadius: 'var(--radius-md)',
           color: value ? 'var(--color-textPrimary)' : 'var(--color-textMuted)',
           fontSize,
@@ -474,6 +499,15 @@ export function StyledDatePicker({
         >
           &times;
         </button>
+      )}
+      {error && errorMessage && (
+        <div role="alert" style={{
+          marginTop: 'var(--space-1)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--color-error, #ef4444)',
+        }}>
+          {errorMessage}
+        </div>
       )}
     </div>
   );

@@ -3167,11 +3167,14 @@ async function upsertProfile(event) {
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
+  const now = new Date();
   const item = {
     PK: `CREATOR#${userId}`,
     SK: 'PROFILE',
     GSI1PK: 'CREATORS',
     GSI1SK: `CREATOR#${userId}`,
+    GSI3PK: 'USERS',
+    GSI3SK: now.toISOString(),
     creatorId: userId,
     displayName: sanitize(body.displayName, 100),
     bio: sanitize(body.bio, 500),
@@ -3193,8 +3196,8 @@ async function upsertProfile(event) {
       ? body.creatorType
       : 'food',
     onboardingCompleted: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
   };
 
   await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
