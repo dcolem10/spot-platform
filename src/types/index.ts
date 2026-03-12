@@ -95,6 +95,19 @@ export interface Deliverable {
 
 export type SocialPlatform = 'instagram' | 'tiktok' | 'youtube' | 'twitter';
 
+export type OfferApprovalStatus = 'creator_only' | 'pending_restaurant' | 'approved' | 'paused_by_creator' | 'paused_by_restaurant' | 'rejected';
+
+export interface OfferTerms {
+  discountType: 'percent' | 'fixed' | 'freeItem';
+  discountValue: number;
+  freeItemDescription?: string;
+  maxRedemptions?: number;
+  blackoutDates?: string[];
+  validDays?: string[];
+  minSpend?: number;
+  notes?: string;
+}
+
 export interface Offer {
   offerId: string;
   restaurantId: string;
@@ -110,6 +123,15 @@ export interface Offer {
   expiresAt?: string;
   isActive: boolean;
   createdAt: string;
+  // Mutual approval fields
+  approvalStatus: OfferApprovalStatus;
+  creatorTerms?: OfferTerms;
+  restaurantTerms?: OfferTerms;
+  mutuallyApproved?: boolean;
+  approvedAt?: string;
+  pausedBy?: 'creator' | 'restaurant';
+  pausedAt?: string;
+  pauseReason?: string;
 }
 
 export interface CampaignReport {
@@ -315,4 +337,32 @@ export interface RestaurantFilters {
   vibes?: string[];
   isPartner?: boolean;
   occasion?: string;
+}
+
+// ─── Notifications ──────────────────────────────────────────────────────────
+
+export type NotificationType =
+  | 'proposal_received'
+  | 'proposal_accepted'
+  | 'proposal_declined'
+  | 'proposal_countered'
+  | 'offer_approval_requested'
+  | 'offer_approved'
+  | 'offer_rejected'
+  | 'offer_paused'
+  | 'raffle_entry'
+  | 'raffle_winner'
+  | 'qr_milestone'
+  | 'proposal_expiring';
+
+export interface Notification {
+  notificationId: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link?: string;
+  isRead: boolean;
+  emailSent?: boolean;
+  createdAt: string;
 }

@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { ScrollToTop } from '../components/ScrollToTop';
 import { WelcomeModal } from '../components/WelcomeModal';
+import NotificationBell from '../components/NotificationBell';
 import './Sidebar.css';
 
 interface NavItem {
@@ -182,6 +183,7 @@ export default function DashboardShell() {
             <div className="sidebar-user-name">{displayName || email || 'User'}</div>
             <div className="sidebar-user-role">{displayRole}</div>
           </div>
+          <NotificationBell />
           <button
             onClick={isDemoMode ? () => { resetAuth(); navigate('/', { replace: true }); } : handleSignOut}
             title={isDemoMode ? 'Exit demo' : 'Sign out'}

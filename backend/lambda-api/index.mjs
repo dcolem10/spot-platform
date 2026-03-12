@@ -8,13 +8,16 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { randomUUID, randomInt } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp } from './helpers.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
+const sesClient = new SESClient({});
 const TABLE = process.env.TABLE_NAME;
+const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@tryspot.app';
 const ORIGIN = process.env.ALLOWED_ORIGIN || '';
 if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
 
@@ -627,6 +630,8 @@ async function createOffer(restaurantId, event) {
     scansBySource: {},
     expiresAt,
     isActive: true,
+    approvalStatus: 'creator_only',
+    mutuallyApproved: false,
     createdAt: new Date().toISOString(),
   };
 
@@ -2474,6 +2479,21 @@ async function acceptProposal(proposalId, event) {
     })
   );
 
+  // Notify initiator their proposal was accepted
+  await createNotification(
+    proposal.initiatorId,
+    'proposal_accepted',
+    'Proposal Accepted!',
+    `Your ${proposal.proposalType || 'deal'} proposal has been accepted.`,
+    '/app/proposals',
+    ''
+  );
+  await sendNotificationEmail(
+    proposal.initiatorId,
+    'Proposal Accepted!',
+    `Your ${proposal.proposalType || 'deal'} proposal has been accepted! Log in to see the details and next steps.`
+  );
+
   return respond(200, { message: 'Proposal accepted', proposalId, status: 'accepted' });
 }
 
@@ -2571,6 +2591,16 @@ async function declineProposal(proposalId, event) {
     })
   );
 
+  // Notify initiator their proposal was declined
+  await createNotification(
+    proposal.initiatorId,
+    'proposal_declined',
+    'Proposal Declined',
+    reason ? `Your proposal was declined: "${reason}"` : 'Your proposal was declined.',
+    '/app/proposals',
+    ''
+  );
+
   return respond(200, { message: 'Proposal declined', proposalId, status: 'declined' });
 }
 
@@ -2631,6 +2661,659 @@ async function addProposalMessage(proposalId, event) {
   );
 
   return respond(200, { message: 'Message added', proposalId });
+}
+
+// ─── Offer Mutual Approval ────────────────────────────────────────────────────
+
+/**
+ * PUT /api/offers/{id}/submit-for-approval — Creator submits offer for restaurant approval.
+ * Adds creatorTerms, sets approvalStatus to 'pending_restaurant'.
+ */
+async function submitOfferForApproval(offerId, event) {
+  if (!isValidId(offerId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'OFFER_APPROVE', 30))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  // Find offer owned by user
+  const ownerResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#OFFERS`,
+        ':sk': `OFFER#${offerId}`,
+      },
+      Limit: 1,
+    })
+  );
+  if (!ownerResult.Items?.length) return respond(404, { error: 'Offer not found' });
+  const offer = ownerResult.Items[0];
+
+  // Validate terms
+  const terms = body.creatorTerms;
+  if (!terms || !terms.discountType) {
+    return respond(400, { error: 'Creator terms with discountType are required' });
+  }
+  const VALID_DISCOUNT_TYPES = ['percent', 'fixed', 'freeItem'];
+  if (!VALID_DISCOUNT_TYPES.includes(terms.discountType)) {
+    return respond(400, { error: 'Invalid discount type' });
+  }
+
+  const creatorTerms = {
+    discountType: terms.discountType,
+    discountValue: Math.max(0, Math.min(Number(terms.discountValue) || 0, 100)),
+    freeItemDescription: terms.freeItemDescription ? sanitize(terms.freeItemDescription, 200) : undefined,
+    maxRedemptions: terms.maxRedemptions ? Math.max(1, Math.min(Number(terms.maxRedemptions), 100000)) : undefined,
+    blackoutDates: Array.isArray(terms.blackoutDates) ? terms.blackoutDates.slice(0, 30).map(d => sanitize(d, 12)) : [],
+    validDays: Array.isArray(terms.validDays) ? terms.validDays.filter(d => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].includes(d)) : [],
+    minSpend: terms.minSpend ? Math.max(0, Number(terms.minSpend)) : undefined,
+    notes: terms.notes ? sanitize(terms.notes, 500) : undefined,
+  };
+
+  const nowISO = new Date().toISOString();
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: offer.PK, SK: offer.SK },
+      UpdateExpression: 'SET approvalStatus = :status, creatorTerms = :terms, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':status': 'pending_restaurant',
+        ':terms': creatorTerms,
+        ':now': nowISO,
+      },
+    })
+  );
+
+  // Create notification for restaurant
+  await createNotification(
+    offer.restaurantId,
+    'offer_approval_requested',
+    'New Deal Awaiting Your Approval',
+    `A creator has submitted a ${creatorTerms.discountType === 'percent' ? creatorTerms.discountValue + '% off' : creatorTerms.discountType === 'freeItem' ? 'free item' : '$' + creatorTerms.discountValue + ' off'} deal for your approval.`,
+    `/app/partner/offers`,
+    offer.restaurantName
+  );
+
+  return respond(200, { message: 'Offer submitted for restaurant approval', offerId, approvalStatus: 'pending_restaurant' });
+}
+
+/**
+ * PUT /api/offers/{id}/approve — Restaurant approves (or sets own terms on) an offer.
+ */
+async function approveOffer(offerId, event) {
+  if (!isValidId(offerId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'OFFER_APPROVE', 30))) {
+    return respond(429, { error: 'Too many requests.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  // Find offer where this restaurant is the target
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${offerId.split('#')[0] || body.restaurantId}`, SK: `OFFER#${offerId}` },
+    })
+  );
+
+  // Fallback: search by GSI1 using the offerId
+  let offer = result?.Item;
+  if (!offer) {
+    const gsiResult = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk',
+        FilterExpression: 'offerId = :oid',
+        ExpressionAttributeValues: { ':pk': `RESTAURANT#${body.restaurantId || userId}`, ':oid': offerId },
+        Limit: 10,
+      })
+    );
+    offer = gsiResult.Items?.find(i => i.offerId === offerId);
+  }
+  if (!offer) return respond(404, { error: 'Offer not found' });
+
+  if (offer.approvalStatus !== 'pending_restaurant') {
+    return respond(400, { error: 'This offer is not pending restaurant approval' });
+  }
+
+  const nowISO = new Date().toISOString();
+  const restaurantTerms = body.restaurantTerms ? {
+    discountType: body.restaurantTerms.discountType || offer.creatorTerms?.discountType,
+    discountValue: Number(body.restaurantTerms.discountValue ?? offer.creatorTerms?.discountValue ?? 0),
+    maxRedemptions: body.restaurantTerms.maxRedemptions ? Math.max(1, Number(body.restaurantTerms.maxRedemptions)) : offer.creatorTerms?.maxRedemptions,
+    blackoutDates: Array.isArray(body.restaurantTerms.blackoutDates) ? body.restaurantTerms.blackoutDates.slice(0, 30) : offer.creatorTerms?.blackoutDates,
+    validDays: Array.isArray(body.restaurantTerms.validDays) ? body.restaurantTerms.validDays : offer.creatorTerms?.validDays,
+    minSpend: body.restaurantTerms.minSpend ?? offer.creatorTerms?.minSpend,
+    notes: body.restaurantTerms.notes ? sanitize(body.restaurantTerms.notes, 500) : undefined,
+  } : offer.creatorTerms;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: offer.PK, SK: offer.SK },
+      UpdateExpression: 'SET approvalStatus = :status, restaurantTerms = :terms, mutuallyApproved = :approved, approvedAt = :now, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':status': 'approved',
+        ':terms': restaurantTerms,
+        ':approved': true,
+        ':now': nowISO,
+      },
+    })
+  );
+
+  // Notify the creator
+  await createNotification(
+    offer.creatorId,
+    'offer_approved',
+    'Deal Approved!',
+    `${offer.restaurantName} approved your deal. QR code is now live!`,
+    `/app/offers`,
+    offer.restaurantName
+  );
+
+  // Send email to creator
+  await sendNotificationEmail(
+    offer.creatorId,
+    'Deal Approved!',
+    `Great news! ${offer.restaurantName} has approved your deal "${offer.description}". The QR code is now live and ready to share.`
+  );
+
+  return respond(200, { message: 'Offer approved', offerId, approvalStatus: 'approved' });
+}
+
+/**
+ * PUT /api/offers/{id}/reject — Restaurant rejects an offer.
+ */
+async function rejectOffer(offerId, event) {
+  if (!isValidId(offerId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'OFFER_APPROVE', 30))) {
+    return respond(429, { error: 'Too many requests.' });
+  }
+
+  const body = parseBody(event);
+  const reason = body?.reason ? sanitize(body.reason, 500) : '';
+
+  // Find by restaurantId
+  const restaurantId = body?.restaurantId || userId;
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: { ':pk': `RESTAURANT#${restaurantId}`, ':sk': `OFFER#${offerId}` },
+      Limit: 1,
+    })
+  );
+  const offer = result.Items?.[0];
+  if (!offer) return respond(404, { error: 'Offer not found' });
+
+  if (offer.approvalStatus !== 'pending_restaurant') {
+    return respond(400, { error: 'This offer is not pending approval' });
+  }
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: offer.PK, SK: offer.SK },
+      UpdateExpression: 'SET approvalStatus = :status, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':status': 'rejected',
+        ':now': new Date().toISOString(),
+      },
+    })
+  );
+
+  await createNotification(
+    offer.creatorId,
+    'offer_rejected',
+    'Deal Not Approved',
+    reason ? `${offer.restaurantName} declined your deal: "${reason}"` : `${offer.restaurantName} declined your deal.`,
+    `/app/offers`,
+    offer.restaurantName
+  );
+
+  return respond(200, { message: 'Offer rejected', offerId, approvalStatus: 'rejected' });
+}
+
+/**
+ * PUT /api/offers/{id}/pause — Either party pauses an approved offer.
+ */
+async function pauseOffer(offerId, event) {
+  if (!isValidId(offerId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'OFFER_PAUSE', 30))) {
+    return respond(429, { error: 'Too many requests.' });
+  }
+
+  const body = parseBody(event);
+  const pauseRole = body?.role || 'creator'; // 'creator' or 'restaurant'
+  const reason = body?.reason ? sanitize(body.reason, 500) : '';
+
+  // Find offer by querying creator GSI
+  const gsiResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#OFFERS`,
+        ':sk': `OFFER#${offerId}`,
+      },
+      Limit: 1,
+    })
+  );
+  let offer = gsiResult.Items?.[0];
+
+  // If not found as creator, try finding via restaurant key
+  if (!offer && body?.restaurantId) {
+    const restResult = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${body.restaurantId}`, SK: `OFFER#${offerId}` },
+      })
+    );
+    offer = restResult.Item;
+  }
+  if (!offer) return respond(404, { error: 'Offer not found' });
+
+  if (offer.approvalStatus !== 'approved' && offer.approvalStatus !== 'creator_only') {
+    return respond(400, { error: 'Can only pause active/approved offers' });
+  }
+
+  const pausedBy = pauseRole === 'restaurant' ? 'restaurant' : 'creator';
+  const nowISO = new Date().toISOString();
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: offer.PK, SK: offer.SK },
+      UpdateExpression: 'SET approvalStatus = :status, pausedBy = :by, pausedAt = :now, pauseReason = :reason, isActive = :inactive, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':status': pausedBy === 'creator' ? 'paused_by_creator' : 'paused_by_restaurant',
+        ':by': pausedBy,
+        ':now': nowISO,
+        ':reason': reason,
+        ':inactive': false,
+      },
+    })
+  );
+
+  // Update lookup record
+  if (offer.code) {
+    try {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `OFFER_CODE#${offer.code}`, SK: 'LOOKUP' },
+          UpdateExpression: 'SET isActive = :val',
+          ExpressionAttributeValues: { ':val': false },
+        })
+      );
+    } catch (e) { console.warn(`Lookup update failed: ${e.message}`); }
+  }
+
+  // Notify the other party
+  const notifyTarget = pausedBy === 'creator' ? offer.restaurantId : offer.creatorId;
+  const notifyType = 'offer_paused';
+  await createNotification(
+    notifyTarget,
+    notifyType,
+    'Deal Paused',
+    `A deal for ${offer.restaurantName} has been paused by the ${pausedBy}${reason ? ': "' + reason + '"' : '.'}`,
+    pausedBy === 'creator' ? '/app/partner/offers' : '/app/offers',
+    offer.restaurantName
+  );
+
+  return respond(200, { message: 'Offer paused', offerId, pausedBy });
+}
+
+/**
+ * PUT /api/offers/{id}/resume — Resume a paused offer.
+ */
+async function resumeOffer(offerId, event) {
+  if (!isValidId(offerId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'OFFER_RESUME', 30))) {
+    return respond(429, { error: 'Too many requests.' });
+  }
+
+  const gsiResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}#OFFERS`,
+        ':sk': `OFFER#${offerId}`,
+      },
+      Limit: 1,
+    })
+  );
+  let offer = gsiResult.Items?.[0];
+
+  const body = parseBody(event);
+  if (!offer && body?.restaurantId) {
+    const restResult = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${body.restaurantId}`, SK: `OFFER#${offerId}` },
+      })
+    );
+    offer = restResult.Item;
+  }
+  if (!offer) return respond(404, { error: 'Offer not found' });
+
+  if (!offer.approvalStatus?.startsWith('paused_by_')) {
+    return respond(400, { error: 'Offer is not paused' });
+  }
+
+  const previousStatus = offer.mutuallyApproved ? 'approved' : 'creator_only';
+  const nowISO = new Date().toISOString();
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: offer.PK, SK: offer.SK },
+      UpdateExpression: 'SET approvalStatus = :status, isActive = :active, updatedAt = :now REMOVE pausedBy, pausedAt, pauseReason',
+      ExpressionAttributeValues: {
+        ':status': previousStatus,
+        ':active': true,
+        ':now': nowISO,
+      },
+    })
+  );
+
+  // Update lookup record
+  if (offer.code) {
+    try {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `OFFER_CODE#${offer.code}`, SK: 'LOOKUP' },
+          UpdateExpression: 'SET isActive = :val',
+          ExpressionAttributeValues: { ':val': true },
+        })
+      );
+    } catch (e) { console.warn(`Lookup update failed: ${e.message}`); }
+  }
+
+  return respond(200, { message: 'Offer resumed', offerId, approvalStatus: previousStatus });
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+/**
+ * Create a notification for a user and optionally trigger SES email.
+ */
+async function createNotification(targetUserId, type, title, body, link, entityName) {
+  if (!targetUserId) return;
+  const notificationId = randomUUID();
+  const nowISO = new Date().toISOString();
+
+  const item = {
+    PK: `USER#${targetUserId}`,
+    SK: `NOTIF#${nowISO}#${notificationId}`,
+    notificationId,
+    userId: targetUserId,
+    type,
+    title: sanitize(title, 200),
+    body: sanitize(body, 500),
+    link: link || '',
+    isRead: false,
+    emailSent: false,
+    createdAt: nowISO,
+    // TTL: expire after 90 days
+    ttl: Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60,
+  };
+
+  try {
+    await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+  } catch (err) {
+    console.error(`Failed to create notification: ${err.message}`);
+  }
+
+  return notificationId;
+}
+
+/**
+ * GET /api/notifications — List notifications for current user.
+ */
+async function listNotifications(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const qs = event.queryStringParameters || {};
+  const limit = Math.min(Number(qs.limit) || 30, 100);
+  const unreadOnly = qs.unread === 'true';
+
+  const params = {
+    TableName: TABLE,
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+    ExpressionAttributeValues: {
+      ':pk': `USER#${userId}`,
+      ':prefix': 'NOTIF#',
+    },
+    ScanIndexForward: false, // newest first
+    Limit: limit,
+  };
+
+  if (unreadOnly) {
+    params.FilterExpression = 'isRead = :unread';
+    params.ExpressionAttributeValues[':unread'] = false;
+  }
+
+  const result = await ddb.send(new QueryCommand(params));
+  const notifications = (result.Items || []).map(stripDdbKeys);
+
+  // Also return unread count
+  const countResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      FilterExpression: 'isRead = :unread',
+      ExpressionAttributeValues: {
+        ':pk': `USER#${userId}`,
+        ':prefix': 'NOTIF#',
+        ':unread': false,
+      },
+      Select: 'COUNT',
+    })
+  );
+
+  return respond(200, { notifications, unreadCount: countResult.Count || 0 });
+}
+
+/**
+ * PUT /api/notifications/read — Mark notifications as read.
+ */
+async function markNotificationsRead(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'NOTIF_READ', 60))) {
+    return respond(429, { error: 'Too many requests.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  // Mark specific IDs or mark all as read
+  const markAll = body.markAll === true;
+  const ids = Array.isArray(body.notificationIds) ? body.notificationIds.slice(0, 50) : [];
+
+  if (markAll) {
+    // Get up to 25 unread notifications (capped to limit write cost)
+    const unreadResult = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+        FilterExpression: 'isRead = :unread',
+        ExpressionAttributeValues: {
+          ':pk': `USER#${userId}`,
+          ':prefix': 'NOTIF#',
+          ':unread': false,
+        },
+        Limit: 25,
+      })
+    );
+
+    const items = unreadResult.Items || [];
+    // Process in batches of 10 to avoid write spikes
+    let updated = 0;
+    for (let i = 0; i < items.length; i += 10) {
+      const batch = items.slice(i, i + 10);
+      await Promise.all(batch.map(item =>
+        ddb.send(
+          new UpdateCommand({
+            TableName: TABLE,
+            Key: { PK: item.PK, SK: item.SK },
+            UpdateExpression: 'SET isRead = :read',
+            ExpressionAttributeValues: { ':read': true },
+          })
+        )
+      ));
+      updated += batch.length;
+    }
+    return respond(200, { message: 'All notifications marked as read', count: updated });
+  }
+
+  // Mark specific IDs
+  if (!ids.length) return respond(400, { error: 'Provide notificationIds or markAll: true' });
+
+  // Look up each notification and mark read
+  const notifResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+      ExpressionAttributeValues: {
+        ':pk': `USER#${userId}`,
+        ':prefix': 'NOTIF#',
+      },
+      Limit: 200,
+    })
+  );
+
+  const toUpdate = (notifResult.Items || []).filter(i => ids.includes(i.notificationId));
+  const updates = toUpdate.map(item =>
+    ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: item.PK, SK: item.SK },
+        UpdateExpression: 'SET isRead = :read',
+        ExpressionAttributeValues: { ':read': true },
+      })
+    )
+  );
+  await Promise.all(updates);
+  return respond(200, { message: 'Notifications marked as read', count: updates.length });
+}
+
+// ─── SES Email Notifications ─────────────────────────────────────────────────
+
+/**
+ * Send a notification email to a user. Looks up user profile for email.
+ * Fails silently if SES is not configured or user email not found.
+ */
+async function sendNotificationEmail(targetUserId, subject, htmlBody) {
+  try {
+    // SES rate limit: max 10 emails per user per hour
+    const emailRateKey = `RATE#EMAIL#${targetUserId}`;
+    const hourWindow = Math.floor(Date.now() / 1000 / 3600);
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: emailRateKey,
+          SK: `HOUR#${hourWindow}`,
+          count: 1,
+          ttl: Math.floor(Date.now() / 1000) + 7200,
+        },
+        ConditionExpression: 'attribute_not_exists(PK)',
+      }));
+    } catch (rateErr) {
+      if (rateErr.name === 'ConditionalCheckFailedException') {
+        // Already sent this hour, increment counter
+        const incResult = await ddb.send(new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: emailRateKey, SK: `HOUR#${hourWindow}` },
+          UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :inc',
+          ExpressionAttributeNames: { '#c': 'count' },
+          ExpressionAttributeValues: { ':zero': 0, ':inc': 1 },
+          ReturnValues: 'ALL_NEW',
+        }));
+        if ((incResult.Attributes?.count || 0) > 10) {
+          console.warn(`Email rate limit exceeded for user ${targetUserId}`);
+          return;
+        }
+      } else {
+        throw rateErr;
+      }
+    }
+
+    // Look up user email from profile
+    const profileResult = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `USER#${targetUserId}`, SK: 'PROFILE' },
+        ProjectionExpression: 'email, #n',
+        ExpressionAttributeNames: { '#n': 'name' },
+      })
+    );
+    if (!profileResult.Item?.email) return;
+
+    const toEmail = profileResult.Item.email;
+    const userName = profileResult.Item.name || 'there';
+
+    await sesClient.send(
+      new SendEmailCommand({
+        Source: SES_FROM_EMAIL,
+        Destination: { ToAddresses: [toEmail] },
+        Message: {
+          Subject: { Data: `Spot | ${subject}`, Charset: 'UTF-8' },
+          Body: {
+            Html: {
+              Data: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0f; color: #fff; padding: 32px;">
+                  <div style="text-align: center; margin-bottom: 24px;">
+                    <span style="font-size: 24px; font-weight: 700; color: #ff6b35;">Spot</span>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px;">
+                    <p style="color: rgba(255,255,255,0.7);">Hi ${sanitize(userName, 50)},</p>
+                    <p style="color: #fff; line-height: 1.6;">${htmlBody}</p>
+                  </div>
+                  <div style="text-align: center; margin-top: 24px;">
+                    <a href="https://tryspot.app/app/dashboard" style="color: #ff6b35; text-decoration: none; font-weight: 600;">Open Spot Dashboard</a>
+                  </div>
+                  <p style="text-align: center; color: rgba(255,255,255,0.3); font-size: 12px; margin-top: 32px;">
+                    You're receiving this because you're a Spot user. <a href="https://tryspot.app/app/settings" style="color: rgba(255,255,255,0.4);">Unsubscribe</a>
+                  </p>
+                </div>
+              `,
+              Charset: 'UTF-8',
+            },
+          },
+        },
+      })
+    );
+
+    console.log(`Email sent to ${toEmail}: ${subject}`);
+  } catch (err) {
+    // Fail silently — email is best-effort
+    console.warn(`SES email failed for ${targetUserId}: ${err.message}`);
+  }
 }
 
 // ─── Raffles (Spot Raffles) ───────────────────────────────────────────────────
@@ -3183,6 +3866,18 @@ export const handler = async (event) => {
     if (path.match(/\/api\/offers\/[^/]+$/) && method === 'PUT')
       return updateOffer(pathParts[pathParts.length - 1], event);
 
+    // Offer mutual approval endpoints
+    if (path.match(/\/api\/offers\/[^/]+\/submit-for-approval$/) && method === 'PUT')
+      return submitOfferForApproval(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/offers\/[^/]+\/approve$/) && method === 'PUT')
+      return approveOffer(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/offers\/[^/]+\/reject$/) && method === 'PUT')
+      return rejectOffer(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/offers\/[^/]+\/pause$/) && method === 'PUT')
+      return pauseOffer(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/offers\/[^/]+\/resume$/) && method === 'PUT')
+      return resumeOffer(pathParts[pathParts.length - 2], event);
+
     // Offer tracking (public — rate limited by IP)
     if (path.match(/\/api\/offers\/[^/]+\/scan$/) && method === 'GET')
       return trackScan(pathParts[pathParts.length - 2], event);
@@ -3302,6 +3997,12 @@ export const handler = async (event) => {
       return declineProposal(pathParts[pathParts.length - 2], event);
     if (path.match(/\/api\/proposals\/[^/]+\/message$/) && method === 'POST')
       return addProposalMessage(pathParts[pathParts.length - 2], event);
+
+    // Notifications
+    if (path.match(/\/api\/notifications$/) && method === 'GET')
+      return listNotifications(event);
+    if (path.match(/\/api\/notifications\/read$/) && method === 'PUT')
+      return markNotificationsRead(event);
 
     // Multi-Creator Collaborations
     if (path.match(/\/api\/campaigns\/[^/]+\/collaborators$/) && method === 'POST') {

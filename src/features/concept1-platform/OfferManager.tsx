@@ -7,7 +7,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { StyledSelect } from '../../components/FormControls';
 import { CalendarDatePicker } from '../../components/CalendarDatePicker';
 import { isDemoMode, DEMO_OFFERS, DEMO_CAMPAIGNS } from '../../data/demoData';
-import type { Offer, Campaign } from '../../types';
+import type { Offer, Campaign, OfferApprovalStatus } from '../../types';
 
 function escapeHtml(str: string): string {
   return str
@@ -64,6 +64,15 @@ const SOURCE_COLORS: Record<string, { bg: string; color: string; label: string }
   direct: { bg: 'var(--color-bgElevated)', color: 'var(--color-textMuted)', label: 'Direct' },
   in_person: { bg: 'rgba(249, 115, 22, 0.1)', color: 'var(--color-accent)', label: 'In Person' },
   email: { bg: 'rgba(99, 102, 241, 0.1)', color: '#6366F1', label: 'Email' },
+};
+
+const APPROVAL_BADGE: Record<OfferApprovalStatus, { bg: string; color: string; label: string }> = {
+  creator_only: { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af', label: 'Creator Only' },
+  pending_restaurant: { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', label: 'Pending Approval' },
+  approved: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Mutually Approved' },
+  paused_by_creator: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', label: 'Paused by Creator' },
+  paused_by_restaurant: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', label: 'Paused by Restaurant' },
+  rejected: { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', label: 'Rejected' },
 };
 
 /**
@@ -176,6 +185,36 @@ export default function OfferManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offers'] });
     },
+  });
+
+  const submitForApprovalMutation = useMutation({
+    mutationFn: async ({ offerId, creatorTerms }: { offerId: string; creatorTerms: Record<string, unknown> }) => {
+      if (isDemoMode()) return;
+      const res = await api.put(`/api/offers/${offerId}/submit-for-approval`, { creatorTerms });
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
+  });
+
+  const pauseOfferMutation = useMutation({
+    mutationFn: async ({ offerId, role, reason }: { offerId: string; role: string; reason?: string }) => {
+      if (isDemoMode()) return;
+      const res = await api.put(`/api/offers/${offerId}/pause`, { role, reason });
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
+  });
+
+  const resumeOfferMutation = useMutation({
+    mutationFn: async ({ offerId }: { offerId: string }) => {
+      if (isDemoMode()) return;
+      const res = await api.put(`/api/offers/${offerId}/resume`, {});
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['offers'] }); },
   });
 
   const offers = data?.length ? data : (isDemoMode() ? DEMO_OFFERS : []);
@@ -555,6 +594,9 @@ export default function OfferManager() {
                 expandedQR={expandedQR}
                 onToggleQR={setExpandedQR}
                 onToggleActive={toggleMutation}
+                onSubmitForApproval={submitForApprovalMutation}
+                onPause={pauseOfferMutation}
+                onResume={resumeOfferMutation}
                 onDownload={handleDownloadQR}
                 onPrint={handlePrint}
               />
@@ -578,6 +620,9 @@ export default function OfferManager() {
                 expandedQR={expandedQR}
                 onToggleQR={setExpandedQR}
                 onToggleActive={toggleMutation}
+                onSubmitForApproval={submitForApprovalMutation}
+                onPause={pauseOfferMutation}
+                onResume={resumeOfferMutation}
                 onDownload={handleDownloadQR}
                 onPrint={handlePrint}
               />
@@ -612,12 +657,16 @@ const inputStyle: React.CSSProperties = {
 
 /* ─── Sub-components ───────────────────────────────────────────────────────── */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const OfferRow = memo(function OfferRow({
   offer,
   linkedCampaign,
   expandedQR,
   onToggleQR,
   onToggleActive,
+  onSubmitForApproval,
+  onPause,
+  onResume,
   onDownload,
   onPrint,
 }: {
@@ -625,7 +674,10 @@ const OfferRow = memo(function OfferRow({
   linkedCampaign?: Campaign;
   expandedQR: string | null;
   onToggleQR: (id: string | null) => void;
-  onToggleActive: ReturnType<typeof useMutation<unknown, Error, { offerId: string; isActive: boolean }>>;
+  onToggleActive: any;
+  onSubmitForApproval: any;
+  onPause: any;
+  onResume: any;
   onDownload: (offer: Offer) => void;
   onPrint: (offer: Offer) => void;
 }) {
@@ -673,6 +725,19 @@ const OfferRow = memo(function OfferRow({
               {offer.code}
             </span>
             {expired && <span className="badge badge--error">Expired</span>}
+            {offer.approvalStatus && offer.approvalStatus !== 'creator_only' && (
+              <span style={{
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--font-xs)',
+                fontWeight: 600,
+                background: APPROVAL_BADGE[offer.approvalStatus]?.bg || 'transparent',
+                color: APPROVAL_BADGE[offer.approvalStatus]?.color || 'inherit',
+              }}>
+                {APPROVAL_BADGE[offer.approvalStatus]?.label || offer.approvalStatus}
+              </span>
+            )}
           </div>
 
           <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-2)', lineHeight: 1.5 }}>
@@ -778,6 +843,45 @@ const OfferRow = memo(function OfferRow({
           >
             {offer.isActive ? 'Deactivate' : 'Activate'}
           </button>
+          {/* Mutual Approval Actions */}
+          {(!offer.approvalStatus || offer.approvalStatus === 'creator_only') && offer.isActive && (
+            <button
+              className="btn btn-secondary"
+              style={{ fontSize: 'var(--font-xs)' }}
+              onClick={() => onSubmitForApproval.mutate({
+                offerId: offer.offerId,
+                creatorTerms: {
+                  discountType: 'percent',
+                  discountValue: 15,
+                  notes: offer.description,
+                },
+              })}
+              disabled={onSubmitForApproval.isPending}
+              title="Submit this deal for restaurant approval"
+            >
+              Request Approval
+            </button>
+          )}
+          {(offer.approvalStatus === 'approved' || offer.approvalStatus === 'creator_only') && offer.isActive && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)' }}
+              onClick={() => onPause.mutate({ offerId: offer.offerId, role: 'creator' })}
+              disabled={onPause.isPending}
+            >
+              Pause Deal
+            </button>
+          )}
+          {offer.approvalStatus?.startsWith('paused_by_') && (
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 'var(--font-xs)' }}
+              onClick={() => onResume.mutate({ offerId: offer.offerId })}
+              disabled={onResume.isPending}
+            >
+              Resume Deal
+            </button>
+          )}
         </div>
       </div>
 
