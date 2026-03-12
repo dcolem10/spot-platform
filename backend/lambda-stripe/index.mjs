@@ -48,6 +48,10 @@ let _stripe = null;
 async function getStripe() {
   if (_stripe) return _stripe;
   const secrets = await getSecrets();
+  // H25: Fail fast if Stripe secret key is missing — prevents silent initialization with undefined key
+  if (!secrets.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY not configured — cannot initialize Stripe client');
+  }
   _stripe = new Stripe(secrets.STRIPE_SECRET_KEY, {
     apiVersion: '2024-12-18.acacia',
     timeout: 10000,
@@ -190,6 +194,11 @@ async function handleWebhook(event) {
   try {
     const stripeClient = await getStripe();
     const webhookSecret = await getWebhookSecret();
+    // H26: Fail if webhook secret is missing — prevents signature bypass when Secrets Manager is unavailable
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET not available — rejecting webhook to prevent unsigned event processing');
+      return respond(503, { error: 'Webhook processing temporarily unavailable' });
+    }
     stripeEvent = stripeClient.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);

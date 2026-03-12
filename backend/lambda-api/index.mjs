@@ -1306,8 +1306,9 @@ async function getPartnerAnalytics(event) {
   let metricsSource = 'industry_average';
 
   // Check all POS providers for connected metrics
+  // H27: Use first owned restaurantId, not userId — findConnectedPos expects RESTAURANT#{id}
   try {
-    const posFound = await findConnectedPos(userId);
+    const posFound = ownedRestaurantIds.length > 0 ? await findConnectedPos(ownedRestaurantIds[0]) : null;
     if (posFound?.conn?.lastMetrics) {
       AVG_CHECK_VALUE = posFound.conn.lastMetrics.avgCheckValue || 45;
       REPEAT_VISIT_RATE = posFound.conn.lastMetrics.repeatCustomerRate || 0.35;
