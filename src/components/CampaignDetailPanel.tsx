@@ -933,23 +933,31 @@ export default function CampaignDetailPanel({
       >
         {isEditing ? (
           <>
-            <button className="btn btn-secondary" onClick={() => setIsEditing(false)}>
-              Cancel
+            <button
+              className="btn btn-secondary"
+              onClick={() => setIsEditing(false)}
+            >
+              Cancel Edit
             </button>
             <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </>
         ) : (
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setActiveTab('details');
-              setIsEditing(true);
-            }}
-          >
-            Edit Campaign
-          </button>
+          <>
+            <button className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setActiveTab('details');
+                setIsEditing(true);
+              }}
+            >
+              Edit Campaign
+            </button>
+          </>
         )}
       </div>
     </div>
