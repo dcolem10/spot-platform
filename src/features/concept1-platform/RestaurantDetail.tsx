@@ -62,9 +62,9 @@ export default function RestaurantDetail() {
       if (isDemoMode()) {
         return DEMO_CAMPAIGNS.filter((c) => c.restaurantId === id);
       }
-      const res = await api.get<Campaign[]>('/api/campaigns');
-      // API returns all user campaigns — filter to this restaurant
-      return (res.data ?? []).filter((c) => c.restaurantId === id);
+      const res = await api.get<{ items: Campaign[]; nextPage?: string }>('/api/campaigns');
+      // Backend returns paginated { items, nextPage } format — filter to this restaurant
+      return (res.data?.items ?? []).filter((c) => c.restaurantId === id);
     },
     enabled: Boolean(id),
   });

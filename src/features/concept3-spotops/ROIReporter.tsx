@@ -298,14 +298,16 @@ export default function ROIReporter() {
     }
 
     const [campaignRes, reportsRes] = await Promise.all([
-      api.get<Campaign[]>('/api/spotops/campaigns'),
+      api.get<{ items: Campaign[]; nextPage?: string }>('/api/spotops/campaigns'),
       api.get<CampaignReport[]>('/api/spotops/reports'),
     ]);
     if (campaignRes.error) {
       setError(campaignRes.error);
     }
-    if (campaignRes.data && campaignRes.data.length > 0) {
-      const completedOrActive = campaignRes.data.filter(
+    // Backend returns paginated { items, nextPage } format
+    const campaignItems = campaignRes.data?.items ?? [];
+    if (campaignItems.length > 0) {
+      const completedOrActive = campaignItems.filter(
         (c) => c.status === 'active' || c.status === 'completed'
       );
       setCampaigns(completedOrActive);

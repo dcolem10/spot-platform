@@ -366,8 +366,9 @@ export default function EditorialCalendar() {
     queryKey: ['calendarCampaigns'],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_CAMPAIGNS.map(c => ({ campaignId: c.campaignId, restaurantName: c.restaurantName, status: c.status }));
-      const res = await api.get<Array<{ campaignId: string; restaurantName: string; status?: string }>>('/api/campaigns');
-      return res.data ?? [];
+      const res = await api.get<{ items: Array<{ campaignId: string; restaurantName: string; status?: string }>; nextPage?: string }>('/api/campaigns');
+      // Backend returns paginated { items, nextPage } format
+      return res.data?.items ?? [];
     },
   });
 
