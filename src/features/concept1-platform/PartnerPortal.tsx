@@ -1,12 +1,12 @@
 import { useMemo, memo, useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_CAMPAIGNS, DEMO_OFFERS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
 import PartnerOnboarding from '../onboarding/PartnerOnboarding';
-import type { Campaign, Offer, CampaignReport, PosConnectionStatus } from '../../types';
+import type { Campaign, Offer, CampaignReport, PosConnectionStatus, PosProvider, RedemptionSyncResult } from '../../types';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -97,7 +97,9 @@ const STATUS_BADGE: Record<string, string> = {
 
 export default function PartnerPortal() {
   const { name, orgId } = useAuth();
+  const queryClient = useQueryClient();
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showProviderPicker, setShowProviderPicker] = useState(false);
 
   // Fetch dashboard data
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -150,10 +152,39 @@ export default function PartnerPortal() {
     refetchOnWindowFocus: false,
   });
 
-  // Connect Square POS mutation
-  const connectMutation = useMutation({
+  // Fetch sync history
+  const { data: syncHistory } = useQuery({
+    queryKey: ['sync-history', orgId],
+    queryFn: async () => {
+      if (isDemoMode()) return [] as RedemptionSyncResult[];
+      const res = await api.get<RedemptionSyncResult[]>('/api/pos/sync/history?limit=7');
+      return res.data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: posStatus?.connected === true,
+  });
+
+  // Sync mutation
+  const syncMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.post<{ authorizationUrl: string }>('/api/pos/connect/square', { restaurantId: orgId });
+      return api.post('/api/pos/sync', { restaurantId: orgId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sync-history', orgId] });
+      queryClient.invalidateQueries({ queryKey: ['pos-status', orgId] });
+    },
+  });
+
+  // Connect POS mutation (supports all providers)
+  const connectMutation = useMutation({
+    mutationFn: async (provider: PosProvider) => {
+      if (provider === 'toast') {
+        // Toast uses direct auth, no redirect
+        const res = await api.post<{ status: string }>(`/api/pos/connect/toast`, { restaurantId: orgId });
+        return res.data;
+      }
+      // Square and Clover use OAuth redirect
+      const res = await api.post<{ authorizationUrl: string }>(`/api/pos/connect/${provider}`, { restaurantId: orgId });
       if (res.data?.authorizationUrl) {
         window.open(res.data.authorizationUrl, '_blank');
       }
@@ -161,13 +192,14 @@ export default function PartnerPortal() {
     },
     onSuccess: () => {
       refetchPosStatus();
+      setShowProviderPicker(false);
     },
   });
 
   // Disconnect POS mutation
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      await api.put('/api/pos/disconnect', {});
+      await api.put('/api/pos/disconnect', { restaurantId: orgId });
       return null;
     },
     onSuccess: () => {
@@ -320,7 +352,7 @@ export default function PartnerPortal() {
 
       {/* ─── POS Connection ─── */}
       <section style={{ marginBottom: 'var(--space-6)' }}>
-        {!posStatus?.connected ? (
+        {(!posStatus?.connected || showProviderPicker) ? (
           <div className="card" style={{
             padding: 'var(--space-5)',
             background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(59, 130, 246, 0.06) 100%)',
@@ -333,20 +365,47 @@ export default function PartnerPortal() {
                   Connect Your POS for Real Revenue Data
                 </h3>
                 <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
-                  Replace industry estimates with your actual transaction data from Square.
+                  Replace industry estimates with actual transaction data.
                 </p>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => connectMutation.mutate()}
-                  disabled={connectMutation.isPending}
-                  style={{
-                    background: 'var(--color-success)',
-                    color: 'white',
-                    marginBottom: 'var(--space-3)',
-                  }}
-                >
-                  {connectMutation.isPending ? 'Connecting...' : 'Connect Square ▸'}
-                </button>
+                <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn"
+                    onClick={() => connectMutation.mutate('square')}
+                    disabled={connectMutation.isPending}
+                    style={{
+                      background: 'white',
+                      color: 'black',
+                      border: '1px solid var(--color-border)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Square
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => connectMutation.mutate('toast')}
+                    disabled={connectMutation.isPending}
+                    style={{
+                      background: '#FF6900',
+                      color: 'white',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Toast
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => connectMutation.mutate('clover')}
+                    disabled={connectMutation.isPending}
+                    style={{
+                      background: '#43B02A',
+                      color: 'white',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Clover
+                  </button>
+                </div>
                 <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', lineHeight: 1.6 }}>
                   Currently using: Industry averages ($45 avg check, 35% repeat rate)
                 </div>
@@ -354,56 +413,125 @@ export default function PartnerPortal() {
             </div>
           </div>
         ) : (
-          <div className="card" style={{
-            padding: 'var(--space-5)',
-            background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(16, 185, 129, 0.06) 100%)',
-            borderColor: 'rgba(16, 185, 129, 0.2)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)', justifyContent: 'space-between' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                  <span style={{ fontSize: '20px' }}>✅</span>
-                  <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-success)' }}>
-                    Square POS Connected
-                  </h3>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                  <div>
-                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Merchant</div>
-                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.merchantName || 'Connected'}</div>
+          <>
+            <div className="card" style={{
+              padding: 'var(--space-5)',
+              background: 'linear-gradient(135deg, var(--color-bgSecondary) 0%, rgba(16, 185, 129, 0.06) 100%)',
+              borderColor: 'rgba(16, 185, 129, 0.2)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)', justifyContent: 'space-between' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                    <span style={{ fontSize: '20px' }}>✅</span>
+                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-success)' }}>
+                      {posStatus.provider ? posStatus.provider.charAt(0).toUpperCase() + posStatus.provider.slice(1) : 'POS'} Connected
+                    </h3>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Connected</div>
-                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.connectedAt ? fmtDate(posStatus.connectedAt) : '--'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Last sync</div>
-                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.lastSyncedAt ? fmtDate(posStatus.lastSyncedAt) : 'Pending'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Avg check</div>
-                    <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>
-                      {posStatus.lastMetrics ? fmtMoney(posStatus.lastMetrics.avgCheckValue) : '--'}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-4)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                    <div>
+                      <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Merchant</div>
+                      <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.merchantName || 'Connected'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Connected</div>
+                      <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.connectedAt ? fmtDate(posStatus.connectedAt) : '--'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Last sync</div>
+                      <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>{posStatus.lastSyncedAt ? fmtDate(posStatus.lastSyncedAt) : 'Pending'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>Match rate</div>
+                      <div style={{ fontWeight: 500, color: 'var(--color-textPrimary)' }}>
+                        {syncHistory?.[0]?.matchRate ? `${syncHistory[0].matchRate}%` : '--'}
+                      </div>
                     </div>
                   </div>
                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flexShrink: 0 }}>
+                  <button
+                    className="btn"
+                    onClick={() => syncMutation.mutate()}
+                    disabled={syncMutation.isPending}
+                    style={{
+                      background: 'var(--color-accent)',
+                      color: 'white',
+                      padding: 'var(--space-2) var(--space-3)',
+                      fontSize: 'var(--font-sm)',
+                    }}
+                  >
+                    {syncMutation.isPending ? 'Syncing...' : 'Sync Now'}
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => setShowProviderPicker(true)}
+                    style={{
+                      padding: 'var(--space-2) var(--space-3)',
+                      fontSize: 'var(--font-sm)',
+                    }}
+                  >
+                    Switch Provider...
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={() => setShowDisconnectConfirm(true)}
+                    style={{
+                      color: 'var(--color-error)',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      padding: 'var(--space-2) var(--space-3)',
+                      fontSize: 'var(--font-sm)',
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
-              <button
-                className="btn"
-                onClick={() => setShowDisconnectConfirm(true)}
-                style={{
-                  color: 'var(--color-error)',
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  padding: 'var(--space-2) var(--space-3)',
-                  fontSize: 'var(--font-sm)',
-                  flexShrink: 0,
-                }}
-              >
-                Disconnect
-              </button>
             </div>
-          </div>
+
+            {/* Sync History Table */}
+            {syncHistory && syncHistory.length > 0 && (
+              <div className="card" style={{ marginTop: 'var(--space-4)', padding: 'var(--space-4)' }}>
+                <div style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-3)' }}>
+                  Recent Sync History (last 7 days)
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', fontSize: 'var(--font-sm)', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                        <th style={{ textAlign: 'left', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase' }}>Date</th>
+                        <th style={{ textAlign: 'center', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase' }}>Match%</th>
+                        <th style={{ textAlign: 'center', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase' }}>Matched</th>
+                        <th style={{ textAlign: 'right', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase' }}>Revenue</th>
+                        <th style={{ textAlign: 'right', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase' }}>Avg Check</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {syncHistory.map((sync, idx) => (
+                        <tr key={idx} style={{ borderBottom: idx < syncHistory.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                          <td style={{ padding: 'var(--space-2)', color: 'var(--color-textPrimary)', fontWeight: 500 }}>
+                            {fmtDate(sync.syncedAt)}
+                          </td>
+                          <td style={{ padding: 'var(--space-2)', textAlign: 'center', color: 'var(--color-success)', fontWeight: 600 }}>
+                            {sync.matchRate ?? 0}%
+                          </td>
+                          <td style={{ padding: 'var(--space-2)', textAlign: 'center', color: 'var(--color-textSecondary)' }}>
+                            {sync.matchedRedemptions}/{sync.totalRedemptions}
+                          </td>
+                          <td style={{ padding: 'var(--space-2)', textAlign: 'right', color: 'var(--color-textPrimary)', fontWeight: 500 }}>
+                            {fmtMoney(sync.totalRevenue)}
+                          </td>
+                          <td style={{ padding: 'var(--space-2)', textAlign: 'right', color: 'var(--color-textSecondary)' }}>
+                            {fmtMoney(sync.avgTransactionValue)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
 
@@ -420,7 +548,7 @@ export default function PartnerPortal() {
         }}>
           <div className="card" style={{ maxWidth: 400, padding: 'var(--space-6)' }}>
             <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>
-              Disconnect Square POS?
+              Disconnect {posStatus?.provider ? posStatus.provider.charAt(0).toUpperCase() + posStatus.provider.slice(1) : 'POS'}?
             </h3>
             <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-4)', lineHeight: 1.6 }}>
               You will return to using industry average estimates for revenue calculations. You can reconnect anytime.
@@ -661,8 +789,8 @@ export default function PartnerPortal() {
         textAlign: 'center',
         lineHeight: 1.6,
       }}>
-        {posStatus?.connected
-          ? 'Revenue metrics powered by Square POS data'
+        {posStatus?.connected && posStatus.provider
+          ? `Revenue metrics powered by ${posStatus.provider.charAt(0).toUpperCase() + posStatus.provider.slice(1)} POS data`
           : 'Revenue estimates based on industry averages. Connect POS for real numbers.'
         } &middot; Avg check: {fmtMoney(stats.assumptions.avgCheckValue)} &middot; Repeat visit rate: {Math.round(stats.assumptions.repeatVisitRate * 100)}%
       </div>

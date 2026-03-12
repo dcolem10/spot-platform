@@ -386,9 +386,11 @@ export interface ContentReview {
 
 // ─── POS Integration ──────────────────────────────────────────────────────────
 
+export type PosProvider = 'square' | 'toast' | 'clover';
+
 export interface PosConnectionStatus {
   connected: boolean;
-  provider?: 'square';
+  provider?: PosProvider;
   status?: 'connected' | 'pending_oauth' | 'failed' | 'revoked';
   merchantId?: string;
   merchantName?: string;
@@ -398,6 +400,20 @@ export interface PosConnectionStatus {
     avgCheckValue: number;
     repeatCustomerRate: number;
   };
+}
+
+export interface RedemptionSyncResult {
+  date: string;
+  syncedAt: string;
+  provider: PosProvider;
+  totalRedemptions: number;
+  matchedRedemptions: number;
+  unmatchedRedemptions: number;
+  matchRate: number;
+  totalRevenue: number;
+  avgTransactionValue: number;
+  repeatCustomerCount: number;
+  environment?: string;
 }
 
 // ─── Notifications ──────────────────────────────────────────────────────────

@@ -1130,21 +1130,37 @@ async function getPartnerAnalytics(event) {
   let REPEAT_VISIT_RATE = 0.35;
   let metricsSource = 'industry_average';
 
-  // Try to find restaurant's POS connection
+  // Check all POS providers for connected metrics
   try {
-    const posResult = await ddb.send(new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: 'PK = :pk AND SK = :sk',
-      ExpressionAttributeValues: { ':pk': `RESTAURANT#${userId}`, ':sk': 'POS_CONNECTION#square' },
-      Limit: 1,
-    }));
-    const posConn = posResult.Items?.[0];
-    if (posConn?.status === 'connected' && posConn.lastMetrics) {
-      AVG_CHECK_VALUE = posConn.lastMetrics.avgCheckValue || 45;
-      REPEAT_VISIT_RATE = posConn.lastMetrics.repeatCustomerRate || 0.35;
-      metricsSource = 'square_pos';
+    const posFound = await findConnectedPos(userId);
+    if (posFound?.conn?.lastMetrics) {
+      AVG_CHECK_VALUE = posFound.conn.lastMetrics.avgCheckValue || 45;
+      REPEAT_VISIT_RATE = posFound.conn.lastMetrics.repeatCustomerRate || 0.35;
+      metricsSource = `${posFound.provider}_pos`;
     }
-  } catch (e) { console.warn('POS lookup failed, using industry defaults:', e.message); }
+
+    // Also check for REDEMPTION_SYNC data (more accurate than POS lastMetrics)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    const syncResult = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND SK >= :start',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${userId}`,
+        ':start': `REDEMPTION_SYNC#${thirtyDaysAgo}`,
+      },
+      Limit: 30,
+    }));
+    const syncs = syncResult.Items || [];
+    if (syncs.length > 0) {
+      const avgCheck = syncs.reduce((s, r) => s + (r.avgTransactionValue || 0), 0) / syncs.length;
+      const totalMatched = syncs.reduce((s, r) => s + (r.matchedRedemptions || 0), 0);
+      const totalRepeat = syncs.reduce((s, r) => s + (r.repeatCustomerCount || 0), 0);
+      const avgRepeat = totalMatched > 0 ? totalRepeat / totalMatched : 0.35;
+      if (avgCheck > 0) AVG_CHECK_VALUE = Math.round(avgCheck * 100) / 100;
+      if (avgRepeat > 0 && avgRepeat < 1) REPEAT_VISIT_RATE = Math.round(avgRepeat * 100) / 100;
+      metricsSource = 'redemption_sync';
+    }
+  } catch (e) { console.warn('POS/sync lookup failed, using industry defaults:', e.message); }
 
   // Fetch campaigns, offers, and reports in parallel
   const [campaignResult, offerResult, reportResult, proposalResult] = await Promise.all([
@@ -1337,6 +1353,27 @@ async function createContentReview(event) {
 }
 
 // ─── POS Integration (Square OAuth) ───────────────────────────────────────
+
+/**
+ * Helper: Find which POS provider is connected for a restaurant.
+ * Uses parallel lookups (not sequential) to minimize latency.
+ * Returns { conn, provider } or null if none connected.
+ */
+async function findConnectedPos(restaurantId) {
+  const POS_PROVIDERS = ['square', 'toast', 'clover'];
+  const results = await Promise.all(
+    POS_PROVIDERS.map((prov) =>
+      ddb.send(new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: `POS_CONNECTION#${prov}` },
+      })).then((r) => ({ provider: prov, item: r.Item })).catch(() => null)
+    )
+  );
+  for (const r of results) {
+    if (r?.item?.status === 'connected') return { conn: r.item, provider: r.provider };
+  }
+  return null;
+}
 
 /**
  * Helper: Convert buffer to base64url (no padding)
@@ -1573,31 +1610,21 @@ async function getPosStatus(event) {
   if (!restaurantId) return respond(400, { error: 'restaurantId required' });
 
   try {
-    const lookup = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
-      })
-    );
-
-    if (!lookup.Item) {
-      return respond(200, { connected: false });
+    const found = await findConnectedPos(restaurantId);
+    if (found) {
+      const conn = found.conn;
+      return respond(200, {
+        connected: true,
+        provider: found.provider,
+        status: conn.status,
+        merchantId: conn.merchantId,
+        merchantName: conn.merchantName,
+        connectedAt: conn.connectedAt,
+        lastSyncedAt: conn.lastSyncedAt,
+        lastMetrics: conn.lastMetrics,
+      });
     }
-
-    const conn = lookup.Item;
-    if (conn.status !== 'connected') {
-      return respond(200, { connected: false });
-    }
-
-    // Return safe subset (NO tokens)
-    return respond(200, {
-      connected: true,
-      provider: 'square',
-      status: conn.status,
-      merchantId: conn.merchantId,
-      connectedAt: conn.connectedAt,
-      lastSyncedAt: conn.lastSyncedAt,
-    });
+    return respond(200, { connected: false });
   } catch (err) {
     console.error('getPosStatus error:', err.message);
     return respond(500, { error: 'Failed to fetch POS status' });
@@ -1606,7 +1633,7 @@ async function getPosStatus(event) {
 
 /**
  * PUT /api/pos/disconnect — Disconnect POS provider
- * Body: { restaurantId }
+ * Body: { restaurantId, provider? }
  */
 async function disconnectPos(event) {
   const userId = getUserId(event);
@@ -1621,55 +1648,434 @@ async function disconnectPos(event) {
   if (!allowed) return respond(429, { error: 'Too many disconnection attempts. Try again later.' });
 
   try {
-    // Check connection exists
-    const lookup = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
-      })
-    );
+    // Determine which provider to disconnect
+    let provider = sanitize(body.provider || '', 20);
+    let conn = null;
 
-    if (!lookup.Item) {
+    if (provider && ['square', 'toast', 'clover'].includes(provider)) {
+      // Specific provider requested
+      const lookup = await ddb.send(new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `RESTAURANT#${restaurantId}`, SK: `POS_CONNECTION#${provider}` },
+      }));
+      conn = lookup.Item;
+    } else {
+      // Auto-detect the connected one (parallel lookup)
+      const found = await findConnectedPos(restaurantId);
+      if (found) {
+        provider = found.provider;
+        conn = found.conn;
+      }
+    }
+
+    if (!conn) {
       return respond(404, { error: 'No POS connection found' });
     }
 
-    const conn = lookup.Item;
+    // In production: call provider's revoke endpoint
+    if (provider === 'square') {
+      const SQUARE_APP_SECRET = process.env.SQUARE_APP_SECRET;
+      if (SQUARE_APP_SECRET && conn.accessToken) {
+        const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT || 'sandbox';
+        const revokeUrl = SQUARE_ENVIRONMENT === 'production'
+          ? 'https://connect.squareup.com/oauth2/revoke'
+          : 'https://connect.squareupsandbox.com/oauth2/revoke';
 
-    // In production: call Square's revoke endpoint
-    const SQUARE_APP_SECRET = process.env.SQUARE_APP_SECRET;
-    if (SQUARE_APP_SECRET && conn.accessToken) {
-      const SQUARE_ENVIRONMENT = process.env.SQUARE_ENVIRONMENT || 'sandbox';
-      const revokeUrl = SQUARE_ENVIRONMENT === 'production'
-        ? 'https://connect.squareup.com/oauth2/revoke'
-        : 'https://connect.squareupsandbox.com/oauth2/revoke';
-
-      try {
-        await fetch(revokeUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: process.env.SQUARE_APP_ID,
-            access_token: conn.accessToken,
-          }).toString(),
-        });
-      } catch (e) {
-        console.warn('Failed to revoke Square token:', e.message);
+        try {
+          await fetch(revokeUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: process.env.SQUARE_APP_ID,
+              access_token: conn.accessToken,
+            }).toString(),
+          });
+        } catch (e) {
+          console.warn('Failed to revoke Square token:', e.message);
+        }
       }
     }
 
     // Delete the connection item from DDB
-    await ddb.send(
-      new DeleteCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#square' },
-      })
-    );
+    await ddb.send(new DeleteCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: `POS_CONNECTION#${provider}` },
+    }));
 
-    return respond(200, { message: 'POS connection disconnected', provider: 'square' });
+    return respond(200, { message: 'POS connection disconnected', provider });
   } catch (err) {
     console.error('disconnectPos error:', err.message);
     return respond(500, { error: 'Failed to disconnect POS' });
   }
+}
+
+// ─── Toast POS Integration ──────────────────────────────────────────────────
+
+/**
+ * POST /api/pos/connect/toast — Initiate Toast connection.
+ * Toast uses partner API with bearer token authentication.
+ * Body: { restaurantId, apiKey?, apiSecret? }
+ */
+async function initToastAuth(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  const allowed = await checkUserMutationRate(userId, 'POS_CONNECT_TOAST', 5);
+  if (!allowed) return respond(429, { error: 'Too many connection attempts.' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+  const restaurantId = sanitize(body.restaurantId || '', 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  const now = new Date().toISOString();
+
+  // Dev mode: no TOAST_API_KEY — simulate success
+  if (!process.env.TOAST_API_KEY) {
+    await ddb.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `RESTAURANT#${restaurantId}`,
+        SK: 'POS_CONNECTION#toast',
+        provider: 'toast',
+        status: 'connected',
+        merchantId: `MOCK_TOAST_${randomUUID().substring(0, 12)}`,
+        merchantName: 'Toast Demo Restaurant',
+        environment: 'development',
+        connectedAt: now,
+        lastSyncedAt: now,
+        lastMetrics: { avgCheckValue: 52, repeatCustomerRate: 0.38 },
+        createdAt: now,
+        updatedAt: now,
+      },
+    }));
+    return respond(200, { status: 'connected', provider: 'toast', mode: 'development' });
+  }
+
+  // Production: Use Toast's partner auth endpoint
+  try {
+    const toastBase = 'https://api.toasttab.com';
+    const resp = await fetch(`${toastBase}/authentication/v1/authentication/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: process.env.TOAST_API_KEY,
+        clientSecret: process.env.TOAST_API_SECRET,
+        userAccessType: 'TOAST_MACHINE_CLIENT',
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!resp.ok) {
+      return respond(400, { error: 'Toast authentication failed' });
+    }
+
+    const tokenData = await resp.json();
+
+    await ddb.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `RESTAURANT#${restaurantId}`,
+        SK: 'POS_CONNECTION#toast',
+        provider: 'toast',
+        status: 'connected',
+        accessToken: tokenData.token?.accessToken,
+        tokenExpiresAt: tokenData.token?.expiresIn
+          ? new Date(Date.now() + tokenData.token.expiresIn * 1000).toISOString()
+          : null,
+        merchantId: restaurantId,
+        environment: 'production',
+        connectedAt: now,
+        lastSyncedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
+    }));
+
+    return respond(200, { status: 'connected', provider: 'toast', mode: 'production' });
+  } catch (err) {
+    console.error('Toast auth error:', err.message);
+    return respond(500, { error: 'Toast connection failed' });
+  }
+}
+
+// ─── Clover POS Integration ────────────────────────────────────────────────
+
+/**
+ * POST /api/pos/connect/clover — Initiate Clover OAuth flow.
+ * Standard OAuth 2.0 authorization code grant.
+ * Body: { restaurantId }
+ */
+async function initCloverOAuth(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  const allowed = await checkUserMutationRate(userId, 'POS_CONNECT_CLOVER', 5);
+  if (!allowed) return respond(429, { error: 'Too many connection attempts.' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+  const restaurantId = sanitize(body.restaurantId || '', 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  const state = randomUUID();
+  const codeVerifier = toBase64Url(randomBytes(32));
+  const codeChallenge = computeCodeChallenge(codeVerifier);
+  const now = new Date().toISOString();
+  const ttl = Math.floor(Date.now() / 1000) + 600; // 10 min expiry
+
+  // Store pending connection
+  await ddb.send(new PutCommand({
+    TableName: TABLE,
+    Item: {
+      PK: `RESTAURANT#${restaurantId}`,
+      SK: 'POS_CONNECTION#clover',
+      provider: 'clover',
+      status: 'pending_oauth',
+      oauthState: state,
+      codeVerifier,
+      createdAt: now,
+      expiresAt: new Date(Date.now() + 600000).toISOString(),
+      ttl,
+    },
+  }));
+
+  const CLOVER_APP_ID = process.env.CLOVER_APP_ID || 'DEMO_CLOVER_APP';
+  const cloverEnv = process.env.CLOVER_ENVIRONMENT === 'production'
+    ? 'https://www.clover.com'
+    : 'https://sandbox.dev.clover.com';
+
+  const authUrl = `${cloverEnv}/oauth/authorize?client_id=${CLOVER_APP_ID}&response_type=code&state=${state}`;
+
+  return respond(200, { authorizationUrl: authUrl, state, expiresIn: 600 });
+}
+
+/**
+ * GET /api/pos/callback/clover — Clover OAuth callback.
+ * Query: code, state, restaurantId
+ */
+async function handleCloverCallback(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const code = sanitize(params.code || '', 512);
+  const state = sanitize(params.state || '', 512);
+  const restaurantId = sanitize(params.restaurantId || '', 256);
+
+  if (!code || !state || !restaurantId) {
+    return respond(400, { error: 'code, state, and restaurantId are required' });
+  }
+
+  // Verify pending connection
+  const lookup = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#clover' },
+  }));
+
+  if (!lookup.Item || lookup.Item.status !== 'pending_oauth') {
+    return respond(400, { error: 'No pending Clover connection found' });
+  }
+  if (lookup.Item.oauthState !== state) {
+    return respond(400, { error: 'Invalid state parameter' });
+  }
+
+  const now = new Date().toISOString();
+
+  // Dev mode: no CLOVER_APP_SECRET
+  if (!process.env.CLOVER_APP_SECRET) {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#clover' },
+      UpdateExpression: 'SET #s = :connected, merchantId = :mid, merchantName = :mname, environment = :env, connectedAt = :now, lastSyncedAt = :now, lastMetrics = :metrics, updatedAt = :now REMOVE oauthState, codeVerifier, expiresAt, #ttl',
+      ExpressionAttributeNames: { '#s': 'status', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':connected': 'connected',
+        ':mid': `MOCK_CLOVER_${randomUUID().substring(0, 12)}`,
+        ':mname': 'Clover Demo Merchant',
+        ':env': 'development',
+        ':now': now,
+        ':metrics': { avgCheckValue: 48, repeatCustomerRate: 0.36 },
+      },
+    }));
+    return respond(200, { status: 'connected', provider: 'clover', mode: 'development' });
+  }
+
+  // Production: exchange code for access token
+  try {
+    const cloverEnv = process.env.CLOVER_ENVIRONMENT === 'production'
+      ? 'https://www.clover.com'
+      : 'https://sandbox.dev.clover.com';
+
+    const tokenResp = await fetch(`${cloverEnv}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.CLOVER_APP_ID,
+        client_secret: process.env.CLOVER_APP_SECRET,
+        code,
+      }).toString(),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!tokenResp.ok) {
+      return respond(400, { error: 'Clover token exchange failed' });
+    }
+
+    const tokenData = await tokenResp.json();
+
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'POS_CONNECTION#clover' },
+      UpdateExpression: 'SET #s = :connected, accessToken = :token, merchantId = :mid, environment = :env, connectedAt = :now, lastSyncedAt = :now, updatedAt = :now REMOVE oauthState, codeVerifier, expiresAt, #ttl',
+      ExpressionAttributeNames: { '#s': 'status', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':connected': 'connected',
+        ':token': tokenData.access_token,
+        ':mid': tokenData.merchant_id || restaurantId,
+        ':env': process.env.CLOVER_ENVIRONMENT || 'sandbox',
+        ':now': now,
+      },
+    }));
+
+    return respond(200, { status: 'connected', provider: 'clover', mode: 'production', merchantId: tokenData.merchant_id });
+  } catch (err) {
+    console.error('Clover token exchange error:', err.message);
+    return respond(500, { error: 'Clover connection failed' });
+  }
+}
+
+// ─── POS Redemption Sync Engine ─────────────────────────────────────────────
+
+/**
+ * POST /api/pos/sync — Sync redemption data with POS transactions.
+ * Matches QR redemptions against POS transactions to calculate real ROI.
+ * Body: { restaurantId, date? }
+ */
+async function syncRedemptionData(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  const allowed = await checkUserMutationRate(userId, 'POS_SYNC', 3);
+  if (!allowed) return respond(429, { error: 'Max 3 syncs per day. Try again tomorrow.' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+  const restaurantId = sanitize(body.restaurantId || '', 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId required' });
+
+  const targetDate = sanitize(body.date || new Date().toISOString().split('T')[0], 10);
+  const MATCH_WINDOW_MS = parseInt(process.env.POS_SYNC_WINDOW_MS || '7200000', 10); // 2 hours default
+
+  // Find which POS is connected
+  const posFound = await findConnectedPos(restaurantId);
+  const posConn = posFound?.conn ?? null;
+  const provider = posFound?.provider ?? null;
+
+  if (!posConn) {
+    return respond(400, { error: 'No POS provider connected. Connect Square, Toast, or Clover first.' });
+  }
+
+  // Fetch our redemptions for this restaurant on the target date
+  const dayStart = `${targetDate}T00:00:00.000Z`;
+  const dayEnd = `${targetDate}T23:59:59.999Z`;
+
+  const redemptionResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: 'PK = :pk AND SK BETWEEN :start AND :end',
+    ExpressionAttributeValues: {
+      ':pk': `RESTAURANT#${restaurantId}`,
+      ':start': `REDEEM#${dayStart}`,
+      ':end': `REDEEM#${dayEnd}z`,
+    },
+    Limit: 200,
+  }));
+
+  const redemptions = redemptionResult.Items || [];
+
+  // In dev mode: generate synthetic match data
+  if (posConn.environment === 'development') {
+    const matchRate = 0.72 + Math.random() * 0.18; // 72-90% match rate
+    const matched = Math.round(redemptions.length * matchRate) || Math.round(5 * matchRate);
+    const totalCount = redemptions.length || 5;
+    const unmatched = totalCount - matched;
+    const avgTxnValue = posConn.lastMetrics?.avgCheckValue || 48;
+    const totalRevenue = Math.round(matched * avgTxnValue * (0.85 + Math.random() * 0.3) * 100) / 100;
+
+    const syncResult = {
+      PK: `RESTAURANT#${restaurantId}`,
+      SK: `REDEMPTION_SYNC#${targetDate}`,
+      date: targetDate,
+      syncedAt: new Date().toISOString(),
+      provider,
+      totalRedemptions: totalCount,
+      matchedRedemptions: matched,
+      unmatchedRedemptions: unmatched,
+      matchRate: Math.round((matched / totalCount) * 100),
+      totalRevenue,
+      avgTransactionValue: Math.round((totalRevenue / Math.max(matched, 1)) * 100) / 100,
+      repeatCustomerCount: Math.round(matched * (posConn.lastMetrics?.repeatCustomerRate || 0.35)),
+      timeWindowMs: MATCH_WINDOW_MS,
+      environment: 'development',
+      ttl: Math.floor(Date.now() / 1000) + 90 * 86400, // 90-day TTL
+      createdAt: new Date().toISOString(),
+    };
+
+    await ddb.send(new PutCommand({ TableName: TABLE, Item: syncResult }));
+
+    // Update POS connection with latest metrics
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: `POS_CONNECTION#${provider}` },
+      UpdateExpression: 'SET lastSyncedAt = :now, lastMetrics = :metrics, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':now': new Date().toISOString(),
+        ':metrics': {
+          avgCheckValue: syncResult.avgTransactionValue,
+          repeatCustomerRate: syncResult.repeatCustomerCount / Math.max(syncResult.matchedRedemptions, 1),
+        },
+      },
+    }));
+
+    return respond(200, {
+      synced: true,
+      date: targetDate,
+      provider,
+      totalRedemptions: syncResult.totalRedemptions,
+      matchedRedemptions: syncResult.matchedRedemptions,
+      matchRate: syncResult.matchRate,
+      totalRevenue: syncResult.totalRevenue,
+      avgTransactionValue: syncResult.avgTransactionValue,
+      mode: 'development',
+    });
+  }
+
+  // Production: Call POS API for transactions
+  // (placeholder — requires real credentials and POS SDK integration)
+  return respond(501, { error: `Production sync for ${provider} not yet implemented. Connect credentials first.` });
+}
+
+/**
+ * GET /api/pos/sync/history — Get sync history for a restaurant.
+ * Query: restaurantId, limit?
+ */
+async function getSyncHistory(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const restaurantId = sanitize(params.restaurantId || userId, 256);
+  const limit = Math.min(parseInt(params.limit || '30', 10), 90);
+
+  const result = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+    ExpressionAttributeValues: {
+      ':pk': `RESTAURANT#${restaurantId}`,
+      ':prefix': 'REDEMPTION_SYNC#',
+    },
+    ScanIndexForward: false, // newest first
+    Limit: limit,
+  }));
+
+  return respond(200, (result.Items || []).map(stripDdbKeys));
 }
 
 /**
@@ -5036,15 +5442,25 @@ export const handler = async (event) => {
       return removeCollaborator(campaignId, creatorId, event);
     }
 
-    // POS Integration (Square)
+    // POS Integration (Square, Toast, Clover)
     if (path.match(/\/api\/pos\/connect\/square$/) && method === 'POST')
       return initSquareOAuth(event);
     if (path.match(/\/api\/pos\/callback\/square$/) && method === 'GET')
       return handleSquareCallback(event);
+    if (path.match(/\/api\/pos\/connect\/toast$/) && method === 'POST')
+      return initToastAuth(event);
+    if (path.match(/\/api\/pos\/connect\/clover$/) && method === 'POST')
+      return initCloverOAuth(event);
+    if (path.match(/\/api\/pos\/callback\/clover$/) && method === 'GET')
+      return handleCloverCallback(event);
     if (path.match(/\/api\/pos\/status$/) && method === 'GET')
       return getPosStatus(event);
     if (path.match(/\/api\/pos\/disconnect$/) && method === 'PUT')
       return disconnectPos(event);
+    if (path.match(/\/api\/pos\/sync$/) && method === 'POST')
+      return syncRedemptionData(event);
+    if (path.match(/\/api\/pos\/sync\/history$/) && method === 'GET')
+      return getSyncHistory(event);
 
     return respond(404, { error: 'Not found' });
   } catch (err) {
