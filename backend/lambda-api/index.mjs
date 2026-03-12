@@ -10,7 +10,7 @@ import {
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
-import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp } from './helpers.mjs';
+import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp, escapeHtml } from './helpers.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -59,6 +59,8 @@ const headers = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
 };
 
 const respond = (statusCode, body) => ({
@@ -209,7 +211,10 @@ async function createRestaurant(event) {
     name: sanitize(body.name, 200),
     address: sanitize(body.address, 500),
     neighborhood: sanitize(body.neighborhood, 100),
-    coords: body.coords || { lat: 0, lng: 0 },
+    coords: body.coords && typeof body.coords === 'object' ? {
+      lat: Math.max(-90, Math.min(90, Number(body.coords.lat) || 0)),
+      lng: Math.max(-180, Math.min(180, Number(body.coords.lng) || 0)),
+    } : { lat: 0, lng: 0 },
     cuisine: Array.isArray(body.cuisine) ? body.cuisine.map((c) => sanitize(c, 50)) : [],
     vibes: Array.isArray(body.vibes) ? body.vibes.map((v) => sanitize(v, 50)) : [],
     priceLevel: Math.min(4, Math.max(1, Number(body.priceLevel) || 2)),
@@ -3011,6 +3016,9 @@ async function getProfile(event) {
 async function upsertProfile(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'PROFILE_UPDATE', 20))) {
+    return respond(429, { error: 'Too many profile updates. Please try again later.' });
+  }
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
@@ -4164,29 +4172,25 @@ async function approveOffer(offerId, event) {
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
-  // Find offer where this restaurant is the target
+  const restaurantId = sanitize(body.restaurantId, 64);
+  if (!restaurantId || !isValidId(restaurantId)) return respond(400, { error: 'restaurantId is required' });
+
+  // Verify the caller owns this restaurant
+  const restCheck = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' } })
+  );
+  if (!restCheck.Item || restCheck.Item.creatorId !== userId) {
+    return respond(403, { error: 'You do not own this restaurant' });
+  }
+
+  // Find offer for this restaurant
   const result = await ddb.send(
     new GetCommand({
       TableName: TABLE,
-      Key: { PK: `RESTAURANT#${offerId.split('#')[0] || body.restaurantId}`, SK: `OFFER#${offerId}` },
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: `OFFER#${offerId}` },
     })
   );
-
-  // Fallback: search by GSI1 using the offerId
-  let offer = result?.Item;
-  if (!offer) {
-    const gsiResult = await ddb.send(
-      new QueryCommand({
-        TableName: TABLE,
-        IndexName: 'GSI1',
-        KeyConditionExpression: 'GSI1PK = :pk',
-        FilterExpression: 'offerId = :oid',
-        ExpressionAttributeValues: { ':pk': `RESTAURANT#${body.restaurantId || userId}`, ':oid': offerId },
-        Limit: 10,
-      })
-    );
-    offer = gsiResult.Items?.find(i => i.offerId === offerId);
-  }
+  const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
 
   if (offer.approvalStatus !== 'pending_restaurant') {
@@ -4252,17 +4256,24 @@ async function rejectOffer(offerId, event) {
   const body = parseBody(event);
   const reason = body?.reason ? sanitize(body.reason, 500) : '';
 
-  // Find by restaurantId
-  const restaurantId = body?.restaurantId || userId;
+  const restaurantId = sanitize(body?.restaurantId, 64);
+  if (!restaurantId || !isValidId(restaurantId)) return respond(400, { error: 'restaurantId is required' });
+
+  // Verify the caller owns this restaurant
+  const restCheck = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' } })
+  );
+  if (!restCheck.Item || restCheck.Item.creatorId !== userId) {
+    return respond(403, { error: 'You do not own this restaurant' });
+  }
+
   const result = await ddb.send(
-    new QueryCommand({
+    new GetCommand({
       TableName: TABLE,
-      KeyConditionExpression: 'PK = :pk AND SK = :sk',
-      ExpressionAttributeValues: { ':pk': `RESTAURANT#${restaurantId}`, ':sk': `OFFER#${offerId}` },
-      Limit: 1,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: `OFFER#${offerId}` },
     })
   );
-  const offer = result.Items?.[0];
+  const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
 
   if (offer.approvalStatus !== 'pending_restaurant') {
@@ -4686,8 +4697,8 @@ async function sendNotificationEmail(targetUserId, subject, htmlBody) {
                     <span style="font-size: 24px; font-weight: 700; color: #ff6b35;">Spot</span>
                   </div>
                   <div style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px;">
-                    <p style="color: rgba(255,255,255,0.7);">Hi ${sanitize(userName, 50)},</p>
-                    <p style="color: #fff; line-height: 1.6;">${htmlBody}</p>
+                    <p style="color: rgba(255,255,255,0.7);">Hi ${escapeHtml(sanitize(userName, 50))},</p>
+                    <p style="color: #fff; line-height: 1.6;">${escapeHtml(htmlBody)}</p>
                   </div>
                   <div style="text-align: center; margin-top: 24px;">
                     <a href="https://tryspot.app/app/dashboard" style="color: #ff6b35; text-decoration: none; font-weight: 600;">Open Spot Dashboard</a>

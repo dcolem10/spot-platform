@@ -42,6 +42,16 @@ async function request<T>(
     clearTimeout(timer);
 
     if (!res.ok) {
+      // On 401, try refreshing the token once before giving up
+      if (res.status === 401 && !options?.public) {
+        try {
+          const { fetchAuthSession } = await import('aws-amplify/auth');
+          await fetchAuthSession({ forceRefresh: true });
+        } catch {
+          // Token refresh failed — session is truly expired
+          console.warn('Session expired — auth refresh failed');
+        }
+      }
       const err = await res.json().catch(() => ({ error: res.statusText }));
       return {
         data: null,

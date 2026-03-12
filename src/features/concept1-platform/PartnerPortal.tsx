@@ -189,7 +189,19 @@ export default function PartnerPortal() {
       // Square and Clover use OAuth redirect
       const res = await api.post<{ authorizationUrl: string }>(`/api/pos/connect/${provider}`, { restaurantId: orgId });
       if (res.data?.authorizationUrl) {
-        window.open(res.data.authorizationUrl, '_blank');
+        // Validate OAuth URL before opening — prevent open redirect attacks
+        const ALLOWED_OAUTH_HOSTS = ['connect.squareup.com', 'connect.squareupsandbox.com', 'sandbox.dev.clover.com', 'www.clover.com'];
+        try {
+          const oauthUrl = new URL(res.data.authorizationUrl);
+          if (!ALLOWED_OAUTH_HOSTS.some(h => oauthUrl.hostname === h)) {
+            console.error('Blocked untrusted OAuth URL:', oauthUrl.hostname);
+            throw new Error('Invalid OAuth redirect URL');
+          }
+          window.open(res.data.authorizationUrl, '_blank');
+        } catch (e) {
+          if (e instanceof TypeError) console.error('Malformed OAuth URL');
+          throw e;
+        }
       }
       return res.data;
     },

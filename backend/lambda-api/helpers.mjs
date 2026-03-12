@@ -26,7 +26,10 @@ export function isValidId(id) {
 /**
  * DynamoDB internal keys that should be stripped from responses
  */
-export const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'creatorId']);
+export const DDB_KEYS = new Set([
+  'PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'creatorId',
+  'ttl', 'oauthState', 'codeVerifier', 'codeChallenge', 'accessToken', 'refreshToken',
+]);
 
 /**
  * Remove DynamoDB internal keys from an item
@@ -74,4 +77,15 @@ export function calculateTier(count) {
   if (count >= 15) return 'gold';
   if (count >= 5) return 'silver';
   return 'bronze';
+}
+
+/**
+ * Escape HTML special characters to prevent XSS in email templates.
+ * @param {string} text - Raw text to escape
+ * @returns {string} HTML-safe text
+ */
+const HTML_ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+export function escapeHtml(text) {
+  if (typeof text !== 'string') return '';
+  return text.replace(/[&<>"']/g, (c) => HTML_ESCAPE_MAP[c]);
 }
