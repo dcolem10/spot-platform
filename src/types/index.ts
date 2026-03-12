@@ -253,6 +253,49 @@ export interface Proposal {
   updatedAt: string;
 }
 
+// ─── Raffles (Spot Raffles) ───────────────────────────────────────────────────
+
+export type RaffleStatus = 'draft' | 'active' | 'closed' | 'drawn' | 'cancelled';
+
+export interface RaffleWinner {
+  email: string;
+  name: string;
+  claimCode: string;
+  drawnAt: string;
+  claimedAt?: string;
+}
+
+export interface Raffle {
+  raffleId: string;
+  creatorId: string;
+  creatorName: string;
+  restaurantId: string;
+  restaurantName: string;
+  title: string;
+  description: string;
+  prizeDescription: string;
+  videoUrl: string;
+  startsAt: string;
+  endsAt: string;
+  status: RaffleStatus;
+  entryCount: number;
+  maxEntries: number;
+  platformFee: number;
+  creatorRevenue: number;
+  winner: RaffleWinner | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RaffleEntry {
+  entryId: string;
+  raffleId: string;
+  email: string;
+  name: string;
+  socialHandle?: string;
+  createdAt: string;
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export interface ApiResponse<T> {

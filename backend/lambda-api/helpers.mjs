@@ -2,6 +2,7 @@
  * Pure helper functions for the Lambda API.
  * These are extracted for testability and reusability.
  */
+import { createHash } from 'crypto';
 
 /**
  * Sanitize and truncate a string value
@@ -25,7 +26,7 @@ export function isValidId(id) {
 /**
  * DynamoDB internal keys that should be stripped from responses
  */
-export const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK', 'creatorId']);
+export const DDB_KEYS = new Set(['PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'creatorId']);
 
 /**
  * Remove DynamoDB internal keys from an item
@@ -45,6 +46,30 @@ export function stripDdbKeys(item) {
  * @param {number} count - Referral count
  * @returns {string} Tier: 'bronze' (<5), 'silver' (5-14), 'gold' (15+)
  */
+/**
+ * Normalize an email address for deduplication
+ * @param {string} email - Email to normalize
+ * @returns {string|null} Normalized email or null if invalid
+ */
+export function normalizeEmail(email) {
+  if (typeof email !== 'string') return null;
+  const trimmed = email.trim().toLowerCase();
+  if (trimmed.length > 255 || trimmed.length < 5) return null;
+  // Basic email format validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+/**
+ * Create a privacy-safe hash of an IP address with a salt
+ * @param {string} ip - IP address
+ * @param {string} salt - Per-raffle salt (e.g., raffleId)
+ * @returns {string} SHA-256 hex hash
+ */
+export function hashIp(ip, salt) {
+  return createHash('sha256').update(`${ip}:${salt}`).digest('hex');
+}
+
 export function calculateTier(count) {
   if (count >= 15) return 'gold';
   if (count >= 5) return 'silver';

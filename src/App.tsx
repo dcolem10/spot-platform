@@ -55,6 +55,10 @@ const CollaborationPanel = lazy(() => import('./features/concept1-platform/Colla
 // Proposal Inbox (Handshake Model)
 const ProposalInbox = lazy(() => import('./components/ProposalInbox'));
 
+// Raffles
+const RaffleManager = lazy(() => import('./features/raffles/RaffleManager'));
+const RaffleEntryPage = lazy(() => import('./features/raffles/RaffleEntryPage'));
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -147,6 +151,9 @@ export default function App() {
                 {/* Proposal Inbox */}
                 <Route path="proposals" element={<ProposalInbox role="creator" />} />
 
+                {/* Raffles */}
+                <Route path="raffles" element={<RaffleManager />} />
+
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />
 
@@ -165,6 +172,9 @@ export default function App() {
                 <Route path="saved" element={<FeatureGate flag="membership"><SavedList /></FeatureGate>} />
                 <Route path="deals" element={<FeatureGate flag="membership"><DealsHub /></FeatureGate>} />
               </Route>
+
+              {/* Public Raffle Entry Page */}
+              <Route path="/raffle/:id" element={<RaffleEntryPage />} />
 
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />

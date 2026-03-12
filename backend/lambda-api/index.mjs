@@ -8,8 +8,8 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { randomUUID } from 'crypto';
-import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS } from './helpers.mjs';
+import { randomUUID, randomInt } from 'crypto';
+import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp } from './helpers.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -2633,6 +2633,491 @@ async function addProposalMessage(proposalId, event) {
   return respond(200, { message: 'Message added', proposalId });
 }
 
+// ─── Raffles (Spot Raffles) ───────────────────────────────────────────────────
+
+const VALID_RAFFLE_STATUSES = ['draft', 'active', 'closed', 'drawn', 'cancelled'];
+const MAX_RAFFLE_ENTRIES = 10000;
+const MAX_RAFFLE_DURATION_DAYS = 60;
+
+/**
+ * POST /api/raffles — Create a new raffle.
+ */
+async function createRaffle(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CREATE_RAFFLE', 20))) {
+    return respond(429, { error: 'Too many raffle creations. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const title = sanitize(body.title, 200);
+  const description = sanitize(body.description, 500);
+  const prizeDescription = sanitize(body.prizeDescription, 500);
+  const videoUrl = sanitize(body.videoUrl, 500);
+  const restaurantId = sanitize(body.restaurantId, 64);
+  const restaurantName = sanitize(body.restaurantName, 200);
+  const creatorName = sanitize(body.creatorName, 200);
+
+  if (!title || title.length < 1) return respond(400, { error: 'Title is required (1-200 chars)' });
+  if (!prizeDescription) return respond(400, { error: 'Prize description is required' });
+  if (!restaurantId) return respond(400, { error: 'Restaurant ID is required' });
+
+  const now = new Date();
+  const startsAt = body.startsAt ? new Date(body.startsAt) : now;
+  const endsAt = body.endsAt ? new Date(body.endsAt) : null;
+  if (!endsAt || isNaN(endsAt.getTime())) return respond(400, { error: 'Valid endsAt date is required' });
+  if (endsAt < now) return respond(400, { error: 'endsAt must be in the future' });
+  const maxEnd = new Date(now.getTime() + MAX_RAFFLE_DURATION_DAYS * 24 * 60 * 60 * 1000);
+  if (endsAt > maxEnd) return respond(400, { error: `Raffle duration cannot exceed ${MAX_RAFFLE_DURATION_DAYS} days` });
+
+  const raffleId = randomUUID();
+  const nowISO = now.toISOString();
+  const ttl = Math.floor(endsAt.getTime() / 1000) + (90 * 24 * 60 * 60); // 90 days after end
+
+  const item = {
+    PK: `CREATOR#${userId}`,
+    SK: `RAFFLE#${raffleId}`,
+    GSI1PK: `RAFFLE#${raffleId}`,
+    GSI1SK: `STATUS#draft`,
+    GSI2PK: 'RAFFLE#ALL',
+    GSI2SK: endsAt.toISOString(),
+    raffleId,
+    creatorId: userId,
+    creatorName,
+    restaurantId,
+    restaurantName,
+    title,
+    description,
+    prizeDescription,
+    videoUrl,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    status: 'draft',
+    entryCount: 0,
+    maxEntries: Math.max(1, Math.min(Math.floor(Number(body.maxEntries)) || MAX_RAFFLE_ENTRIES, MAX_RAFFLE_ENTRIES)),
+    platformFee: 50, // Phase B: calculate from restaurant tier
+    creatorRevenue: 18,
+    winner: null,
+    createdAt: nowISO,
+    updatedAt: nowISO,
+    ttl,
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+  return respond(201, stripDdbKeys(item));
+}
+
+/**
+ * GET /api/raffles — List raffles for the authenticated user.
+ */
+async function listRaffles(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': `CREATOR#${userId}`,
+        ':skPrefix': 'RAFFLE#',
+      },
+      ScanIndexForward: false,
+      Limit: limit,
+    })
+  );
+
+  return respond(200, {
+    raffles: stripAll(result.Items || []),
+    count: result.Count || 0,
+  });
+}
+
+/**
+ * GET /api/raffles/{id} — Get raffle details (PUBLIC — for entry page).
+ */
+async function getRaffle(raffleId) {
+  if (!isValidId(raffleId)) return respond(400, { error: 'Invalid raffle ID' });
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `RAFFLE#${raffleId}` },
+      Limit: 1,
+    })
+  );
+
+  if (!result.Items?.length) return respond(404, { error: 'Raffle not found' });
+  const raffle = result.Items[0];
+
+  // Hide non-public raffles (draft/cancelled)
+  if (!['active', 'closed', 'drawn'].includes(raffle.status)) {
+    return respond(404, { error: 'Raffle not found' });
+  }
+
+  // Public view: return only safe fields
+  return respond(200, {
+    raffleId: raffle.raffleId,
+    creatorName: raffle.creatorName,
+    restaurantId: raffle.restaurantId,
+    restaurantName: raffle.restaurantName,
+    title: raffle.title,
+    description: raffle.description,
+    prizeDescription: raffle.prizeDescription,
+    videoUrl: raffle.videoUrl,
+    startsAt: raffle.startsAt,
+    endsAt: raffle.endsAt,
+    status: raffle.status,
+    entryCount: raffle.entryCount || 0,
+    maxEntries: raffle.maxEntries,
+    winner: raffle.status === 'drawn' ? raffle.winner : null,
+    createdAt: raffle.createdAt,
+    updatedAt: raffle.updatedAt,
+  });
+}
+
+/**
+ * PUT /api/raffles/{id} — Update a raffle (draft only).
+ */
+async function updateRaffle(raffleId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(raffleId)) return respond(400, { error: 'Invalid raffle ID' });
+  if (!(await checkUserMutationRate(userId, 'UPD_RAFFLE', 60))) {
+    return respond(429, { error: 'Too many updates. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  // Find raffle owned by user
+  const find = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
+    })
+  );
+  if (!find.Item) return respond(404, { error: 'Raffle not found' });
+
+  const raffle = find.Item;
+  // Status transitions
+  const ALLOWED_STATUS_UPDATES = {
+    draft: ['active', 'cancelled'],
+    active: ['closed', 'cancelled'],
+    closed: ['drawn'],
+  };
+
+  const newStatus = body.status ? sanitize(body.status, 20) : null;
+  if (newStatus && !ALLOWED_STATUS_UPDATES[raffle.status]?.includes(newStatus)) {
+    return respond(400, { error: `Cannot transition from "${raffle.status}" to "${newStatus}"` });
+  }
+
+  // Only allow field edits on draft raffles (except status changes)
+  const isFieldEdit = body.title || body.description || body.prizeDescription || body.videoUrl || body.endsAt;
+  if (isFieldEdit && raffle.status !== 'draft') {
+    return respond(400, { error: 'Can only edit fields on draft raffles' });
+  }
+
+  const updates = [];
+  const names = {};
+  const values = { ':now': new Date().toISOString() };
+  updates.push('updatedAt = :now');
+
+  if (newStatus) {
+    updates.push('#s = :status');
+    names['#s'] = 'status';
+    values[':status'] = newStatus;
+    // Update GSI1SK for status queries
+    updates.push('GSI1SK = :g1sk');
+    values[':g1sk'] = `STATUS#${newStatus}`;
+    // If activating, set GSI2 for active raffles
+    if (newStatus === 'active') {
+      updates.push('GSI2PK = :g2pk');
+      values[':g2pk'] = 'RAFFLE#ACTIVE';
+    } else if (newStatus === 'cancelled' || newStatus === 'closed') {
+      updates.push('GSI2PK = :g2pk');
+      values[':g2pk'] = `RAFFLE#${newStatus.toUpperCase()}`;
+    }
+  }
+  if (body.title) { updates.push('title = :title'); values[':title'] = sanitize(body.title, 200); }
+  if (body.description !== undefined) { updates.push('description = :desc'); values[':desc'] = sanitize(body.description, 500); }
+  if (body.prizeDescription) { updates.push('prizeDescription = :prize'); values[':prize'] = sanitize(body.prizeDescription, 500); }
+  if (body.videoUrl !== undefined) { updates.push('videoUrl = :vid'); values[':vid'] = sanitize(body.videoUrl, 500); }
+  if (body.endsAt) {
+    const newEnd = new Date(body.endsAt);
+    if (isNaN(newEnd.getTime()) || newEnd < new Date()) return respond(400, { error: 'Invalid endsAt' });
+    updates.push('endsAt = :end');
+    values[':end'] = newEnd.toISOString();
+  }
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
+      UpdateExpression: `SET ${updates.join(', ')}`,
+      ...(Object.keys(names).length ? { ExpressionAttributeNames: names } : {}),
+      ExpressionAttributeValues: values,
+    })
+  );
+
+  return respond(200, { message: 'Raffle updated', raffleId, status: newStatus || raffle.status });
+}
+
+/**
+ * POST /api/raffles/{id}/enter — Public raffle entry.
+ */
+async function enterRaffle(raffleId, event) {
+  if (!isValidId(raffleId)) return respond(400, { error: 'Invalid raffle ID' });
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const email = normalizeEmail(body.email);
+  if (!email) return respond(400, { error: 'Valid email is required' });
+
+  const name = sanitize(body.name, 100);
+  if (!name || name.length < 1) return respond(400, { error: 'Name is required (1-100 chars)' });
+
+  const socialHandle = sanitize(body.socialHandle || '', 50);
+
+  // Fetch raffle via GSI1
+  const raffleResult = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': `RAFFLE#${raffleId}` },
+      Limit: 1,
+    })
+  );
+  if (!raffleResult.Items?.length) return respond(404, { error: 'Raffle not found' });
+  const raffle = raffleResult.Items[0];
+
+  // Validate raffle is accepting entries
+  if (raffle.status !== 'active') return respond(400, { error: 'This raffle is not currently accepting entries' });
+  if (new Date(raffle.endsAt) < new Date()) return respond(400, { error: 'This raffle has ended' });
+  if (raffle.entryCount >= raffle.maxEntries) return respond(400, { error: 'This raffle has reached its entry limit' });
+
+  // Email dedup — check GSI2 for existing entry with same email in this raffle
+  const emailCheck = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI2',
+      KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': `ENTRY#EMAIL#${email}`,
+        ':skPrefix': `RAFFLE#${raffleId}`,
+      },
+      Limit: 1,
+    })
+  );
+  if (emailCheck.Items?.length) {
+    return respond(409, { error: 'You have already entered this raffle', alreadyEntered: true });
+  }
+
+  // IP dedup — rate limit per IP per raffle per day
+  const sourceIp = event.requestContext?.identity?.sourceIp || 'unknown';
+  const ipHashed = hashIp(sourceIp, raffleId);
+  const dayWindow = Math.floor(Date.now() / 1000 / 86400);
+  try {
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: `RATE#RAFFLE_IP#${ipHashed}`,
+          SK: `RAFFLE#${raffleId}#DAY#${dayWindow}`,
+          ttl: Math.floor(Date.now() / 1000) + 172800, // 2 days
+        },
+        ConditionExpression: 'attribute_not_exists(PK)',
+      })
+    );
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'One entry per device per day', alreadyEntered: true });
+    }
+    throw err; // unexpected error
+  }
+
+  // Create entry
+  const entryId = randomUUID();
+  const now = new Date().toISOString();
+  const entry = {
+    PK: `RAFFLE#${raffleId}`,
+    SK: `ENTRY#${entryId}`,
+    GSI2PK: `ENTRY#EMAIL#${email}`,
+    GSI2SK: `RAFFLE#${raffleId}#${now}`,
+    entryId,
+    raffleId,
+    email,
+    name,
+    socialHandle,
+    ipHash: ipHashed,
+    createdAt: now,
+    ttl: Math.floor(new Date(raffle.endsAt).getTime() / 1000) + (90 * 24 * 60 * 60),
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: entry }));
+
+  // Increment entry count atomically with max-entries guard
+  try {
+    await ddb.send(
+      new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: raffle.PK, SK: raffle.SK },
+        UpdateExpression: 'SET entryCount = if_not_exists(entryCount, :zero) + :inc',
+        ConditionExpression: 'entryCount < :maxEntries',
+        ExpressionAttributeValues: { ':zero': 0, ':inc': 1, ':maxEntries': raffle.maxEntries },
+      })
+    );
+  } catch (condErr) {
+    if (condErr.name === 'ConditionalCheckFailedException') {
+      return respond(400, { error: 'This raffle has reached its entry limit' });
+    }
+    throw condErr;
+  }
+
+  return respond(201, { entryId, email, message: 'Entry submitted successfully' });
+}
+
+/**
+ * GET /api/raffles/{id}/entries — List entries for a raffle (creator only).
+ */
+async function listRaffleEntries(raffleId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(raffleId)) return respond(400, { error: 'Invalid raffle ID' });
+
+  // Verify ownership
+  const raffle = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
+    })
+  );
+  if (!raffle.Item) return respond(404, { error: 'Raffle not found or not owned by you' });
+
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 200);
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+      ExpressionAttributeValues: {
+        ':pk': `RAFFLE#${raffleId}`,
+        ':skPrefix': 'ENTRY#',
+      },
+      Limit: limit,
+    })
+  );
+
+  return respond(200, {
+    entries: (result.Items || []).map(e => ({
+      entryId: e.entryId,
+      name: e.name,
+      email: e.email,
+      socialHandle: e.socialHandle,
+      createdAt: e.createdAt,
+    })),
+    count: result.Count || 0,
+  });
+}
+
+/**
+ * POST /api/raffles/{id}/draw — Draw a winner.
+ */
+async function drawRaffleWinner(raffleId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(raffleId)) return respond(400, { error: 'Invalid raffle ID' });
+  if (!(await checkUserMutationRate(userId, 'DRAW_RAFFLE', 10))) {
+    return respond(429, { error: 'Too many draw attempts. Please try again later.' });
+  }
+
+  // Verify ownership
+  const find = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
+    })
+  );
+  if (!find.Item) return respond(404, { error: 'Raffle not found' });
+
+  const raffle = find.Item;
+  if (raffle.winner) return respond(400, { error: 'Winner has already been drawn for this raffle' });
+  if (raffle.status !== 'active' && raffle.status !== 'closed')
+    return respond(400, { error: `Cannot draw winner when raffle status is "${raffle.status}"` });
+
+  // Fetch all entries (up to maxEntries cap)
+  const entries = [];
+  let lastKey = undefined;
+  do {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+        ExpressionAttributeValues: {
+          ':pk': `RAFFLE#${raffleId}`,
+          ':skPrefix': 'ENTRY#',
+        },
+        Limit: 1000,
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    entries.push(...(result.Items || []));
+    lastKey = result.LastEvaluatedKey;
+    if (entries.length >= MAX_RAFFLE_ENTRIES) break; // safety cap
+  } while (lastKey);
+
+  if (entries.length === 0) return respond(400, { error: 'No entries to draw from' });
+
+  // Cryptographically random selection
+  const winnerIndex = randomInt(entries.length);
+  const winnerEntry = entries[winnerIndex];
+  const claimCode = randomUUID().slice(0, 8).toUpperCase();
+  const now = new Date().toISOString();
+
+  const winner = {
+    email: winnerEntry.email,
+    name: winnerEntry.name,
+    claimCode,
+    drawnAt: now,
+  };
+
+  // Update raffle with winner + status
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `RAFFLE#${raffleId}` },
+      UpdateExpression: 'SET winner = :winner, #s = :status, updatedAt = :now, GSI1SK = :g1sk, GSI2PK = :g2pk',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':winner': winner,
+        ':status': 'drawn',
+        ':now': now,
+        ':g1sk': 'STATUS#drawn',
+        ':g2pk': 'RAFFLE#DRAWN',
+      },
+    })
+  );
+
+  return respond(200, {
+    message: 'Winner drawn!',
+    winner: { name: winner.name, email: winner.email, claimCode },
+    totalEntries: entries.length,
+  });
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
@@ -2783,6 +3268,22 @@ export const handler = async (event) => {
       return getAmbassadorStatus(event);
     if (path.match(/\/api\/ambassador\/referrals$/) && method === 'GET')
       return listReferrals(event);
+
+    // Raffles (Spot Raffles)
+    if (path.match(/\/api\/raffles$/) && method === 'POST')
+      return createRaffle(event);
+    if (path.match(/\/api\/raffles$/) && method === 'GET')
+      return listRaffles(event);
+    if (path.match(/\/api\/raffles\/[^/]+\/enter$/) && method === 'POST')
+      return enterRaffle(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/raffles\/[^/]+\/entries$/) && method === 'GET')
+      return listRaffleEntries(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/raffles\/[^/]+\/draw$/) && method === 'POST')
+      return drawRaffleWinner(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/raffles\/[^/]+$/) && method === 'GET')
+      return getRaffle(pathParts[pathParts.length - 1]);
+    if (path.match(/\/api\/raffles\/[^/]+$/) && method === 'PUT')
+      return updateRaffle(pathParts[pathParts.length - 1], event);
 
     // Proposals (Handshake Model)
     if (path.match(/\/api\/proposals$/) && method === 'POST')
