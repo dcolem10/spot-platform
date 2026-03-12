@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Campaign, CampaignStatus, Deliverable } from '../../types';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_CAMPAIGNS } from '../../data/demoData';
 import { EmptyState } from '../../components/EmptyState';
+import CampaignDetailPanel, { formatDate } from '../../components/CampaignDetailPanel';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
 
@@ -15,27 +18,7 @@ interface CRMStats {
   avgCloseTimeDays: number;
 }
 
-interface EditFormData {
-  status: CampaignStatus;
-  package: string;
-  budget: number;
-  startDate: string;
-  endDate: string;
-  notes: string;
-  deliverables: Deliverable[];
-}
-
 /* ─── Constants ────────────────────────────────────────────────────────────── */
-
-const STATUS_PIPELINE: CampaignStatus[] = ['inquiry', 'negotiation', 'active', 'completed'];
-
-const STATUS_OPTIONS: CampaignStatus[] = ['inquiry', 'negotiation', 'active', 'completed', 'cancelled'];
-
-const PACKAGE_OPTIONS = ['Spotlight', 'Feature', 'Series', 'Takeover', 'Custom'];
-
-const DELIVERABLE_TYPES: Deliverable['type'][] = ['reel', 'story', 'post', 'tiktok', 'mention'];
-
-/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
 const STATUS_BADGE: Record<CampaignStatus, string> = {
   inquiry: 'badge--info',
@@ -45,13 +28,10 @@ const STATUS_BADGE: Record<CampaignStatus, string> = {
   cancelled: 'badge--error',
 };
 
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
+
 function formatCurrency(n: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-}
-
-function formatDate(iso?: string): string {
-  if (!iso) return '--';
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function deliverableProgress(deliverables: Deliverable[]): number {
@@ -79,16 +59,6 @@ function computeStats(campaigns: Campaign[]): CRMStats {
   }
 
   return { pipelineValue, conversionRate, avgCloseTimeDays };
-}
-
-function nextStatus(current: CampaignStatus): CampaignStatus | null {
-  const idx = STATUS_PIPELINE.indexOf(current);
-  if (idx === -1 || idx === STATUS_PIPELINE.length - 1) return null;
-  return STATUS_PIPELINE[idx + 1];
-}
-
-function makeDeliverableId(): string {
-  return `del-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 /* ─── Styles ───────────────────────────────────────────────────────────────── */
@@ -191,10 +161,6 @@ const styles = {
     color: 'var(--color-textMuted)',
     marginTop: 'var(--space-1)',
   } as React.CSSProperties,
-  actionBtns: {
-    display: 'flex',
-    gap: 'var(--space-2)',
-  } as React.CSSProperties,
   errorBanner: {
     padding: 'var(--space-4)',
     background: 'var(--color-errorMuted)',
@@ -205,142 +171,6 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-  } as React.CSSProperties,
-  detailOverlay: {
-    position: 'fixed' as const,
-    inset: 0,
-    background: 'rgba(0,0,0,0.6)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  } as React.CSSProperties,
-  detailPanel: {
-    background: 'var(--color-bgSecondary)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-xl)',
-    padding: 'var(--space-8)',
-    width: '100%',
-    maxWidth: '600px',
-    maxHeight: '80vh',
-    overflow: 'auto',
-    boxShadow: 'var(--shadow-xl)',
-  } as React.CSSProperties,
-  detailHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 'var(--space-6)',
-  } as React.CSSProperties,
-  detailRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: 'var(--space-3) 0',
-    borderBottom: '1px solid var(--color-border)',
-    fontSize: 'var(--font-sm)',
-  } as React.CSSProperties,
-  detailLabel: {
-    color: 'var(--color-textSecondary)',
-  } as React.CSSProperties,
-  detailValue: {
-    color: 'var(--color-textPrimary)',
-    fontWeight: 600,
-  } as React.CSSProperties,
-  deliverableItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-3)',
-    padding: 'var(--space-2) 0',
-    fontSize: 'var(--font-sm)',
-    color: 'var(--color-textSecondary)',
-  } as React.CSSProperties,
-  /* ─── Pipeline Step Indicator ─────────────────────────────────────────── */
-  pipelineRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-2)',
-    marginBottom: 'var(--space-6)',
-  } as React.CSSProperties,
-  pipelineStep: (active: boolean, past: boolean) =>
-    ({
-      flex: 1,
-      textAlign: 'center' as const,
-      padding: 'var(--space-2) var(--space-1)',
-      borderRadius: 'var(--radius-sm)',
-      fontSize: 'var(--font-xs)',
-      fontWeight: 600,
-      textTransform: 'uppercase' as const,
-      letterSpacing: '0.03em',
-      background: active
-        ? 'var(--color-accentMuted)'
-        : past
-          ? 'var(--color-successMuted)'
-          : 'var(--color-bgElevated)',
-      color: active
-        ? 'var(--color-accent)'
-        : past
-          ? 'var(--color-success)'
-          : 'var(--color-textMuted)',
-      border: active ? '1px solid var(--color-accent)' : '1px solid transparent',
-    }) as React.CSSProperties,
-  pipelineArrow: {
-    color: 'var(--color-textMuted)',
-    fontSize: 'var(--font-xs)',
-    flexShrink: 0,
-  } as React.CSSProperties,
-  /* ─── Form Styles ────────────────────────────────────────────────────── */
-  formGroup: {
-    marginBottom: 'var(--space-4)',
-  } as React.CSSProperties,
-  formLabel: {
-    display: 'block',
-    fontSize: 'var(--font-xs)',
-    fontWeight: 600,
-    color: 'var(--color-textSecondary)',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.05em',
-    marginBottom: 'var(--space-2)',
-  } as React.CSSProperties,
-  formRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 'var(--space-4)',
-  } as React.CSSProperties,
-  deliverableEditRow: {
-    display: 'grid',
-    gridTemplateColumns: '120px 1fr auto auto',
-    gap: 'var(--space-2)',
-    alignItems: 'center',
-    marginBottom: 'var(--space-2)',
-  } as React.CSSProperties,
-  checkbox: {
-    width: '18px',
-    height: '18px',
-    cursor: 'pointer',
-    accentColor: 'var(--color-accent)',
-  } as React.CSSProperties,
-  clickableDeliverable: (completed: boolean) =>
-    ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: 'var(--space-3)',
-      padding: 'var(--space-2) var(--space-3)',
-      fontSize: 'var(--font-sm)',
-      color: 'var(--color-textSecondary)',
-      cursor: 'pointer',
-      borderRadius: 'var(--radius-sm)',
-      transition: 'background var(--transition-fast)',
-      background: completed ? 'var(--color-successMuted)' : 'transparent',
-    }) as React.CSSProperties,
-  inlineNotesPrompt: {
-    padding: 'var(--space-3)',
-    fontSize: 'var(--font-sm)',
-    color: 'var(--color-textMuted)',
-    cursor: 'pointer',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px dashed var(--color-border)',
-    textAlign: 'center' as const,
-    transition: 'border-color var(--transition-fast)',
   } as React.CSSProperties,
 } as const;
 
@@ -356,42 +186,38 @@ const STATUS_FILTERS: { key: CampaignStatus | 'all'; label: string }[] = [
 /* ─── Component ────────────────────────────────────────────────────────────── */
 
 export default function PartnershipCRM() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<CampaignStatus | 'all'>('all');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
-  const [editForm, setEditForm] = useState<EditFormData | null>(null);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesValue, setNotesValue] = useState('');
 
-  const fetchCampaigns = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  /* ─── Data fetching (React Query) ──────────────────────────────────── */
 
-    if (isDemoMode()) {
-      setCampaigns(DEMO_CAMPAIGNS);
-      setLoading(false);
-      return;
-    }
+  const { data: campaigns = [], isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['crmCampaigns'],
+    queryFn: async () => {
+      if (isDemoMode()) return DEMO_CAMPAIGNS;
+      const res = await api.get<Campaign[]>('/api/spotops/campaigns');
+      if (res.error) throw new Error(res.error);
+      return res.data ?? [];
+    },
+  });
 
-    const res = await api.get<Campaign[]>('/api/spotops/campaigns');
-    if (res.error) {
-      setError(res.error);
-    }
-    if (res.data && res.data.length > 0) {
-      setCampaigns(res.data);
-    }
-    setLoading(false);
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: async ({ campaignId, updates }: { campaignId: string; updates: Partial<Campaign> }) => {
+      if (isDemoMode()) return { ...selectedCampaign, ...updates } as Campaign;
+      const res = await api.put<Campaign>(`/api/campaigns/${campaignId}`, updates);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['crmCampaigns'] });
+      if (data) setSelectedCampaign(data as Campaign);
+    },
+  });
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, [fetchCampaigns]);
+  /* ─── Derived data ──────────────────────────────────────────────────── */
 
   const filtered = useMemo(() => {
     let result = [...campaigns];
@@ -424,135 +250,9 @@ export default function PartnershipCRM() {
     }
   };
 
-  /* ─── Mutation helpers ───────────────────────────────────────────────── */
+  /* ─── Loading ────────────────────────────────────────────────────────── */
 
-  const updateCampaign = useCallback(
-    async (id: string, updates: Partial<Campaign>) => {
-      // Update local state
-      setCampaigns((prev) => prev.map((c) => (c.campaignId === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c)));
-
-      // Update selected campaign if viewing it
-      setSelectedCampaign((prev) => (prev && prev.campaignId === id ? { ...prev, ...updates, updatedAt: new Date().toISOString() } : prev));
-
-      // In real mode, fire API
-      if (!isDemoMode()) {
-        await api.put(`/api/campaigns/${id}`, updates);
-      }
-    },
-    [],
-  );
-
-  const handleToggleDeliverable = useCallback(
-    (campaignId: string, deliverableId: string, deliverables: Deliverable[]) => {
-      const updated = deliverables.map((d) =>
-        d.id === deliverableId
-          ? {
-              ...d,
-              completed: !d.completed,
-              completedAt: !d.completed ? new Date().toISOString() : undefined,
-            }
-          : d,
-      );
-      updateCampaign(campaignId, { deliverables: updated });
-    },
-    [updateCampaign],
-  );
-
-  const handleStatusAdvance = useCallback(
-    (campaignId: string, newStatus: CampaignStatus) => {
-      updateCampaign(campaignId, { status: newStatus });
-    },
-    [updateCampaign],
-  );
-
-  const handleNotesSave = useCallback(
-    (campaignId: string, notes: string) => {
-      updateCampaign(campaignId, { notes: notes || undefined });
-      setEditingNotes(false);
-    },
-    [updateCampaign],
-  );
-
-  /* ─── Edit Modal helpers ─────────────────────────────────────────────── */
-
-  const openEditModal = useCallback((campaign: Campaign) => {
-    setEditingCampaign(campaign);
-    setEditForm({
-      status: campaign.status,
-      package: campaign.package,
-      budget: campaign.budget,
-      startDate: campaign.startDate ?? '',
-      endDate: campaign.endDate ?? '',
-      notes: campaign.notes ?? '',
-      deliverables: campaign.deliverables.map((d) => ({ ...d })),
-    });
-    // Close view panel if open
-    setSelectedCampaign(null);
-  }, []);
-
-  const closeEditModal = useCallback(() => {
-    setEditingCampaign(null);
-    setEditForm(null);
-    setEditSaving(false);
-  }, []);
-
-  const handleEditSave = useCallback(async () => {
-    if (!editingCampaign || !editForm) return;
-    if (editForm.budget <= 0) return;
-
-    setEditSaving(true);
-
-    const updates: Partial<Campaign> = {
-      status: editForm.status,
-      package: editForm.package,
-      budget: editForm.budget,
-      startDate: editForm.startDate || undefined,
-      endDate: editForm.endDate || undefined,
-      notes: editForm.notes || undefined,
-      deliverables: editForm.deliverables,
-    };
-
-    await updateCampaign(editingCampaign.campaignId, updates);
-    setEditSaving(false);
-    closeEditModal();
-  }, [editingCampaign, editForm, updateCampaign, closeEditModal]);
-
-  const addDeliverable = useCallback(() => {
-    if (!editForm) return;
-    setEditForm({
-      ...editForm,
-      deliverables: [
-        ...editForm.deliverables,
-        { id: makeDeliverableId(), type: 'reel', description: '', completed: false },
-      ],
-    });
-  }, [editForm]);
-
-  const removeDeliverable = useCallback(
-    (id: string) => {
-      if (!editForm) return;
-      setEditForm({
-        ...editForm,
-        deliverables: editForm.deliverables.filter((d) => d.id !== id),
-      });
-    },
-    [editForm],
-  );
-
-  const updateDeliverable = useCallback(
-    (id: string, field: keyof Deliverable, value: string | boolean) => {
-      if (!editForm) return;
-      setEditForm({
-        ...editForm,
-        deliverables: editForm.deliverables.map((d) => (d.id === id ? { ...d, [field]: value } : d)),
-      });
-    },
-    [editForm],
-  );
-
-  /* ─── Loading ──────────────────────────────────────────────────────────── */
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-container">
         <div className="page-header">
@@ -574,21 +274,26 @@ export default function PartnershipCRM() {
     );
   }
 
-  /* ─── Render ───────────────────────────────────────────────────────────── */
+  /* ─── Render ─────────────────────────────────────────────────────────── */
 
   return (
     <div className="page-container">
       {/* Header */}
-      <div className="page-header">
-        <h1 className="page-title">Restaurant CRM</h1>
-        <p className="page-subtitle">Manage all your restaurant campaigns in one place</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 className="page-title">Restaurant CRM</h1>
+          <p className="page-subtitle">Track your restaurant partnerships and see what to do next</p>
+        </div>
+        <Link to="/app/campaigns" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+          + New Campaign
+        </Link>
       </div>
 
       {/* Error */}
-      {error && (
+      {isError && (
         <div style={styles.errorBanner}>
-          <span>{error}</span>
-          <button className="btn btn-ghost" onClick={fetchCampaigns}>
+          <span>{error instanceof Error ? error.message : 'Failed to load campaigns'}</span>
+          <button className="btn btn-ghost" onClick={() => refetch()}>
             Retry
           </button>
         </div>
@@ -663,7 +368,6 @@ export default function PartnershipCRM() {
                 <th style={styles.th}>Est. Value</th>
                 <th style={styles.th}>Start Date</th>
                 <th style={styles.th}>Deliverables</th>
-                <th style={styles.th}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -696,28 +400,6 @@ export default function PartnershipCRM() {
                         {campaign.deliverables.filter((d) => d.completed).length}/{campaign.deliverables.length} ({progress}%)
                       </div>
                     </td>
-                    <td style={styles.td}>
-                      <div style={styles.actionBtns}>
-                        <button
-                          className="btn btn-ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedCampaign(campaign);
-                          }}
-                        >
-                          View
-                        </button>
-                        <button
-                          className="btn btn-ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(campaign);
-                          }}
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
@@ -726,379 +408,15 @@ export default function PartnershipCRM() {
         )}
       </div>
 
-      {/* ─── Interactive Detail Panel ─────────────────────────────────────── */}
+      {/* ─── Rich Detail Panel (shared component) ──────────────────────── */}
       {selectedCampaign && (
-        <div
-          style={styles.detailOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setSelectedCampaign(null);
-              setEditingNotes(false);
-            }
-          }}
-        >
-          <div style={styles.detailPanel}>
-            <div style={styles.detailHeader}>
-              <div>
-                <h2 style={{ fontSize: 'var(--font-xl)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-                  {selectedCampaign.restaurantName}
-                </h2>
-                <span className={`badge ${STATUS_BADGE[selectedCampaign.status]}`}>
-                  {selectedCampaign.status}
-                </span>
-              </div>
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  setSelectedCampaign(null);
-                  setEditingNotes(false);
-                }}
-                aria-label="Close detail panel"
-              >
-                {'\u2715'}
-              </button>
-            </div>
-
-            {/* Pipeline Status Indicator */}
-            {selectedCampaign.status !== 'cancelled' && (
-              <div style={styles.pipelineRow}>
-                {STATUS_PIPELINE.map((stage, i) => {
-                  const currentIdx = STATUS_PIPELINE.indexOf(selectedCampaign.status);
-                  const isActive = stage === selectedCampaign.status;
-                  const isPast = i < currentIdx;
-                  return (
-                    <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 'var(--space-2)' }}>
-                      <div style={{ ...styles.pipelineStep(isActive, isPast), flex: 1 }}>
-                        {isPast ? '\u2713 ' : ''}{stage}
-                      </div>
-                      {i < STATUS_PIPELINE.length - 1 && <span style={styles.pipelineArrow}>{'\u203A'}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Quick Status Advance Button */}
-            {nextStatus(selectedCampaign.status) && (
-              <div style={{ marginBottom: 'var(--space-5)' }}>
-                <button
-                  className={`btn btn-primary ${editSaving ? 'btn-loading' : ''}`}
-                  style={{ width: '100%' }}
-                  onClick={() => handleStatusAdvance(selectedCampaign.campaignId, nextStatus(selectedCampaign.status)!)}
-                  disabled={editSaving}
-                >
-                  {!editSaving && `Move to ${nextStatus(selectedCampaign.status)}`}
-                </button>
-              </div>
-            )}
-
-            <div style={styles.detailRow}>
-              <span style={styles.detailLabel}>Package</span>
-              <span style={styles.detailValue}>{selectedCampaign.package}</span>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailLabel}>Estimated Value</span>
-              <span style={styles.detailValue}>{formatCurrency(selectedCampaign.budget)}</span>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailLabel}>Start Date</span>
-              <span style={styles.detailValue}>{formatDate(selectedCampaign.startDate)}</span>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailLabel}>End Date</span>
-              <span style={styles.detailValue}>{formatDate(selectedCampaign.endDate)}</span>
-            </div>
-            <div style={styles.detailRow}>
-              <span style={styles.detailLabel}>Created</span>
-              <span style={styles.detailValue}>{formatDate(selectedCampaign.createdAt)}</span>
-            </div>
-
-            {/* Inline Notes Editing */}
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              <div style={{ ...styles.detailLabel, marginBottom: 'var(--space-2)', fontWeight: 600 }}>Notes</div>
-              {editingNotes ? (
-                <div>
-                  <textarea
-                    className="form-input"
-                    style={{ width: '100%', minHeight: '80px', resize: 'vertical' }}
-                    value={notesValue}
-                    onChange={(e) => setNotesValue(e.target.value)}
-                    autoFocus
-                  />
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', justifyContent: 'flex-end' }}>
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => setEditingNotes(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => handleNotesSave(selectedCampaign.campaignId, notesValue)}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              ) : selectedCampaign.notes ? (
-                <p
-                  style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.6, cursor: 'pointer', padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)' }}
-                  onClick={() => {
-                    setNotesValue(selectedCampaign.notes ?? '');
-                    setEditingNotes(true);
-                  }}
-                  title="Click to edit"
-                >
-                  {selectedCampaign.notes}
-                </p>
-              ) : (
-                <div
-                  style={styles.inlineNotesPrompt}
-                  onClick={() => {
-                    setNotesValue('');
-                    setEditingNotes(true);
-                  }}
-                >
-                  + Add notes
-                </div>
-              )}
-            </div>
-
-            {/* Clickable Deliverables */}
-            <div style={{ marginTop: 'var(--space-6)' }}>
-              <div style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-3)' }}>
-                Deliverables ({selectedCampaign.deliverables.filter((d) => d.completed).length}/{selectedCampaign.deliverables.length})
-              </div>
-              <div style={styles.progressTrack}>
-                <div style={styles.progressFill(deliverableProgress(selectedCampaign.deliverables))} />
-              </div>
-              <div style={{ marginTop: 'var(--space-3)' }}>
-                {selectedCampaign.deliverables.map((d) => (
-                  <div
-                    key={d.id}
-                    style={styles.clickableDeliverable(d.completed)}
-                    onClick={() => handleToggleDeliverable(selectedCampaign.campaignId, d.id, selectedCampaign.deliverables)}
-                    role="checkbox"
-                    aria-checked={d.completed}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleToggleDeliverable(selectedCampaign.campaignId, d.id, selectedCampaign.deliverables);
-                      }
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={d.completed}
-                      readOnly
-                      style={styles.checkbox}
-                      tabIndex={-1}
-                    />
-                    <span style={{ color: d.completed ? 'var(--color-textPrimary)' : 'var(--color-textSecondary)', flex: 1 }}>
-                      {d.description}
-                    </span>
-                    <span className={`badge ${d.completed ? 'badge--success' : 'badge--info'}`} style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                      {d.type}
-                    </span>
-                    {d.completed && d.completedAt && (
-                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', flexShrink: 0 }}>
-                        {formatDate(d.completedAt)}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => { setSelectedCampaign(null); setEditingNotes(false); }}>
-                Close
-              </button>
-              <button className="btn btn-primary" onClick={() => openEditModal(selectedCampaign)}>
-                Edit Campaign
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Edit Campaign Modal ──────────────────────────────────────────── */}
-      {editingCampaign && editForm && (
-        <div
-          style={styles.detailOverlay}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeEditModal();
-          }}
-        >
-          <div style={{ ...styles.detailPanel, maxWidth: '640px' }}>
-            <div style={styles.detailHeader}>
-              <div>
-                <h2 style={{ fontSize: 'var(--font-xl)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-                  Edit Campaign
-                </h2>
-                <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                  {editingCampaign.restaurantName}
-                </span>
-              </div>
-              <button
-                className="btn btn-ghost"
-                onClick={closeEditModal}
-                aria-label="Close edit modal"
-              >
-                {'\u2715'}
-              </button>
-            </div>
-
-            {/* Status + Package row */}
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Status</label>
-                <select
-                  className="form-input"
-                  style={{ width: '100%' }}
-                  value={editForm.status}
-                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value as CampaignStatus })}
-                >
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Package</label>
-                <select
-                  className="form-input"
-                  style={{ width: '100%' }}
-                  value={editForm.package}
-                  onChange={(e) => setEditForm({ ...editForm, package: e.target.value })}
-                >
-                  {PACKAGE_OPTIONS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Budget */}
-            <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Estimated Value</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-textMuted)', fontSize: 'var(--font-sm)' }}>$</span>
-                <input
-                  type="number"
-                  className="form-input"
-                  style={{ width: '100%', paddingLeft: 'var(--space-6)' }}
-                  value={editForm.budget}
-                  min={1}
-                  onChange={(e) => setEditForm({ ...editForm, budget: Number(e.target.value) })}
-                />
-              </div>
-              {editForm.budget <= 0 && (
-                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)', marginTop: 'var(--space-1)', display: 'block' }}>
-                  Estimated value must be greater than 0
-                </span>
-              )}
-            </div>
-
-            {/* Dates row */}
-            <div style={styles.formRow}>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Start Date</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  style={{ width: '100%' }}
-                  value={editForm.startDate}
-                  onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>End Date</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  style={{ width: '100%' }}
-                  value={editForm.endDate}
-                  onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Notes</label>
-              <textarea
-                className="form-input"
-                style={{ width: '100%', minHeight: '80px', resize: 'vertical' }}
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                placeholder="Add campaign notes..."
-              />
-            </div>
-
-            {/* Deliverables */}
-            <div style={styles.formGroup}>
-              <label style={styles.formLabel}>Deliverables</label>
-              {editForm.deliverables.map((d) => (
-                <div key={d.id} style={styles.deliverableEditRow}>
-                  <select
-                    className="form-input"
-                    value={d.type}
-                    onChange={(e) => updateDeliverable(d.id, 'type', e.target.value)}
-                  >
-                    {DELIVERABLE_TYPES.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={d.description}
-                    onChange={(e) => updateDeliverable(d.id, 'description', e.target.value)}
-                    placeholder="Description..."
-                  />
-                  <input
-                    type="checkbox"
-                    checked={d.completed}
-                    onChange={(e) => updateDeliverable(d.id, 'completed', e.target.checked)}
-                    style={styles.checkbox}
-                    title="Completed"
-                  />
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => removeDeliverable(d.id)}
-                    title="Remove deliverable"
-                    style={{ color: 'var(--color-error)', padding: 'var(--space-1) var(--space-2)' }}
-                  >
-                    {'\u2715'}
-                  </button>
-                </div>
-              ))}
-              <button
-                className="btn btn-ghost"
-                onClick={addDeliverable}
-                style={{ marginTop: 'var(--space-2)', fontSize: 'var(--font-sm)' }}
-              >
-                + Add Deliverable
-              </button>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', marginTop: 'var(--space-6)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-5)' }}>
-              <button className="btn btn-secondary" onClick={closeEditModal} disabled={editSaving}>
-                Cancel
-              </button>
-              <button
-                className={`btn btn-primary ${editSaving ? 'btn-loading' : ''}`}
-                onClick={handleEditSave}
-                disabled={editSaving || editForm.budget <= 0}
-              >
-                {!editSaving && 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CampaignDetailPanel
+          campaign={selectedCampaign}
+          onClose={() => setSelectedCampaign(null)}
+          onUpdate={(updates) => updateMutation.mutate({ campaignId: selectedCampaign.campaignId, updates })}
+          isSaving={updateMutation.isPending}
+          variant="modal"
+        />
       )}
     </div>
   );
