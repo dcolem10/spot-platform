@@ -121,6 +121,8 @@ export function StyledSelect({
       <button
         type="button"
         disabled={disabled}
+        role="combobox"
+        aria-expanded={open}
         onClick={() => {
           if (!disabled) {
             setOpen(!open);
@@ -334,6 +336,7 @@ export function StyledDatePicker({
       <button
         type="button"
         disabled={disabled}
+        aria-label={placeholder}
         onClick={() => inputRef.current?.showPicker?.()}
         style={{
           display: 'flex',

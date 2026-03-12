@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
@@ -611,7 +611,7 @@ const inputStyle: React.CSSProperties = {
 
 /* ─── Sub-components ───────────────────────────────────────────────────────── */
 
-function OfferRow({
+const OfferRow = memo(function OfferRow({
   offer,
   linkedCampaign,
   expandedQR,
@@ -831,4 +831,4 @@ function OfferRow({
       )}
     </div>
   );
-}
+});

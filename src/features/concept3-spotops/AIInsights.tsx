@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { api } from '../../services/ApiService';
 import {
   isDemoMode,
@@ -229,7 +229,7 @@ const INSIGHT_STYLES: Record<string, { border: string; bg: string }> = {
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
-function InsightCard({ insight }: { insight: Insight }) {
+const InsightCard = memo(function InsightCard({ insight }: { insight: Insight }) {
   const style = INSIGHT_STYLES[insight.type] || INSIGHT_STYLES.info;
   return (
     <div
@@ -279,9 +279,9 @@ function InsightCard({ insight }: { insight: Insight }) {
       </div>
     </div>
   );
-}
+});
 
-function RecommendationCard({ rec }: { rec: Recommendation }) {
+const RecommendationCard = memo(function RecommendationCard({ rec }: { rec: Recommendation }) {
   const priceStr = '$'.repeat(rec.priceLevel);
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -356,9 +356,9 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
       )}
     </div>
   );
-}
+});
 
-function ContentIdeaCard({ idea, index }: { idea: ContentIdea; index: number }) {
+const ContentIdeaCard = memo(function ContentIdeaCard({ idea, index }: { idea: ContentIdea; index: number }) {
   const typeInfo = TYPE_LABELS[idea.type] || TYPE_LABELS.post;
   return (
     <div
@@ -429,7 +429,7 @@ function ContentIdeaCard({ idea, index }: { idea: ContentIdea; index: number }) 
       </div>
     </div>
   );
-}
+});
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -438,6 +438,7 @@ export default function AIInsights() {
     'insights',
   );
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [aiRecommendations, setAiRecommendations] = useState<Recommendation[] | null>(null);
   const [aiContentIdeas, setAiContentIdeas] = useState<ContentIdea[] | null>(null);
   const [aiInsights, setAiInsights] = useState<string[] | null>(null);
@@ -455,46 +456,70 @@ export default function AIInsights() {
 
   const demoContentIdeas = useMemo(() => getDemoContentIdeas(), []);
 
-  // API calls for real mode
+  // API calls for real mode (wrapped in try-catch for resilience)
   const fetchAIInsights = useCallback(async () => {
     if (isDemoMode()) return;
     setIsLoadingAI(true);
-    const result = await api.post<{ insights: string[] }>('/api/ai/campaign-insights', {
-      campaignData: {
-        campaigns: DEMO_CAMPAIGNS.length,
-        active: DEMO_CAMPAIGNS.filter((c) => c.status === 'active').length,
-        completed: DEMO_CAMPAIGNS.filter((c) => c.status === 'completed').length,
-      },
-    });
-    if (result.status === 'success' && result.data) {
-      setAiInsights(result.data.insights);
+    setAiError(null);
+    try {
+      const result = await api.post<{ insights: string[] }>('/api/ai/campaign-insights', {
+        campaignData: {
+          campaigns: DEMO_CAMPAIGNS.length,
+          active: DEMO_CAMPAIGNS.filter((c) => c.status === 'active').length,
+          completed: DEMO_CAMPAIGNS.filter((c) => c.status === 'completed').length,
+        },
+      });
+      if (result.status === 'success' && result.data) {
+        setAiInsights(result.data.insights);
+      } else {
+        setAiError(result.error || 'Failed to load AI insights.');
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to load AI insights.');
+    } finally {
+      setIsLoadingAI(false);
     }
-    setIsLoadingAI(false);
   }, []);
 
   const fetchAIRecommendations = useCallback(async () => {
     if (isDemoMode()) return;
     setIsLoadingAI(true);
-    const result = await api.post<{ recommendations: Recommendation[] }>(
-      '/api/ai/recommendations',
-      { query: 'Recommend new DC restaurants for a food creator to partner with' },
-    );
-    if (result.status === 'success' && result.data) {
-      setAiRecommendations(result.data.recommendations);
+    setAiError(null);
+    try {
+      const result = await api.post<{ recommendations: Recommendation[] }>(
+        '/api/ai/recommendations',
+        { query: 'Recommend new DC restaurants for a food creator to partner with' },
+      );
+      if (result.status === 'success' && result.data) {
+        setAiRecommendations(result.data.recommendations);
+      } else {
+        setAiError(result.error || 'Failed to load recommendations.');
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to load recommendations.');
+    } finally {
+      setIsLoadingAI(false);
     }
-    setIsLoadingAI(false);
   }, []);
 
   const fetchAIContentIdeas = useCallback(async () => {
     if (isDemoMode()) return;
     setIsLoadingAI(true);
-    const result = await api.post<{ ideas: ContentIdea[] }>('/api/ai/content-ideas', {
-      context: { city: 'DC', niche: 'food', platforms: ['instagram', 'tiktok'] },
-    });
-    if (result.status === 'success' && result.data) {
-      setAiContentIdeas(result.data.ideas);
+    setAiError(null);
+    try {
+      const result = await api.post<{ ideas: ContentIdea[] }>('/api/ai/content-ideas', {
+        context: { city: 'DC', niche: 'food', platforms: ['instagram', 'tiktok'] },
+      });
+      if (result.status === 'success' && result.data) {
+        setAiContentIdeas(result.data.ideas);
+      } else {
+        setAiError(result.error || 'Failed to load content ideas.');
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Failed to load content ideas.');
+    } finally {
+      setIsLoadingAI(false);
     }
-    setIsLoadingAI(false);
   }, []);
 
   const handleTabChange = useCallback(
@@ -526,6 +551,8 @@ export default function AIInsights() {
 
       {/* Tab Bar */}
       <div
+        role="tablist"
+        aria-label="AI Insights sections"
         style={{
           display: 'flex',
           gap: 'var(--space-2)',
@@ -537,6 +564,9 @@ export default function AIInsights() {
         {tabs.map((tab) => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            aria-controls={`tabpanel-${tab.key}`}
             onClick={() => handleTabChange(tab.key)}
             style={{
               display: 'flex',
@@ -566,6 +596,44 @@ export default function AIInsights() {
         ))}
       </div>
 
+      {/* Error banner */}
+      {aiError && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 'var(--space-3)',
+            padding: 'var(--space-3) var(--space-4)',
+            marginBottom: 'var(--space-4)',
+            background: 'var(--color-errorMuted)',
+            border: '1px solid var(--color-error)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-error)',
+          }}
+        >
+          <span>{aiError}</span>
+          <button
+            onClick={() => setAiError(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-error)',
+              cursor: 'pointer',
+              fontSize: 'var(--font-base)',
+              lineHeight: 1,
+              padding: '2px',
+              flexShrink: 0,
+            }}
+            aria-label="Dismiss error"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Loading state for API mode */}
       {isLoadingAI && (
         <div
@@ -592,7 +660,7 @@ export default function AIInsights() {
 
       {/* ── Campaign Insights Tab ── */}
       {activeTab === 'insights' && !isLoadingAI && (
-        <section>
+        <section role="tabpanel" id="tabpanel-insights" aria-label="Campaign Insights">
           {isDemoMode() ? (
             <div
               className="stagger-children"
@@ -627,7 +695,7 @@ export default function AIInsights() {
 
       {/* ── Partner Suggestions Tab ── */}
       {activeTab === 'recommendations' && !isLoadingAI && (
-        <section>
+        <section role="tabpanel" id="tabpanel-recommendations" aria-label="Partner Suggestions">
           <p
             style={{
               fontSize: 'var(--font-sm)',
@@ -659,7 +727,7 @@ export default function AIInsights() {
 
       {/* ── Content Ideas Tab ── */}
       {activeTab === 'content' && !isLoadingAI && (
-        <section>
+        <section role="tabpanel" id="tabpanel-content" aria-label="Content Ideas">
           <p
             style={{
               fontSize: 'var(--font-sm)',

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Restaurant, MembershipTier } from '../../types';
 import { api } from '../../services/ApiService';
@@ -163,7 +163,7 @@ interface RestaurantCardProps {
   onSave: (id: string) => void;
 }
 
-function RestaurantCard({ restaurant, onSave }: RestaurantCardProps) {
+const RestaurantCard = memo(function RestaurantCard({ restaurant, onSave }: RestaurantCardProps) {
   const primaryPhoto = restaurant.photos?.[0];
 
   return (
@@ -290,7 +290,7 @@ function RestaurantCard({ restaurant, onSave }: RestaurantCardProps) {
       </div>
     </article>
   );
-}
+});
 
 export function InsiderCTA() {
   return (

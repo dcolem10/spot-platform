@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
@@ -337,7 +337,7 @@ export default function PartnerPortal() {
 
 /* ─── Metric Card ──────────────────────────────────────────────────────────── */
 
-function MetricCard({
+const MetricCard = memo(function MetricCard({
   label,
   value,
   icon,
@@ -375,4 +375,4 @@ function MetricCard({
       </div>
     </div>
   );
-}
+});

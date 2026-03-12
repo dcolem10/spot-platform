@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
@@ -297,7 +297,7 @@ export default function CampaignManager() {
 
 /* ─── Kanban Column ────────────────────────────────────────────────────────── */
 
-function KanbanColumn({
+const KanbanColumn = memo(function KanbanColumn({
   stage,
   campaigns,
   onSelect,
@@ -491,4 +491,4 @@ function KanbanColumn({
       </div>
     </div>
   );
-}
+});

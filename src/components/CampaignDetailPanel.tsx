@@ -207,6 +207,7 @@ export default function CampaignDetailPanel({
 
   const panelContent = (
     <div
+      aria-label="Campaign details"
       style={
         isModal
           ? {
@@ -358,6 +359,7 @@ export default function CampaignDetailPanel({
 
         {/* Tab Bar */}
         <div
+          role="tablist"
           style={{
             display: 'flex',
             gap: 'var(--space-1)',
@@ -369,6 +371,8 @@ export default function CampaignDetailPanel({
           {(['details', 'activity'] as const).map((tab) => (
             <button
               key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
               onClick={() => setActiveTab(tab)}
               style={{
                 padding: 'var(--space-2) var(--space-4)',

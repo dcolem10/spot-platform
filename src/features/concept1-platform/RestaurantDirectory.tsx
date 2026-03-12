@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/ApiService';
@@ -688,7 +688,7 @@ export default function RestaurantDirectory() {
   );
 }
 
-function RestaurantCard({ restaurant, isRecommended }: { restaurant: Restaurant; isRecommended: boolean }) {
+const RestaurantCard = memo(function RestaurantCard({ restaurant, isRecommended }: { restaurant: Restaurant; isRecommended: boolean }) {
   const photoUrl = restaurant.photos?.[0];
   const [imgError, setImgError] = useState(false);
 
@@ -810,4 +810,4 @@ function RestaurantCard({ restaurant, isRecommended }: { restaurant: Restaurant;
       </div>
     </Link>
   );
-}
+});
