@@ -27,8 +27,14 @@ export function isValidId(id) {
  * DynamoDB internal keys that should be stripped from responses
  */
 export const DDB_KEYS = new Set([
-  'PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'creatorId',
-  'ttl', 'oauthState', 'codeVerifier', 'codeChallenge', 'accessToken', 'refreshToken',
+  // DynamoDB internal keys
+  'PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'GSI3PK', 'GSI3SK',
+  'creatorId', 'ttl',
+  // OAuth / auth secrets — must never leak to clients
+  'oauthState', 'codeVerifier', 'codeChallenge', 'accessToken', 'refreshToken',
+  // API / webhook secrets — future-proof blocklist
+  'apiKey', 'apiSecret', 'webhookSecret', 'merchantSecret', 'secretKey',
+  'stripeCustomerId', 'internalNotes',
 ]);
 
 /**

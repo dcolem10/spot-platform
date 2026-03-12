@@ -8,7 +8,8 @@ async function getAuthToken(): Promise<string | null> {
     const { fetchAuthSession } = await import('aws-amplify/auth');
     const session = await fetchAuthSession();
     return session.tokens?.idToken?.toString() ?? null;
-  } catch {
+  } catch (err) {
+    console.warn('Auth token fetch failed:', (err as Error)?.message || 'unknown');
     return null;
   }
 }
@@ -55,7 +56,7 @@ async function request<T>(
             await signOut();
           } catch { /* best-effort */ }
           if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
-            window.location.href = '/auth/sign-in?expired=true';
+            window.location.replace('/auth/sign-in?expired=true');
           }
         }
       }

@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 
-// Demo mode: only allowed on localhost/127.0.0.1 — never in production
+// Demo mode: only allowed on localhost/127.0.0.1 in development — hard-blocked in production
 const isLocalhost = typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const demoEnabled = import.meta.env.VITE_DEMO_MODE === 'true' && isLocalhost;
+const demoEnabled = import.meta.env.VITE_DEMO_MODE === 'true' && isLocalhost && import.meta.env.MODE !== 'production';
 
 export function useAuthInit() {
   const ran = useRef(false);

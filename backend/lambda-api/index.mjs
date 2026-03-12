@@ -2224,7 +2224,21 @@ async function getSyncHistory(event) {
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
   const params = event.queryStringParameters || {};
-  const restaurantId = sanitize(params.restaurantId || userId, 256);
+  const restaurantId = sanitize(params.restaurantId, 256);
+  if (!restaurantId) return respond(400, { error: 'restaurantId is required' });
+
+  // H9: Verify caller owns this restaurant before exposing sync data
+  const restCheck = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
+      ProjectionExpression: 'creatorId',
+    })
+  );
+  if (!restCheck.Item || restCheck.Item.creatorId !== userId) {
+    return respond(403, { error: 'You do not have access to this restaurant\'s data' });
+  }
+
   const limit = Math.min(parseInt(params.limit || '30', 10), 90);
 
   const result = await ddb.send(new QueryCommand({
@@ -4924,38 +4938,25 @@ async function markNotificationsRead(event) {
  */
 async function sendNotificationEmail(targetUserId, subject, htmlBody) {
   try {
-    // SES rate limit: max 10 emails per user per hour
+    // H10: Atomic SES rate limit — max 10 emails per user per hour (race-safe)
     const emailRateKey = `RATE#EMAIL#${targetUserId}`;
     const hourWindow = Math.floor(Date.now() / 1000 / 3600);
     try {
-      await ddb.send(new PutCommand({
+      const incResult = await ddb.send(new UpdateCommand({
         TableName: TABLE,
-        Item: {
-          PK: emailRateKey,
-          SK: `HOUR#${hourWindow}`,
-          count: 1,
-          ttl: Math.floor(Date.now() / 1000) + 7200,
-        },
-        ConditionExpression: 'attribute_not_exists(PK)',
+        Key: { PK: emailRateKey, SK: `HOUR#${hourWindow}` },
+        UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :inc, #t = if_not_exists(#t, :ttl)',
+        ConditionExpression: 'attribute_not_exists(#c) OR #c < :limit',
+        ExpressionAttributeNames: { '#c': 'count', '#t': 'ttl' },
+        ExpressionAttributeValues: { ':zero': 0, ':inc': 1, ':limit': 10, ':ttl': Math.floor(Date.now() / 1000) + 7200 },
+        ReturnValues: 'ALL_NEW',
       }));
     } catch (rateErr) {
       if (rateErr.name === 'ConditionalCheckFailedException') {
-        // Already sent this hour, increment counter
-        const incResult = await ddb.send(new UpdateCommand({
-          TableName: TABLE,
-          Key: { PK: emailRateKey, SK: `HOUR#${hourWindow}` },
-          UpdateExpression: 'SET #c = if_not_exists(#c, :zero) + :inc',
-          ExpressionAttributeNames: { '#c': 'count' },
-          ExpressionAttributeValues: { ':zero': 0, ':inc': 1 },
-          ReturnValues: 'ALL_NEW',
-        }));
-        if ((incResult.Attributes?.count || 0) > 10) {
-          console.warn(`Email rate limit exceeded for user ${targetUserId}`);
-          return;
-        }
-      } else {
-        throw rateErr;
+        console.warn(`Email rate limit exceeded for user ${targetUserId}`);
+        return;
       }
+      throw rateErr;
     }
 
     // Look up user email from profile
@@ -5386,7 +5387,15 @@ async function listRaffleEntries(raffleId, event) {
   if (!raffle.Item) return respond(404, { error: 'Raffle not found or not owned by you' });
 
   const params = event.queryStringParameters || {};
-  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 200);
+  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 100);
+  let exclusiveStartKey;
+  if (params.nextToken) {
+    try { exclusiveStartKey = JSON.parse(Buffer.from(params.nextToken, 'base64').toString()); } catch { return respond(400, { error: 'Invalid pagination token' }); }
+    // H11: Validate pagination token structure to prevent key injection
+    if (!exclusiveStartKey.PK || !exclusiveStartKey.SK || typeof exclusiveStartKey.PK !== 'string') {
+      return respond(400, { error: 'Malformed pagination token' });
+    }
+  }
 
   const result = await ddb.send(
     new QueryCommand({
@@ -5397,8 +5406,13 @@ async function listRaffleEntries(raffleId, event) {
         ':skPrefix': 'ENTRY#',
       },
       Limit: limit,
+      ...(exclusiveStartKey && { ExclusiveStartKey: exclusiveStartKey }),
     })
   );
+
+  const nextToken = result.LastEvaluatedKey
+    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+    : null;
 
   return respond(200, {
     entries: (result.Items || []).map(e => ({
@@ -5409,6 +5423,7 @@ async function listRaffleEntries(raffleId, event) {
       createdAt: e.createdAt,
     })),
     count: result.Count || 0,
+    nextToken,
   });
 }
 
