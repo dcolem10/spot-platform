@@ -4,7 +4,7 @@ import { api } from '../services/ApiService';
 import { isDemoMode } from '../data/demoData';
 import { StyledSelect } from './FormControls';
 import { CalendarDatePicker } from './CalendarDatePicker';
-import type { Campaign, CampaignStatus, Offer, Restaurant } from '../types';
+import type { Campaign, CampaignActivity, CampaignStatus, Offer, Restaurant } from '../types';
 
 /* ─── Constants (shared) ──────────────────────────────────────────────────── */
 
@@ -94,9 +94,7 @@ export default function CampaignDetailPanel({
   const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details');
   const [isEditing, setIsEditing] = useState(false);
   const [newNote, setNewNote] = useState('');
-  const [pendingActivity, setPendingActivity] = useState<
-    { id: string; type: string; message: string; timestamp: string }[]
-  >([]);
+  const [pendingActivity, setPendingActivity] = useState<CampaignActivity[]>([]);
   const [editForm, setEditForm] = useState({
     dealType: campaign.dealType || '',
     dealDescription: campaign.dealDescription || '',

@@ -52,6 +52,9 @@ const AmbassadorDashboard = lazy(() => import('./features/concept3-spotops/Ambas
 // Multi-Creator Collaboration
 const CollaborationPanel = lazy(() => import('./features/concept1-platform/CollaborationPanel'));
 
+// Proposal Inbox (Handshake Model)
+const ProposalInbox = lazy(() => import('./components/ProposalInbox'));
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -139,6 +142,10 @@ export default function App() {
                 <Route path="partner" element={<FeatureGate flag="restaurantPortal"><PartnerPortal /></FeatureGate>} />
                 <Route path="partner/campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
                 <Route path="partner/offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
+                <Route path="partner/proposals" element={<FeatureGate flag="restaurantPortal"><ProposalInbox role="restaurant" /></FeatureGate>} />
+
+                {/* Proposal Inbox */}
+                <Route path="proposals" element={<ProposalInbox role="creator" />} />
 
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />

@@ -89,7 +89,7 @@ function decodePaginationKey(encoded) {
     for (const k of keys) {
       if (typeof decoded[k] !== 'string' || decoded[k].length > 500) return null;
       // Only allow expected key attribute names
-      if (!['PK', 'SK', 'GSI1PK', 'GSI1SK'].includes(k)) return null;
+      if (!['PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK'].includes(k)) return null;
     }
     return decoded;
   } catch {
@@ -2230,6 +2230,409 @@ async function removeCollaborator(campaignId, creatorId, event) {
   return respond(200, { message: 'Collaborator removed' });
 }
 
+// ─── Proposals (Handshake Model) ─────────────────────────────────────────────
+
+const VALID_PROPOSAL_TYPES = ['deal', 'campaign', 'qr_code', 'content_review'];
+const VALID_PROPOSAL_STATUSES = ['pending', 'accepted', 'countered', 'declined', 'expired'];
+const VALID_INITIATORS = ['creator', 'restaurant'];
+
+/**
+ * POST /api/proposals — Create a new proposal (either party).
+ * Body: { proposalType, initiatedBy, initiatorId, targetId, terms, targetName? }
+ */
+async function createProposal(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'CREATE_PROP', 20))) {
+    return respond(429, { error: 'Too many proposals. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const proposalType = sanitize(body.proposalType, 30);
+  const initiatedBy = sanitize(body.initiatedBy, 20);
+  const targetId = sanitize(body.targetId, 128);
+
+  if (!VALID_PROPOSAL_TYPES.includes(proposalType))
+    return respond(400, { error: `Invalid proposalType. Must be one of: ${VALID_PROPOSAL_TYPES.join(', ')}` });
+  if (!VALID_INITIATORS.includes(initiatedBy))
+    return respond(400, { error: 'initiatedBy must be "creator" or "restaurant"' });
+  if (!targetId || !isValidId(targetId))
+    return respond(400, { error: 'Invalid targetId' });
+
+  // Validate terms — flexible JSON but cap size
+  const terms = body.terms && typeof body.terms === 'object' ? body.terms : {};
+  const termsStr = JSON.stringify(terms);
+  if (termsStr.length > 5000)
+    return respond(400, { error: 'Terms object too large (max 5KB)' });
+
+  const proposalId = randomUUID();
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+  const ttl = Math.floor(Date.now() / 1000) + (37 * 24 * 60 * 60); // cleanup after 37 days
+
+  // PK is the initiator, so they can query "my sent proposals"
+  const initiatorPrefix = initiatedBy === 'creator' ? 'CREATOR' : 'RESTAURANT';
+  const targetPrefix = initiatedBy === 'creator' ? 'RESTAURANT' : 'CREATOR';
+
+  const item = {
+    PK: `${initiatorPrefix}#${userId}`,
+    SK: `PROPOSAL#${proposalId}`,
+    // GSI1: target can query their own copy by target+proposal
+    GSI1PK: `${targetPrefix}#${targetId}#PROPOSALS`,
+    GSI1SK: `PROPOSAL#${proposalId}`,
+    // GSI2: inbox for pending proposals (target sees these)
+    GSI2PK: `PROPOSAL#PENDING#${targetId}`,
+    GSI2SK: now,
+    proposalId,
+    proposalType,
+    initiatedBy,
+    initiatorId: userId,
+    targetId,
+    initiatorName: sanitize(body.initiatorName || '', 200),
+    targetName: sanitize(body.targetName || '', 200),
+    status: 'pending',
+    terms,
+    counterTerms: null,
+    expiresAt,
+    messages: [],
+    createdAt: now,
+    updatedAt: now,
+    ttl,
+  };
+
+  await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+  return respond(201, stripDdbKeys(item));
+}
+
+/**
+ * GET /api/proposals/inbox — Pending proposals targeting current user.
+ * Query: ?role=creator|restaurant
+ */
+async function listProposalInbox(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
+
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI2',
+      KeyConditionExpression: 'GSI2PK = :pk',
+      ExpressionAttributeValues: { ':pk': `PROPOSAL#PENDING#${userId}` },
+      ScanIndexForward: false, // newest first
+      Limit: limit,
+    })
+  );
+
+  return respond(200, {
+    proposals: stripAll(result.Items || []),
+    count: result.Count || 0,
+  });
+}
+
+/**
+ * GET /api/proposals/sent — Proposals initiated by current user.
+ * Query: ?role=creator|restaurant
+ */
+async function listProposalSent(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 25, 1), 100);
+
+  // Query both creator and restaurant PKs in parallel
+  const [result, restResult] = await Promise.all([
+    ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+        ExpressionAttributeValues: {
+          ':pk': `CREATOR#${userId}`,
+          ':skPrefix': 'PROPOSAL#',
+        },
+        ScanIndexForward: false,
+        Limit: limit,
+      })
+    ),
+    ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+        ExpressionAttributeValues: {
+          ':pk': `RESTAURANT#${userId}`,
+          ':skPrefix': 'PROPOSAL#',
+        },
+        ScanIndexForward: false,
+        Limit: limit,
+      })
+    ),
+  ]);
+
+  const all = [...(result.Items || []), ...(restResult.Items || [])];
+  all.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  return respond(200, {
+    proposals: stripAll(all.slice(0, limit)),
+    count: all.length,
+  });
+}
+
+/**
+ * GET /api/proposals/:id — Get a single proposal by ID.
+ */
+async function getProposal(proposalId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(proposalId)) return respond(400, { error: 'Invalid proposal ID' });
+
+  // Try finding as initiator (creator or restaurant PK)
+  for (const prefix of ['CREATOR', 'RESTAURANT']) {
+    const result = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `${prefix}#${userId}`, SK: `PROPOSAL#${proposalId}` },
+      })
+    );
+    if (result.Item) return respond(200, stripDdbKeys(result.Item));
+  }
+
+  // Try finding as target via GSI1
+  for (const prefix of ['CREATOR', 'RESTAURANT']) {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+        ExpressionAttributeValues: {
+          ':pk': `${prefix}#${userId}#PROPOSALS`,
+          ':sk': `PROPOSAL#${proposalId}`,
+        },
+      })
+    );
+    if (result.Items?.length) return respond(200, stripDdbKeys(result.Items[0]));
+  }
+
+  return respond(404, { error: 'Proposal not found' });
+}
+
+/**
+ * Helper: Find a proposal and verify the user is the target (for accept/counter/decline).
+ */
+async function findProposalAsTarget(proposalId, userId) {
+  for (const prefix of ['CREATOR', 'RESTAURANT']) {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'GSI1',
+        KeyConditionExpression: 'GSI1PK = :pk AND GSI1SK = :sk',
+        ExpressionAttributeValues: {
+          ':pk': `${prefix}#${userId}#PROPOSALS`,
+          ':sk': `PROPOSAL#${proposalId}`,
+        },
+      })
+    );
+    if (result.Items?.length) return result.Items[0];
+  }
+  return null;
+}
+
+/**
+ * PUT /api/proposals/:id/accept — Target accepts a proposal.
+ */
+async function acceptProposal(proposalId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(proposalId)) return respond(400, { error: 'Invalid proposal ID' });
+  if (!(await checkUserMutationRate(userId, 'PROP_ACTION', 60))) {
+    return respond(429, { error: 'Too many proposal actions. Please try again later.' });
+  }
+
+  const proposal = await findProposalAsTarget(proposalId, userId);
+  if (!proposal) return respond(404, { error: 'Proposal not found' });
+  if (proposal.status !== 'pending' && proposal.status !== 'countered')
+    return respond(400, { error: `Cannot accept a proposal with status "${proposal.status}"` });
+
+  const now = new Date().toISOString();
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: proposal.PK, SK: proposal.SK },
+      UpdateExpression: 'SET #s = :status, updatedAt = :now, acceptedAt = :now, GSI2PK = :g2pk, GSI2SK = :g2sk',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':status': 'accepted',
+        ':now': now,
+        // Move out of pending inbox — prefix with ACCEPTED so it no longer appears in pending queries
+        ':g2pk': `PROPOSAL#ACCEPTED#${proposal.targetId}`,
+        ':g2sk': now,
+      },
+    })
+  );
+
+  return respond(200, { message: 'Proposal accepted', proposalId, status: 'accepted' });
+}
+
+/**
+ * PUT /api/proposals/:id/counter — Target counters with modified terms.
+ * Body: { counterTerms: {...} }
+ */
+async function counterProposal(proposalId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(proposalId)) return respond(400, { error: 'Invalid proposal ID' });
+  if (!(await checkUserMutationRate(userId, 'PROP_ACTION', 60))) {
+    return respond(429, { error: 'Too many proposal actions. Please try again later.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const counterTerms = body.counterTerms && typeof body.counterTerms === 'object' ? body.counterTerms : null;
+  if (!counterTerms) return respond(400, { error: 'counterTerms object is required' });
+  if (JSON.stringify(counterTerms).length > 5000)
+    return respond(400, { error: 'counterTerms too large (max 5KB)' });
+
+  const proposal = await findProposalAsTarget(proposalId, userId);
+  if (!proposal) return respond(404, { error: 'Proposal not found' });
+  if (proposal.status !== 'pending' && proposal.status !== 'countered')
+    return respond(400, { error: `Cannot counter a proposal with status "${proposal.status}"` });
+
+  const now = new Date().toISOString();
+  const message = {
+    from: userId,
+    text: `Counter-offer submitted`,
+    timestamp: now,
+  };
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: proposal.PK, SK: proposal.SK },
+      UpdateExpression: 'SET #s = :status, counterTerms = :ct, updatedAt = :now, messages = list_append(if_not_exists(messages, :empty), :msg)',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':status': 'countered',
+        ':ct': counterTerms,
+        ':now': now,
+        ':msg': [message],
+        ':empty': [],
+      },
+    })
+  );
+
+  return respond(200, { message: 'Counter-offer submitted', proposalId, status: 'countered' });
+}
+
+/**
+ * PUT /api/proposals/:id/decline — Target declines a proposal.
+ * Body: { reason?: string }
+ */
+async function declineProposal(proposalId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(proposalId)) return respond(400, { error: 'Invalid proposal ID' });
+  if (!(await checkUserMutationRate(userId, 'PROP_ACTION', 60))) {
+    return respond(429, { error: 'Too many proposal actions. Please try again later.' });
+  }
+
+  const body = parseBody(event) || {};
+  const reason = sanitize(body.reason || '', 500);
+
+  const proposal = await findProposalAsTarget(proposalId, userId);
+  if (!proposal) return respond(404, { error: 'Proposal not found' });
+  if (proposal.status === 'declined' || proposal.status === 'accepted')
+    return respond(400, { error: `Cannot decline a proposal with status "${proposal.status}"` });
+
+  const now = new Date().toISOString();
+  const updateExpr = reason
+    ? 'SET #s = :status, updatedAt = :now, declineReason = :reason, GSI2PK = :g2pk, GSI2SK = :g2sk'
+    : 'SET #s = :status, updatedAt = :now, GSI2PK = :g2pk, GSI2SK = :g2sk';
+
+  const exprValues = {
+    ':status': 'declined',
+    ':now': now,
+    ':g2pk': `PROPOSAL#DECLINED#${proposal.targetId}`,
+    ':g2sk': now,
+  };
+  if (reason) exprValues[':reason'] = reason;
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: proposal.PK, SK: proposal.SK },
+      UpdateExpression: updateExpr,
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: exprValues,
+    })
+  );
+
+  return respond(200, { message: 'Proposal declined', proposalId, status: 'declined' });
+}
+
+/**
+ * POST /api/proposals/:id/message — Add a negotiation message.
+ * Body: { text: string }
+ */
+async function addProposalMessage(proposalId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(proposalId)) return respond(400, { error: 'Invalid proposal ID' });
+  if (!(await checkUserMutationRate(userId, 'PROP_MSG', 60))) {
+    return respond(429, { error: 'Too many messages. Please slow down.' });
+  }
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const text = sanitize(body.text, 1000);
+  if (!text) return respond(400, { error: 'Message text is required (max 1000 chars)' });
+
+  // Find the proposal — user could be initiator or target
+  let proposal = null;
+  for (const prefix of ['CREATOR', 'RESTAURANT']) {
+    const result = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `${prefix}#${userId}`, SK: `PROPOSAL#${proposalId}` },
+      })
+    );
+    if (result.Item) { proposal = result.Item; break; }
+  }
+  if (!proposal) {
+    proposal = await findProposalAsTarget(proposalId, userId);
+  }
+  if (!proposal) return respond(404, { error: 'Proposal not found' });
+  if (proposal.status === 'declined' || proposal.status === 'expired')
+    return respond(400, { error: 'Cannot message on a closed proposal' });
+
+  // Cap at 100 messages per proposal
+  if ((proposal.messages || []).length >= 100)
+    return respond(400, { error: 'Message limit reached for this proposal' });
+
+  const now = new Date().toISOString();
+  const message = { from: userId, text, timestamp: now };
+
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: proposal.PK, SK: proposal.SK },
+      UpdateExpression: 'SET messages = list_append(if_not_exists(messages, :empty), :msg), updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':msg': [message],
+        ':empty': [],
+        ':now': now,
+      },
+    })
+  );
+
+  return respond(200, { message: 'Message added', proposalId });
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
@@ -2380,6 +2783,24 @@ export const handler = async (event) => {
       return getAmbassadorStatus(event);
     if (path.match(/\/api\/ambassador\/referrals$/) && method === 'GET')
       return listReferrals(event);
+
+    // Proposals (Handshake Model)
+    if (path.match(/\/api\/proposals$/) && method === 'POST')
+      return createProposal(event);
+    if (path.match(/\/api\/proposals\/inbox$/) && method === 'GET')
+      return listProposalInbox(event);
+    if (path.match(/\/api\/proposals\/sent$/) && method === 'GET')
+      return listProposalSent(event);
+    if (path.match(/\/api\/proposals\/[^/]+$/) && method === 'GET')
+      return getProposal(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/proposals\/[^/]+\/accept$/) && method === 'PUT')
+      return acceptProposal(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/proposals\/[^/]+\/counter$/) && method === 'PUT')
+      return counterProposal(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/proposals\/[^/]+\/decline$/) && method === 'PUT')
+      return declineProposal(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/proposals\/[^/]+\/message$/) && method === 'POST')
+      return addProposalMessage(pathParts[pathParts.length - 2], event);
 
     // Multi-Creator Collaborations
     if (path.match(/\/api\/campaigns\/[^/]+\/collaborators$/) && method === 'POST') {

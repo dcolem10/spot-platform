@@ -26,6 +26,7 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
     items: [
       { to: '/app/crm', label: 'Partnership CRM', icon: '\uD83D\uDC65' },
       { to: '/app/campaigns', label: 'Campaign Pipeline', icon: '\uD83D\uDCC8' },
+      { to: '/app/proposals', label: 'Proposals', icon: '📩' },
       { to: '/app/offers', label: 'Deals & QR', icon: '\uD83C\uDF9F' },
       { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
       { to: '/app/insights', label: 'AI Insights', icon: '\u2728' },
@@ -57,6 +58,7 @@ const partnerNav: { group: string; items: NavItem[] }[] = [
   {
     group: 'Campaigns',
     items: [
+      { to: '/app/partner/proposals', label: 'Proposals', icon: '📩' },
       { to: '/app/partner/campaigns', label: 'My Campaigns', icon: '\uD83D\uDCC8' },
       { to: '/app/partner/offers', label: 'My Offers', icon: '\uD83C\uDF9F' },
     ],

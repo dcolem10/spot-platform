@@ -222,6 +222,37 @@ export interface EditorialSlot {
   campaignId?: string;
 }
 
+// ─── Proposals (Handshake Model) ─────────────────────────────────────────────
+
+export type ProposalType = 'deal' | 'campaign' | 'qr_code' | 'content_review';
+export type ProposalStatus = 'pending' | 'accepted' | 'countered' | 'declined' | 'expired';
+export type ProposalInitiator = 'creator' | 'restaurant';
+
+export interface ProposalMessage {
+  from: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface Proposal {
+  proposalId: string;
+  proposalType: ProposalType;
+  initiatedBy: ProposalInitiator;
+  initiatorId: string;
+  targetId: string;
+  initiatorName: string;
+  targetName: string;
+  status: ProposalStatus;
+  terms: Record<string, unknown>;
+  counterTerms: Record<string, unknown> | null;
+  expiresAt: string;
+  messages: ProposalMessage[];
+  acceptedAt?: string;
+  declineReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export interface ApiResponse<T> {
