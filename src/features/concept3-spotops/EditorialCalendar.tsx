@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EditorialSlot } from '../../types';
 import { api } from '../../services/ApiService';
 import { isDemoMode, DEMO_EDITORIAL_SLOTS, DEMO_CAMPAIGNS } from '../../data/demoData';
@@ -73,6 +74,40 @@ function formatMonthYear(date: Date): string {
 /* ─── Styles ───────────────────────────────────────────────────────────────── */
 
 const styles = {
+  statsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+    gap: 'var(--space-4)',
+    marginBottom: 'var(--space-6)',
+  } as React.CSSProperties,
+  statCard: {
+    background: 'var(--color-bgSecondary)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--space-4) var(--space-5)',
+    textAlign: 'center' as const,
+  } as React.CSSProperties,
+  statValue: {
+    fontSize: 'var(--font-2xl)',
+    fontWeight: 700,
+    color: 'var(--color-textPrimary)',
+    lineHeight: 1.2,
+  } as React.CSSProperties,
+  statLabel: {
+    fontSize: 'var(--font-xs)',
+    color: 'var(--color-textMuted)',
+    marginTop: 'var(--space-1)',
+  } as React.CSSProperties,
+  guidance: {
+    background: 'var(--color-accentMuted)',
+    border: '1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--space-5)',
+    marginBottom: 'var(--space-6)',
+    display: 'flex',
+    gap: 'var(--space-4)',
+    alignItems: 'flex-start',
+  } as React.CSSProperties,
   header: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -181,6 +216,15 @@ const styles = {
     alignItems: 'center',
     gap: 'var(--space-2)',
     marginTop: '2px',
+  } as React.CSSProperties,
+  campaignLink: {
+    fontSize: '9px',
+    fontWeight: 600,
+    color: 'var(--color-accent)',
+    marginTop: '2px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '2px',
   } as React.CSSProperties,
   addBtn: {
     padding: 'var(--space-1) var(--space-2)',
@@ -291,10 +335,7 @@ const styles = {
 /* ─── Component ────────────────────────────────────────────────────────────── */
 
 export default function EditorialCalendar() {
-  const [slots, setSlots] = useState<EditorialSlot[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -305,45 +346,60 @@ export default function EditorialCalendar() {
     type: 'organic',
     notes: '',
   });
-  const [saving, setSaving] = useState(false);
 
-  // Campaigns and drag-drop
-  const [campaigns, setCampaigns] = useState<Array<{campaignId: string; restaurantName: string}>>([]);
+  // Drag state
   const [draggedSlot, setDraggedSlot] = useState<EditorialSlot | null>(null);
 
-  const fetchSlots = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Data fetching
+  const { data: slots = [], isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['editorialSlots'],
+    queryFn: async () => {
+      if (isDemoMode()) return DEMO_EDITORIAL_SLOTS;
+      const res = await api.get<EditorialSlot[]>('/api/spotops/calendar');
+      if (res.error) throw new Error(res.error);
+      return res.data ?? [];
+    },
+  });
 
-    if (isDemoMode()) {
-      setSlots(DEMO_EDITORIAL_SLOTS);
-      setLoading(false);
-      return;
-    }
+  const { data: campaigns = [] } = useQuery({
+    queryKey: ['calendarCampaigns'],
+    queryFn: async () => {
+      if (isDemoMode()) return DEMO_CAMPAIGNS.map(c => ({ campaignId: c.campaignId, restaurantName: c.restaurantName, status: c.status }));
+      const res = await api.get<Array<{ campaignId: string; restaurantName: string; status?: string }>>('/api/campaigns');
+      return res.data ?? [];
+    },
+  });
 
-    const res = await api.get<EditorialSlot[]>('/api/spotops/calendar');
-    if (res.error) {
-      setError(res.error);
-    }
-    if (res.data && res.data.length > 0) {
-      setSlots(res.data);
-    }
-    setLoading(false);
-  }, []);
+  const campaignMap = useMemo(() => {
+    const map = new Map<string, string>();
+    campaigns.forEach(c => map.set(c.campaignId, c.restaurantName));
+    return map;
+  }, [campaigns]);
 
-  useEffect(() => {
-    fetchSlots();
-  }, [fetchSlots]);
-
-  useEffect(() => {
-    if (isDemoMode()) {
-      setCampaigns(DEMO_CAMPAIGNS.map(c => ({ campaignId: c.campaignId, restaurantName: c.restaurantName })));
-      return;
-    }
-    api.get<Array<{campaignId: string; restaurantName: string}>>('/api/campaigns').then(res => {
-      if (res.data) setCampaigns(res.data);
-    });
-  }, []);
+  // Add slot mutation
+  const addSlotMutation = useMutation({
+    mutationFn: async (newSlot: Partial<EditorialSlot>) => {
+      if (isDemoMode()) {
+        return {
+          slotId: `local-${Date.now()}`,
+          date: newSlot.date!,
+          restaurantName: newSlot.restaurantName!,
+          type: newSlot.type!,
+          status: 'planned' as const,
+          notes: newSlot.notes,
+          campaignId: newSlot.campaignId,
+        };
+      }
+      const res = await api.post<EditorialSlot>('/api/spotops/calendar', newSlot);
+      if (res.error) throw new Error(res.error);
+      return res.data!;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData<EditorialSlot[]>(['editorialSlots'], (old) => [...(old ?? []), data]);
+      setAddingForDate(null);
+      setFormData({ restaurantName: '', type: 'organic', notes: '' });
+    },
+  });
 
   /* ─── Date Navigation ──────────────────────────────────────────────────── */
 
@@ -373,7 +429,6 @@ export default function EditorialCalendar() {
   const monthDays = useMemo(() => {
     const monthStart = getMonthStart(currentDate);
     const calStart = getWeekStart(monthStart);
-    // Always show 6 weeks = 42 days for consistent grid
     return Array.from({ length: 42 }, (_, i) => addDays(calStart, i));
   }, [currentDate]);
 
@@ -385,60 +440,80 @@ export default function EditorialCalendar() {
     [slots]
   );
 
+  /* ─── Drag & Drop ──────────────────────────────────────────────────────── */
+
+  const handleDrop = (day: Date) => {
+    if (!draggedSlot) return;
+    const newDate = formatDateISO(day);
+    if (draggedSlot.date === newDate) {
+      setDraggedSlot(null);
+      return;
+    }
+    // Optimistic update
+    queryClient.setQueryData<EditorialSlot[]>(['editorialSlots'], (old) =>
+      (old ?? []).map(s => s.slotId === draggedSlot.slotId ? { ...s, date: newDate } : s)
+    );
+    // Persist
+    if (!isDemoMode()) {
+      api.put(`/api/spotops/calendar/${draggedSlot.slotId}`, { date: newDate });
+    }
+    setDraggedSlot(null);
+  };
+
+  /* ─── Summary Stats ──────────────────────────────────────────────────── */
+
+  const stats = useMemo(() => {
+    const todayStr = formatDateISO(today);
+    const thisWeekStart = getWeekStart(today);
+    const thisWeekEnd = addDays(thisWeekStart, 7);
+
+    const upcoming = slots.filter(s => s.date >= todayStr && s.status !== 'published').length;
+    const published = slots.filter(s => s.status === 'published').length;
+    const thisWeek = slots.filter(s => {
+      const d = new Date(s.date + 'T12:00:00');
+      return d >= thisWeekStart && d < thisWeekEnd;
+    }).length;
+    const sponsored = slots.filter(s => s.type === 'sponsored').length;
+    const organic = slots.filter(s => s.type === 'organic').length;
+    const linkedToCampaign = slots.filter(s => s.campaignId).length;
+
+    return { upcoming, published, thisWeek, sponsored, organic, linkedToCampaign };
+  }, [slots]);
+
   /* ─── Add Slot ─────────────────────────────────────────────────────────── */
 
   const handleAddSlot = async () => {
     if (!addingForDate || !formData.restaurantName.trim()) return;
-    setSaving(true);
-
-    const newSlot: Partial<EditorialSlot> = {
+    addSlotMutation.mutate({
       date: addingForDate,
       restaurantName: formData.restaurantName.trim(),
       type: formData.type,
       status: 'planned',
       notes: formData.notes.trim() || undefined,
       campaignId: formData.campaignId || undefined,
-    };
-
-    const res = await api.post<EditorialSlot>('/api/spotops/calendar', newSlot);
-    if (res.data) {
-      setSlots((prev) => [...prev, res.data!]);
-    } else if (res.error) {
-      // Optimistic: add locally anyway for MVP
-      setSlots((prev) => [
-        ...prev,
-        {
-          slotId: `local-${Date.now()}`,
-          date: addingForDate,
-          restaurantName: formData.restaurantName.trim(),
-          type: formData.type,
-          status: 'planned',
-          notes: formData.notes.trim() || undefined,
-          campaignId: formData.campaignId || undefined,
-        },
-      ]);
-    }
-
-    setSaving(false);
-    setAddingForDate(null);
-    setFormData({ restaurantName: '', type: 'organic', notes: '' });
+    });
   };
 
   /* ─── Period Label ─────────────────────────────────────────────────────── */
 
   const periodLabel =
     viewMode === 'week'
-      ? `${formatDateShort(weekDays[0])} - ${formatDateShort(weekDays[6])}`
+      ? `${formatDateShort(weekDays[0])} – ${formatDateShort(weekDays[6])}`
       : formatMonthYear(currentDate);
 
   /* ─── Loading ──────────────────────────────────────────────────────────── */
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="page-container">
         <div className="page-header">
           <div className="skeleton" style={{ width: '220px', height: '32px', marginBottom: 'var(--space-3)' }} />
           <div className="skeleton" style={{ width: '200px', height: '18px' }} />
+        </div>
+        <div style={styles.statsRow}>
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="skeleton" style={{ height: '80px', borderRadius: 'var(--radius-lg)' }} />
+          ))}
         </div>
         <div className="skeleton" style={{ height: '400px', borderRadius: 'var(--radius-lg)' }} />
       </div>
@@ -447,47 +522,55 @@ export default function EditorialCalendar() {
 
   /* ─── Slot Card Renderer ───────────────────────────────────────────────── */
 
-  const renderSlot = (slot: EditorialSlot) => (
-    <div
-      key={slot.slotId}
-      draggable
-      style={{
-        ...styles.slotCard(slot.type),
-        opacity: draggedSlot?.slotId === slot.slotId ? 0.4 : 1,
-      }}
-      title={slot.notes || slot.restaurantName || 'Slot'}
-      onDragStart={(e) => {
-        setDraggedSlot(slot);
-        e.dataTransfer!.effectAllowed = 'move';
-      }}
-      onDragEnd={() => setDraggedSlot(null)}
-      onMouseEnter={(e) => {
-        if (draggedSlot?.slotId !== slot.slotId) {
-          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      <div style={styles.slotName}>{slot.restaurantName ?? 'TBD'}</div>
-      <div style={styles.slotMeta}>
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            color: SLOT_TYPE_COLOR[slot.type],
-          }}
-        >
-          {slot.type}
-        </span>
-        <span className={`badge ${STATUS_BADGE_CLASS[slot.status]}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
-          {slot.status}
-        </span>
+  const renderSlot = (slot: EditorialSlot) => {
+    const linkedCampaign = slot.campaignId ? campaignMap.get(slot.campaignId) : null;
+    return (
+      <div
+        key={slot.slotId}
+        draggable
+        style={{
+          ...styles.slotCard(slot.type),
+          opacity: draggedSlot?.slotId === slot.slotId ? 0.4 : 1,
+        }}
+        title={slot.notes || slot.restaurantName || 'Slot'}
+        onDragStart={(e) => {
+          setDraggedSlot(slot);
+          e.dataTransfer!.effectAllowed = 'move';
+        }}
+        onDragEnd={() => setDraggedSlot(null)}
+        onMouseEnter={(e) => {
+          if (draggedSlot?.slotId !== slot.slotId) {
+            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        <div style={styles.slotName}>{slot.restaurantName ?? 'TBD'}</div>
+        <div style={styles.slotMeta}>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              color: SLOT_TYPE_COLOR[slot.type],
+            }}
+          >
+            {slot.type}
+          </span>
+          <span className={`badge ${STATUS_BADGE_CLASS[slot.status]}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+            {slot.status}
+          </span>
+        </div>
+        {linkedCampaign && (
+          <div style={styles.campaignLink}>
+            <span>🔗</span> {linkedCampaign}
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   /* ─── Render ───────────────────────────────────────────────────────────── */
 
@@ -496,16 +579,58 @@ export default function EditorialCalendar() {
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Editorial Calendar</h1>
-        <p className="page-subtitle">Plan and track your content schedule</p>
+        <p className="page-subtitle">Plan and track your content schedule across campaigns</p>
       </div>
 
       {/* Error */}
-      {error && (
+      {isError && (
         <div style={styles.errorBanner}>
-          <span>{error}</span>
-          <button className="btn btn-ghost" onClick={fetchSlots}>
+          <span>{(error as Error)?.message || 'Failed to load calendar'}</span>
+          <button className="btn btn-ghost" onClick={() => refetch()}>
             Retry
           </button>
+        </div>
+      )}
+
+      {/* Summary Stats */}
+      {slots.length > 0 && (
+        <div style={styles.statsRow}>
+          <div style={styles.statCard}>
+            <div style={styles.statValue}>{stats.thisWeek}</div>
+            <div style={styles.statLabel}>This Week</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statValue}>{stats.upcoming}</div>
+            <div style={styles.statLabel}>Upcoming</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statValue}>{stats.published}</div>
+            <div style={styles.statLabel}>Published</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statValue}>{stats.sponsored}</div>
+            <div style={styles.statLabel}>Sponsored</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statValue}>{stats.linkedToCampaign}</div>
+            <div style={styles.statLabel}>Campaign-Linked</div>
+          </div>
+        </div>
+      )}
+
+      {/* Guidance Callout */}
+      {slots.length > 0 && slots.length < 5 && (
+        <div style={styles.guidance}>
+          <span style={{ fontSize: 'var(--font-xl)' }}>📅</span>
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-1)', fontSize: 'var(--font-sm)' }}>
+              Plan your content cadence
+            </div>
+            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.5 }}>
+              Drag slots between days to reschedule. Link slots to active campaigns so you can track which content ties to which partnership.
+              Consistency matters — creators who post 3+ times/week see 2x higher engagement.
+            </div>
+          </div>
         </div>
       )}
 
@@ -513,13 +638,13 @@ export default function EditorialCalendar() {
       <div style={styles.header}>
         <div style={styles.navRow}>
           <button style={styles.navBtn} onClick={() => navigate(-1)}>
-            \u2190
+            ←
           </button>
           <button style={styles.navBtn} onClick={goToday}>
             Today
           </button>
           <button style={styles.navBtn} onClick={() => navigate(1)}>
-            \u2192
+            →
           </button>
           <span style={styles.currentLabel}>{periodLabel}</span>
         </div>
@@ -562,19 +687,7 @@ export default function EditorialCalendar() {
                   onDrop={(e) => {
                     e.preventDefault();
                     e.currentTarget.style.background = '';
-                    if (draggedSlot) {
-                      const newDate = formatDateISO(day);
-                      if (draggedSlot.date !== newDate) {
-                        setSlots(prev => prev.map(s =>
-                          s.slotId === draggedSlot.slotId ? { ...s, date: newDate } : s
-                        ));
-                        // Persist to backend (fire and forget)
-                        if (!isDemoMode()) {
-                          api.put(`/api/spotops/calendar/${draggedSlot.slotId}`, { date: newDate });
-                        }
-                      }
-                      setDraggedSlot(null);
-                    }
+                    handleDrop(day);
                   }}
                 >
                   <div style={styles.dayLabel(isToday)}>{formatDateShort(day)}</div>
@@ -601,7 +714,24 @@ export default function EditorialCalendar() {
               const isCurrentMonth = day.getMonth() === currentDate.getMonth();
               const daySlots = slotsForDate(day);
               return (
-                <div key={day.toISOString()} style={styles.monthDayCol(isToday, isCurrentMonth)}>
+                <div
+                  key={day.toISOString()}
+                  style={styles.monthDayCol(isToday, isCurrentMonth)}
+                  onDragOver={(e) => {
+                    if (isCurrentMonth) {
+                      e.preventDefault();
+                      e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent) 10%, var(--color-bgSecondary))';
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    e.currentTarget.style.background = '';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.currentTarget.style.background = '';
+                    if (isCurrentMonth) handleDrop(day);
+                  }}
+                >
                   <div style={styles.dayLabel(isToday)}>{day.getDate()}</div>
                   {daySlots.slice(0, 2).map(renderSlot)}
                   {daySlots.length > 2 && (
@@ -691,7 +821,9 @@ export default function EditorialCalendar() {
               >
                 <option value="">No campaign</option>
                 {campaigns.map(c => (
-                  <option key={c.campaignId} value={c.campaignId}>{c.restaurantName}</option>
+                  <option key={c.campaignId} value={c.campaignId}>
+                    {c.restaurantName}{c.status ? ` (${c.status})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -732,9 +864,9 @@ export default function EditorialCalendar() {
               <button
                 className="btn btn-primary"
                 onClick={handleAddSlot}
-                disabled={!formData.restaurantName.trim() || saving}
+                disabled={!formData.restaurantName.trim() || addSlotMutation.isPending}
               >
-                {saving ? 'Saving...' : 'Add Slot'}
+                {addSlotMutation.isPending ? 'Saving...' : 'Add Slot'}
               </button>
             </div>
           </div>

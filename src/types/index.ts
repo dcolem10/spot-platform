@@ -201,10 +201,11 @@ export interface PartnershipPipeline {
 
 export interface ContentItem {
   contentId: string;
-  platform: 'instagram' | 'tiktok';
+  platform: 'instagram' | 'tiktok' | 'youtube';
   postUrl: string;
   restaurantId?: string;
   restaurantName?: string;
+  campaignId?: string;
   postedAt: string;
   metrics: PostMetrics;
   tags: string[];
