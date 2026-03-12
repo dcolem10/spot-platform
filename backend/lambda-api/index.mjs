@@ -458,6 +458,15 @@ async function createCampaign(event) {
   const restaurantId = sanitize(body.restaurantId, 64);
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
 
+  // H17: Verify caller owns this restaurant before allowing campaign creation
+  const restOwnerCheck = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwnerCheck.Item) return respond(404, { error: 'Restaurant not found' });
+  if (restOwnerCheck.Item.creatorId !== userId) {
+    return respond(403, { error: 'You do not own this restaurant' });
+  }
+
   const budget = Number(body.budget) || 0;
 
   const item = {
@@ -1046,15 +1055,24 @@ async function redeemOffer(code, event) {
       throw err;
     }
 
-    await ddb.send(
-      new UpdateCommand({
-        TableName: TABLE,
-        Key: { PK: offer.restaurantPK, SK: offer.offerSK },
-        UpdateExpression: 'SET redemptions = if_not_exists(redemptions, :zero) + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
-        ExpressionAttributeNames: { '#src': `redeem_${source}` },
-        ExpressionAttributeValues: { ':inc': 1, ':zero': 0 },
-      })
-    );
+    // H21: Conditional update — only increment if offer is still active and not expired
+    try {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: offer.restaurantPK, SK: offer.offerSK },
+          UpdateExpression: 'SET redemptions = if_not_exists(redemptions, :zero) + :inc, uniqueRedemptions = if_not_exists(uniqueRedemptions, :zero) + :inc, scansBySource.#src = if_not_exists(scansBySource.#src, :zero) + :inc',
+          ConditionExpression: 'isActive <> :false AND (attribute_not_exists(expiresAt) OR expiresAt > :now)',
+          ExpressionAttributeNames: { '#src': `redeem_${source}` },
+          ExpressionAttributeValues: { ':inc': 1, ':zero': 0, ':false': false, ':now': new Date().toISOString() },
+        })
+      );
+    } catch (condErr) {
+      if (condErr.name === 'ConditionalCheckFailedException') {
+        return respond(410, { error: 'This offer is no longer active' });
+      }
+      throw condErr;
+    }
 
     console.log(`Offer redeemed: code=${code}, restaurant=${offer.restaurantId}, source=${source}`);
     return respond(200, { message: 'Redeemed', offerId: offer.offerId, source });
@@ -1245,6 +1263,18 @@ async function getPartnerAnalytics(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
+  // H15: Determine which restaurant this user owns for analytics
+  // Query the user's restaurants to scope analytics to THEIR data only
+  const userRestaurants = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#RESTAURANTS` },
+    ProjectionExpression: 'restaurantId',
+    Limit: 20,
+  }));
+  const ownedRestaurantIds = (userRestaurants.Items || []).map(r => r.restaurantId).filter(Boolean);
+
   // Check for POS connection to use real metrics
   let AVG_CHECK_VALUE = 45;
   let REPEAT_VISIT_RATE = 0.35;
@@ -1260,12 +1290,14 @@ async function getPartnerAnalytics(event) {
     }
 
     // Also check for REDEMPTION_SYNC data (more accurate than POS lastMetrics)
+    // H15: Scope to user's first owned restaurant, not userId as restaurantId
+    const analyticsRestaurantId = ownedRestaurantIds[0] || userId;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
     const syncResult = await ddb.send(new QueryCommand({
       TableName: TABLE,
       KeyConditionExpression: 'PK = :pk AND SK >= :start',
       ExpressionAttributeValues: {
-        ':pk': `RESTAURANT#${userId}`,
+        ':pk': `RESTAURANT#${analyticsRestaurantId}`,
         ':start': `REDEMPTION_SYNC#${thirtyDaysAgo}`,
       },
       Limit: 30,
@@ -3776,7 +3808,12 @@ async function listMyCollabCampaigns(event) {
   // Filter to only campaigns where user has accepted invites
   const acceptedCampaigns = items.filter((item) => item.status === 'accepted');
 
-  return respond(200, stripAll(acceptedCampaigns));
+  // H19: Strip sensitive financial and internal fields from collaborator-visible campaigns
+  const safeCampaigns = stripAll(acceptedCampaigns).map(c => {
+    const { budget, activity, internalNotes, ...safe } = c;
+    return safe;
+  });
+  return respond(200, safeCampaigns);
 }
 
 async function removeCollaborator(campaignId, creatorId, event) {
@@ -3864,6 +3901,15 @@ async function createProposal(event) {
     return respond(400, { error: `Invalid proposalType. Must be one of: ${VALID_PROPOSAL_TYPES.join(', ')}` });
   if (!targetId || !isValidId(targetId))
     return respond(400, { error: 'Invalid targetId' });
+
+  // H20: Verify target user exists before creating proposal (prevents enumeration + spam)
+  const targetCheck = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `CREATOR#${targetId}`, SK: 'PROFILE' }, ProjectionExpression: 'PK' })
+  );
+  if (!targetCheck.Item) {
+    // Return generic 400 to prevent user enumeration
+    return respond(400, { error: 'Invalid target' });
+  }
 
   // Determine initiatedBy from caller identity — never trust user-supplied role.
   // Check if the caller is a restaurant listing creator for the targetId's restaurant context.
@@ -4427,6 +4473,11 @@ async function approveOffer(offerId, event) {
   );
   const offer = result?.Item;
   if (!offer) return respond(404, { error: 'Offer not found' });
+
+  // H16: Verify body.restaurantId matches the offer's actual restaurantId to prevent identity spoofing
+  if (offer.restaurantId && offer.restaurantId !== restaurantId) {
+    return respond(403, { error: 'Restaurant ID does not match offer record' });
+  }
 
   // Only the restaurant's listing creator can approve — creators must NOT self-approve their own offers.
   // This prevents the attack where a creator submits an offer then immediately approves it themselves.
@@ -5005,10 +5056,10 @@ async function sendNotificationEmail(targetUserId, subject, htmlBody) {
       })
     );
 
-    console.log(`Email sent to ${toEmail}: ${subject}`);
+    console.log(`Email sent successfully: subject="${subject}"`);
   } catch (err) {
-    // Fail silently — email is best-effort
-    console.warn(`SES email failed for ${targetUserId}: ${err.message}`);
+    // Fail silently — email is best-effort (H18: no PII in logs)
+    console.warn(`SES email delivery failed: ${err.code || err.name || 'unknown'}`);
   }
 }
 
