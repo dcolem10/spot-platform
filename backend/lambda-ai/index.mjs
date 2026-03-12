@@ -523,6 +523,25 @@ async function handleCampaignInsights(event) {
     if (detectInjection(dataStr)) {
       return respond(400, { error: 'Invalid campaign data content' });
     }
+    // H12: Cap user-supplied campaignData payload to 5 KB
+    if (dataStr.length > 5120) {
+      return respond(400, { error: 'Campaign data payload too large (max 5 KB)' });
+    }
+  }
+
+  // H13: Cache campaign insights for 30 min to prevent repeated Anthropic API calls
+  const insightsCacheKey = `INSIGHTS#${userId}`;
+  const cachedInsights = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { PK: 'AI_CACHE#insights', SK: insightsCacheKey },
+    })
+  );
+  if (cachedInsights.Item && Date.now() / 1000 < (cachedInsights.Item.ttl || 0)) {
+    return respond(200, { insights: cachedInsights.Item.payload, cached: true }, {
+      'X-RateLimit-Remaining': String(rateCheck.remaining),
+      'X-RateLimit-Reset': String(rateCheck.resetAt),
+    });
   }
 
   const apiKey = await getApiKey();
@@ -553,6 +572,11 @@ async function handleCampaignInsights(event) {
       campaignDataForAnalysis = campaigns;
     }
 
+    // H14: Cap campaign data sent to Anthropic to prevent token cost inflation
+    if (Array.isArray(campaignDataForAnalysis) && campaignDataForAnalysis.length > 10) {
+      campaignDataForAnalysis = campaignDataForAnalysis.slice(0, 10);
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: AbortSignal.timeout(50000),
@@ -579,7 +603,22 @@ async function handleCampaignInsights(event) {
     const text = data.content?.[0]?.text || '';
     const insights = text.split('\n').filter((l) => l.trim().length > 10);
 
-    return respond(200, { insights }, {
+    // Cache insights for 30 minutes to avoid redundant Anthropic API calls
+    try {
+      await ddb.send(new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: 'AI_CACHE#insights',
+          SK: insightsCacheKey,
+          payload: insights,
+          ttl: Math.floor(Date.now() / 1000) + 1800, // 30 min
+        },
+      }));
+    } catch (cacheErr) {
+      console.warn('Failed to cache insights:', cacheErr.message);
+    }
+
+    return respond(200, { insights, cached: false }, {
       'X-RateLimit-Remaining': String(rateCheck.remaining),
       'X-RateLimit-Reset': String(rateCheck.resetAt),
     });

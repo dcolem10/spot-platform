@@ -342,7 +342,7 @@ Resources:
       CodeUri: lambda-sync/
       Handler: index.handler
       Timeout: 300
-      MemorySize: 1024
+      MemorySize: 512
       # ReservedConcurrentExecutions: 5  # Enable after requesting quota increase
       Environment:
         Variables:
