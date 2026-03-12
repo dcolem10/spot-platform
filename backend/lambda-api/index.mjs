@@ -1620,6 +1620,10 @@ async function initSquareOAuth(event) {
  * Query params: code, state, restaurantId
  */
 async function handleSquareCallback(event) {
+  // H23: Auth + ownership check — was completely missing, any user could complete Square OAuth for any restaurant
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
   const params = event.queryStringParameters || {};
   const code = sanitize(params.code || '', 512);
   const state = sanitize(params.state || '', 512);
@@ -1627,6 +1631,14 @@ async function handleSquareCallback(event) {
 
   if (!code || !state || !restaurantId) {
     return respond(400, { error: 'Missing required callback parameters' });
+  }
+
+  // Verify caller owns this restaurant before completing POS connection
+  const restOwnerSquare = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' }, ProjectionExpression: 'creatorId' })
+  );
+  if (!restOwnerSquare.Item || restOwnerSquare.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the creator who listed this restaurant can complete POS connections' });
   }
 
   try {
@@ -1730,7 +1742,9 @@ async function handleSquareCallback(event) {
       console.warn('Failed to fetch merchant info:', e.message);
     }
 
-    // Update connection with tokens (plaintext for now — KMS in Phase 5)
+    // ⚠️ SECURITY: OAuth tokens stored in PLAINTEXT — MUST encrypt with KMS before production launch.
+    // TODO: Create KMS key, add EncryptCommand/DecryptCommand helpers, encrypt accessToken + refreshToken at rest.
+    // DynamoDB at-rest encryption (SSE) provides baseline protection but KMS envelope encryption is required for PCI/SOC2.
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,

@@ -54,7 +54,7 @@ export const handler = async (event) => {
       console.error(JSON.stringify({
         action: 'record error',
         error: err.message,
-        stack: err.stack,
+        // H24: Stack traces removed — may expose internal paths and dependencies
       }));
       results.push({ status: 'error', message: err.message });
     }
