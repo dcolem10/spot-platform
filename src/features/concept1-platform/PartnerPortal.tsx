@@ -113,13 +113,14 @@ export default function PartnerPortal() {
         } as PartnerDashboardData;
       }
       const [campaignsRes, offersRes, reportsRes] = await Promise.all([
-        api.get<Campaign[]>('/api/partner/campaigns'),
+        api.get<{ items: Campaign[]; nextPage?: string }>('/api/partner/campaigns'),
         api.get<Offer[]>('/api/partner/offers'),
         api.get<CampaignReport[]>('/api/partner/reports'),
       ]);
       if (campaignsRes.error) throw new Error(campaignsRes.error);
       return {
-        campaigns: campaignsRes.data ?? [],
+        // Backend returns paginated { items, nextPage } format for campaigns
+        campaigns: campaignsRes.data?.items ?? [],
         offers: offersRes.data ?? [],
         reports: reportsRes.data ?? [],
       } as PartnerDashboardData;
