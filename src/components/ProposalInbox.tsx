@@ -369,28 +369,36 @@ function ProposalDetail({
         background: 'var(--color-bgSecondary)',
         borderRadius: 'var(--radius-xl)',
         border: '1px solid var(--color-border)',
-        width: '100%',
-        maxWidth: '580px',
+        width: 'calc(100% - 48px)',
+        maxWidth: '620px',
         maxHeight: '85vh',
         overflowY: 'auto',
         boxShadow: 'var(--shadow-xl)',
+        margin: '0 24px',
       }}>
         {/* Header */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: 'var(--space-5) var(--space-5) var(--space-3)',
+          padding: 'var(--space-6) var(--space-6) var(--space-4)',
           borderBottom: '1px solid var(--color-border)',
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span style={{ fontSize: '20px' }}>{TYPE_ICONS[proposal.proposalType]}</span>
-              <h2 style={{ margin: 0, fontSize: 'var(--font-lg)', color: 'var(--color-textPrimary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <span style={{ fontSize: '24px' }}>{TYPE_ICONS[proposal.proposalType]}</span>
+              <h2 style={{
+                margin: 0,
+                fontFamily: 'var(--font-display)',
+                fontSize: 'var(--font-xl)',
+                fontWeight: 700,
+                color: 'var(--color-textPrimary)',
+                letterSpacing: '-0.01em',
+              }}>
                 {TYPE_LABELS[proposal.proposalType]}
               </h2>
             </div>
-            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginTop: '2px' }}>
+            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginTop: 'var(--space-1)' }}>
               {isTarget ? `From ${partnerName}` : `To ${partnerName}`} · {timeAgo(proposal.createdAt)}
             </div>
           </div>
@@ -416,7 +424,7 @@ function ProposalDetail({
           display: 'flex',
           alignItems: 'center',
           gap: 'var(--space-3)',
-          padding: 'var(--space-3) var(--space-5)',
+          padding: 'var(--space-4) var(--space-6)',
           background: `${STATUS_COLORS[proposal.status]}11`,
           borderBottom: '1px solid var(--color-border)',
         }}>
@@ -444,7 +452,7 @@ function ProposalDetail({
         </div>
 
         {/* Terms */}
-        <div style={{ padding: 'var(--space-4) var(--space-5)' }}>
+        <div style={{ padding: 'var(--space-5) var(--space-6)' }}>
           <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Terms
           </h3>
@@ -513,7 +521,7 @@ function ProposalDetail({
 
         {/* Messages Thread */}
         {proposal.messages.length > 0 && (
-          <div style={{ padding: '0 var(--space-5) var(--space-4)' }}>
+          <div style={{ padding: '0 var(--space-6) var(--space-5)' }}>
             <h3 style={{ margin: '0 0 var(--space-3)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Conversation ({proposal.messages.length})
             </h3>
@@ -541,7 +549,7 @@ function ProposalDetail({
         {/* Message Input */}
         {(proposal.status === 'pending' || proposal.status === 'countered') && (
           <div style={{
-            padding: '0 var(--space-5) var(--space-4)',
+            padding: '0 var(--space-6) var(--space-5)',
             display: 'flex',
             gap: 'var(--space-2)',
           }}>
@@ -597,7 +605,7 @@ function ProposalDetail({
         {/* Counter Form */}
         {showCounter && (
           <div style={{
-            padding: 'var(--space-4) var(--space-5)',
+            padding: 'var(--space-5) var(--space-6)',
             borderTop: '1px solid var(--color-border)',
             background: '#6366f108',
           }}>
@@ -712,7 +720,7 @@ function ProposalDetail({
         {/* Decline Form */}
         {showDecline && (
           <div style={{
-            padding: 'var(--space-4) var(--space-5)',
+            padding: 'var(--space-5) var(--space-6)',
             borderTop: '1px solid var(--color-border)',
             background: '#ef444408',
           }}>
@@ -782,8 +790,8 @@ function ProposalDetail({
         {/* Action Footer */}
         <div style={{
           display: 'flex',
-          gap: 'var(--space-2)',
-          padding: 'var(--space-4) var(--space-5)',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-5) var(--space-6)',
           borderTop: '1px solid var(--color-border)',
           justifyContent: 'flex-end',
         }}>
@@ -1133,10 +1141,10 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
       {/* Tabs */}
       <div style={{
         display: 'flex',
-        gap: 'var(--space-1)',
+        gap: 'var(--space-2)',
         marginBottom: 'var(--space-4)',
-        borderBottom: '1px solid var(--color-border)',
-        paddingBottom: 'var(--space-1)',
+        borderBottom: '2px solid var(--color-border)',
+        paddingBottom: 'var(--space-2)',
       }}
         role="tablist"
       >
@@ -1151,25 +1159,27 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
             style={{
-              padding: 'var(--space-2) var(--space-4)',
+              padding: 'var(--space-3) var(--space-5)',
               background: tab === t.key ? 'var(--color-accent)' : 'transparent',
               color: tab === t.key ? 'var(--color-textOnAccent, #fff)' : 'var(--color-textSecondary)',
-              border: 'none',
+              border: tab === t.key ? 'none' : '1px solid transparent',
               borderRadius: 'var(--radius-md)',
               fontSize: 'var(--font-sm)',
-              fontWeight: tab === t.key ? 600 : 400,
+              fontWeight: tab === t.key ? 600 : 500,
               cursor: 'pointer',
               fontFamily: 'inherit',
               transition: 'all var(--transition-fast)',
+              letterSpacing: '0.01em',
             }}
           >
             {t.label}
             {t.count > 0 && (
               <span style={{
-                marginLeft: 'var(--space-1)',
-                padding: '1px 6px',
+                marginLeft: 'var(--space-2)',
+                padding: '2px 8px',
                 borderRadius: 'var(--radius-full)',
                 fontSize: '11px',
+                fontWeight: 600,
                 background: tab === t.key ? 'rgba(255,255,255,0.2)' : 'var(--color-bgPrimary)',
               }}>
                 {t.count}
@@ -1182,8 +1192,8 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
       {/* Status filter */}
       <div style={{
         display: 'flex',
-        gap: 'var(--space-1)',
-        marginBottom: 'var(--space-4)',
+        gap: 'var(--space-2)',
+        marginBottom: 'var(--space-5)',
         flexWrap: 'wrap',
       }}>
         {(['all', 'pending', 'countered', 'accepted', 'declined'] as const).map(s => (
@@ -1191,7 +1201,7 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
             key={s}
             onClick={() => setStatusFilter(s)}
             style={{
-              padding: '2px 10px',
+              padding: 'var(--space-2) var(--space-4)',
               borderRadius: 'var(--radius-full)',
               border: statusFilter === s ? 'none' : '1px solid var(--color-border)',
               background: statusFilter === s
@@ -1199,13 +1209,14 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
                 : 'transparent',
               color: statusFilter === s ? 'var(--color-textOnAccent, #fff)' : 'var(--color-textMuted)',
               fontSize: 'var(--font-xs)',
-              fontWeight: statusFilter === s ? 600 : 400,
+              fontWeight: statusFilter === s ? 600 : 500,
               cursor: 'pointer',
               fontFamily: 'inherit',
               transition: 'all var(--transition-fast)',
+              letterSpacing: '0.02em',
             }}
           >
-            {s === 'all' ? 'All' : STATUS_LABELS[s]}
+            {s === 'all' ? 'All Statuses' : STATUS_LABELS[s]}
           </button>
         ))}
       </div>
