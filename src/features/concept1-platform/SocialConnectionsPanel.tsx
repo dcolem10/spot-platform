@@ -78,7 +78,7 @@ export default function SocialConnectionsPanel() {
     queryKey: ['social-connections', userId],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_CONNECTIONS;
-      const res = await api.get<SocialConnection[]>('/social/connections');
+      const res = await api.get<SocialConnection[]>('/api/social/connections');
       return res.data || [];
     },
   });
@@ -86,12 +86,12 @@ export default function SocialConnectionsPanel() {
   const connectMutation = useMutation({
     mutationFn: async (platform: ContentPlatform) => {
       setConnectingPlatform(platform);
-      const res = await api.post<SocialConnectResponse>(`/social/connect/${platform}`);
+      const res = await api.post<SocialConnectResponse>(`/api/social/connect/${platform}`);
       if (!res.data) throw new Error('Failed to initiate connection');
 
       if (res.data.mode === 'development') {
         // Dev mode: call callback directly with mock code
-        await api.get(`/social/callback/${platform}?code=MOCK_CODE&state=${res.data.state}`);
+        await api.get(`/api/social/callback/${platform}?code=MOCK_CODE&state=${res.data.state}`);
         return { mode: 'development' };
       }
       // Production: redirect to OAuth URL
@@ -110,7 +110,7 @@ export default function SocialConnectionsPanel() {
   const disconnectMutation = useMutation({
     mutationFn: async (platform: ContentPlatform) => {
       if (isDemoMode()) return;
-      return api.put(`/social/disconnect/${platform}`);
+      return api.put(`/api/social/disconnect/${platform}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['social-connections'] });
