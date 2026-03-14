@@ -3960,10 +3960,17 @@ async function createProposal(event) {
   if (!targetId || !isValidId(targetId))
     return respond(400, { error: 'Invalid targetId' });
 
-  // H20: Verify target user exists before creating proposal (prevents enumeration + spam)
-  const targetCheck = await ddb.send(
+  // H20: Verify target exists before creating proposal (prevents enumeration + spam)
+  // Target can be either a creator (CREATOR#id) or a restaurant (RESTAURANT#id)
+  let targetCheck = await ddb.send(
     new GetCommand({ TableName: TABLE, Key: { PK: `CREATOR#${targetId}`, SK: 'PROFILE' }, ProjectionExpression: 'PK' })
   );
+  if (!targetCheck.Item) {
+    // Also check if target is a restaurant
+    targetCheck = await ddb.send(
+      new GetCommand({ TableName: TABLE, Key: { PK: `RESTAURANT#${targetId}`, SK: 'PROFILE' }, ProjectionExpression: 'PK' })
+    );
+  }
   if (!targetCheck.Item) {
     // Return generic 400 to prevent user enumeration
     return respond(400, { error: 'Invalid target' });
