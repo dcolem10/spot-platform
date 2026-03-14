@@ -108,6 +108,39 @@ const DEMO_REVIEWS: ContentReview[] = [
     createdAt: demoISO(-9),
     updatedAt: demoISO(-6),
   },
+  {
+    contentReviewId: 'review-demo-6',
+    creatorId: 'creator-demo',
+    restaurantId: 'r3',
+    restaurantName: 'Nobu Downtown',
+    platform: 'instagram',
+    contentType: 'reel',
+    contentUrl: 'https://instagram.com/p/demo-nobu-draft',
+    publishedUrl: 'https://instagram.com/reel/demo-nobu-live',
+    caption: 'The omakase experience at Nobu Downtown — 12 courses of pure artistry',
+    hashtagsProposed: ['#NobuDowntown', '#Omakase', '#FoodCreator'],
+    status: 'published',
+    submittedAt: demoISO(-14),
+    approvedAt: demoISO(-12),
+    approvedBy: 'r3',
+    publishedAt: demoISO(-10),
+    metrics: {
+      likes: 2340,
+      comments: 87,
+      shares: 45,
+      saves: 312,
+      impressions: 34500,
+      reach: 28900,
+      views: 18200,
+      engagementRate: 7.16,
+    },
+    metricsUpdatedAt: demoISO(-1),
+    revisionCount: 0,
+    revisionHistory: [],
+    messages: [],
+    createdAt: demoISO(-18),
+    updatedAt: demoISO(-1),
+  },
 ];
 
 /* ─── Status & Platform Config ──────────────────────────────────────────────── */
@@ -119,6 +152,7 @@ const STATUS_CONFIG: Record<ContentReviewStatus, { bg: string; color: string; la
   revised:            { bg: 'rgba(59, 130, 246, 0.15)',  color: '#3b82f6', label: 'Revised',            icon: '📤' },
   approved:           { bg: 'rgba(16, 185, 129, 0.15)',  color: '#10b981', label: 'Approved',           icon: '✅' },
   rejected:           { bg: 'rgba(239, 68, 68, 0.15)',   color: '#ef4444', label: 'Rejected',           icon: '❌' },
+  published:          { bg: 'rgba(16, 185, 129, 0.25)',  color: '#10b981', label: 'Published',          icon: '🚀' },
 };
 
 const PLATFORM_CONFIG: Record<ContentPlatform, { bg: string; color: string; label: string; icon: string }> = {
@@ -138,6 +172,8 @@ const ContentCard = memo(function ContentCard({
   onApprove,
   onRequestRevision,
   onReject,
+  onPublish,
+  onFetchMetrics,
 }: {
   review: ContentReview;
   isCreatorView: boolean;
@@ -147,6 +183,8 @@ const ContentCard = memo(function ContentCard({
   onApprove?: (id: string) => void;
   onRequestRevision?: (id: string) => void;
   onReject?: (id: string) => void;
+  onPublish?: (id: string) => void;
+  onFetchMetrics?: (id: string) => void;
 }) {
   const statusCfg = STATUS_CONFIG[review.status];
   const platformCfg = PLATFORM_CONFIG[review.platform];
@@ -367,6 +405,75 @@ const ContentCard = memo(function ContentCard({
         </div>
       )}
 
+      {/* Published URL */}
+      {review.publishedUrl && (
+        <div style={{
+          marginBottom: 'var(--space-3)',
+          padding: 'var(--space-3) var(--space-4)',
+          background: 'rgba(16, 185, 129, 0.06)',
+          borderLeft: '3px solid #10b981',
+          borderRadius: 'var(--radius-md)',
+        }}>
+          <div style={{
+            fontSize: 'var(--font-xs)',
+            fontWeight: 600,
+            color: '#10b981',
+            marginBottom: 'var(--space-1)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            🚀 Published
+          </div>
+          <a
+            href={review.publishedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              fontSize: 'var(--font-xs)',
+              color: 'var(--color-accent)',
+              textDecoration: 'none',
+              wordBreak: 'break-all',
+            }}
+          >
+            {review.publishedUrl}
+          </a>
+        </div>
+      )}
+
+      {/* Engagement Metrics */}
+      {review.metrics && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-3)',
+          background: 'rgba(16, 185, 129, 0.04)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid rgba(16, 185, 129, 0.1)',
+          marginBottom: 'var(--space-3)',
+        }}>
+          {[
+            { label: 'Likes', value: review.metrics.likes },
+            { label: 'Comments', value: review.metrics.comments },
+            { label: 'Shares', value: review.metrics.shares },
+            { label: 'Views', value: review.metrics.views },
+            { label: 'Saves', value: review.metrics.saves },
+            { label: 'Reach', value: review.metrics.reach },
+            { label: 'Impressions', value: review.metrics.impressions },
+            { label: 'Eng. Rate', value: `${review.metrics.engagementRate}%` },
+          ].map((m) => (
+            <div key={m.label} style={{ textAlign: 'center', padding: '4px 0' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-textPrimary)' }}>
+                {typeof m.value === 'number' ? m.value.toLocaleString() : m.value}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--color-textMuted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {m.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Footer: Timestamps + Actions */}
       <div style={{
         display: 'flex',
@@ -382,14 +489,20 @@ const ContentCard = memo(function ContentCard({
           fontSize: 'var(--font-xs)',
           color: 'var(--color-textMuted)',
         }}>
-          {review.submittedAt && (
+          {review.publishedAt && (
+            <span>Published {new Date(review.publishedAt).toLocaleDateString()}</span>
+          )}
+          {review.submittedAt && !review.publishedAt && (
             <span>Submitted {new Date(review.submittedAt).toLocaleDateString()}</span>
           )}
-          {review.approvedAt && (
+          {review.approvedAt && !review.publishedAt && (
             <span>Approved {new Date(review.approvedAt).toLocaleDateString()}</span>
           )}
           {!review.submittedAt && review.createdAt && (
             <span>Created {new Date(review.createdAt).toLocaleDateString()}</span>
+          )}
+          {review.metricsUpdatedAt && (
+            <span>Metrics updated {new Date(review.metricsUpdatedAt).toLocaleDateString()}</span>
           )}
         </div>
 
@@ -401,6 +514,48 @@ const ContentCard = memo(function ContentCard({
         }}>
           {isCreatorView ? (
             <>
+              {review.status === 'approved' && (
+                <button
+                  onClick={() => onPublish?.(review.contentReviewId)}
+                  style={{
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: '#10b981',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 'var(--font-xs)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all var(--transition-fast)',
+                    letterSpacing: '0.01em',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none'; }}
+                >
+                  🚀 Mark as Published
+                </button>
+              )}
+              {review.status === 'published' && (
+                <button
+                  onClick={() => onFetchMetrics?.(review.contentReviewId)}
+                  style={{
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: 'transparent',
+                    color: '#10b981',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: 'var(--font-xs)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all var(--transition-fast)',
+                    letterSpacing: '0.01em',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)'; e.currentTarget.style.background = 'transparent'; }}
+                >
+                  📊 Fetch Metrics
+                </button>
+              )}
               {review.status === 'draft' && (
                 <button
                   onClick={() => onSubmit?.(review.contentReviewId)}
@@ -655,6 +810,149 @@ function ReasonModal({
   );
 }
 
+/* ─── Publish Modal (URL input for marking content as published) ──────────── */
+
+function PublishModal({
+  isOpen,
+  onConfirm,
+  onClose,
+}: {
+  isOpen: boolean;
+  onConfirm: (url: string) => void;
+  onClose: () => void;
+}) {
+  const [url, setUrl] = useState('');
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(4px)',
+        animation: 'fadeSlideIn 0.2s ease both',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--color-bgPrimary)',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--color-border)',
+        width: '100%',
+        maxWidth: '480px',
+        boxShadow: 'var(--shadow-xl)',
+        padding: 'var(--space-6)',
+        animation: 'fadeSlideIn 0.3s ease both',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-lg)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+          }}>
+            Mark as Published
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-textMuted)',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: 'var(--space-1)',
+              lineHeight: 1,
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        <p style={{
+          margin: '0 0 var(--space-3)',
+          fontSize: 'var(--font-sm)',
+          color: 'var(--color-textSecondary)',
+          lineHeight: 1.5,
+        }}>
+          Enter the live URL where this content was published.
+        </p>
+
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://instagram.com/reel/..."
+          style={{
+            width: '100%',
+            padding: 'var(--space-3)',
+            background: 'var(--color-bgSurface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--color-textPrimary)',
+            fontSize: 'var(--font-sm)',
+            fontFamily: 'inherit',
+            boxSizing: 'border-box',
+            lineHeight: 1.5,
+          }}
+          autoFocus
+        />
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-textMuted)',
+              fontSize: 'var(--font-sm)',
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!url.trim()}
+            onClick={() => {
+              onConfirm(url.trim());
+              setUrl('');
+              onClose();
+            }}
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              background: '#10b981',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              color: '#fff',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              opacity: !url.trim() ? 0.5 : 1,
+              transition: 'all var(--transition-fast)',
+            }}
+          >
+            Confirm Published
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Create Review Form ────────────────────────────────────────────────────── */
 
 function CreateReviewForm({
@@ -895,14 +1193,15 @@ function CreateReviewForm({
 
 /* ─── Main Component ────────────────────────────────────────────────────────── */
 
-type TabType = 'all' | 'drafts' | 'pending' | 'approved' | 'rejected';
+type TabType = 'all' | 'drafts' | 'pending' | 'approved' | 'published' | 'rejected';
 
 const TABS: { key: TabType; label: string; icon: string }[] = [
-  { key: 'all',      label: 'All Content', icon: '📋' },
-  { key: 'drafts',   label: 'Drafts',      icon: '📝' },
-  { key: 'pending',  label: 'Pending',     icon: '📤' },
-  { key: 'approved', label: 'Approved',    icon: '✅' },
-  { key: 'rejected', label: 'Rejected',    icon: '❌' },
+  { key: 'all',       label: 'All Content', icon: '📋' },
+  { key: 'drafts',    label: 'Drafts',      icon: '📝' },
+  { key: 'pending',   label: 'Pending',     icon: '📤' },
+  { key: 'approved',  label: 'Approved',    icon: '✅' },
+  { key: 'published', label: 'Published',   icon: '🚀' },
+  { key: 'rejected',  label: 'Rejected',    icon: '❌' },
 ];
 
 export default function ContentReviewManager() {
@@ -910,6 +1209,7 @@ export default function ContentReviewManager() {
   const [showCreate, setShowCreate] = useState(false);
   const [revisionModal, setRevisionModal] = useState<string | null>(null);
   const [rejectModal, setRejectModal] = useState<string | null>(null);
+  const [publishModal, setPublishModal] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { userId } = useAuth();
 
@@ -960,6 +1260,24 @@ export default function ContentReviewManager() {
     onError: (err: Error) => logger.error('Content review reject failed', { mutation: 'reject', err }),
   });
 
+  const publishMutation = useMutation({
+    mutationFn: async ({ id, publishedUrl }: { id: string; publishedUrl: string }) => {
+      if (isDemoMode()) return;
+      return api.put(`/api/content-reviews/${id}/publish`, { publishedUrl });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
+    onError: (err: Error) => logger.error('Content publish failed', { mutation: 'publish', err }),
+  });
+
+  const fetchMetricsMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (isDemoMode()) return;
+      return api.post(`/api/content-reviews/${id}/fetch-metrics`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['content-reviews'] }),
+    onError: (err: Error) => logger.error('Fetch metrics failed', { mutation: 'fetchMetrics', err }),
+  });
+
   const reviews = reviewsQuery.data || [];
   const isLoading = reviewsQuery.isLoading;
 
@@ -969,6 +1287,7 @@ export default function ContentReviewManager() {
     drafts: reviews.filter((r) => r.status === 'draft').length,
     pending: reviews.filter((r) => ['submitted', 'revised', 'revision_requested'].includes(r.status)).length,
     approved: reviews.filter((r) => r.status === 'approved').length,
+    published: reviews.filter((r) => r.status === 'published').length,
     rejected: reviews.filter((r) => r.status === 'rejected').length,
   };
 
@@ -978,6 +1297,7 @@ export default function ContentReviewManager() {
     if (tab === 'drafts') return r.status === 'draft';
     if (tab === 'pending') return ['submitted', 'revised', 'revision_requested'].includes(r.status);
     if (tab === 'approved') return r.status === 'approved';
+    if (tab === 'published') return r.status === 'published';
     if (tab === 'rejected') return r.status === 'rejected';
     return true;
   });
@@ -987,6 +1307,7 @@ export default function ContentReviewManager() {
     { label: 'Drafts', value: stats.drafts, color: '#9ca3af' },
     { label: 'Pending Review', value: stats.pending, color: '#3b82f6' },
     { label: 'Approved', value: stats.approved, color: 'var(--color-success)' },
+    { label: 'Published', value: stats.published, color: '#10b981' },
     { label: 'Rejected', value: stats.rejected, color: 'var(--color-error)' },
   ];
 
@@ -1134,6 +1455,7 @@ export default function ContentReviewManager() {
                 {t.key === 'drafts' ? stats.drafts :
                  t.key === 'pending' ? stats.pending :
                  t.key === 'approved' ? stats.approved :
+                 t.key === 'published' ? stats.published :
                  stats.rejected}
               </span>
             )}
@@ -1182,7 +1504,7 @@ export default function ContentReviewManager() {
             display: 'inline-block',
             position: 'relative',
           }}>
-            {tab === 'drafts' ? '📝' : tab === 'pending' ? '📤' : tab === 'approved' ? '🎉' : tab === 'rejected' ? '📦' : '🎬'}
+            {tab === 'drafts' ? '📝' : tab === 'pending' ? '📤' : tab === 'approved' ? '🎉' : tab === 'published' ? '🚀' : tab === 'rejected' ? '📦' : '🎬'}
           </div>
 
           <h3 style={{
@@ -1197,6 +1519,7 @@ export default function ContentReviewManager() {
             {tab === 'drafts' ? 'No drafts yet' :
              tab === 'pending' ? 'No pending reviews' :
              tab === 'approved' ? 'No approved content' :
+             tab === 'published' ? 'No published content' :
              tab === 'rejected' ? 'No rejected content' :
              'No content yet'}
           </h3>
@@ -1213,6 +1536,7 @@ export default function ContentReviewManager() {
             {tab === 'drafts' ? 'Start creating content drafts and submit them for partner review.' :
              tab === 'pending' ? 'All submissions have been reviewed. Nice work!' :
              tab === 'approved' ? 'Your approved content will appear here once partners sign off.' :
+             tab === 'published' ? 'Mark approved content as published to track engagement metrics.' :
              tab === 'rejected' ? 'Rejected submissions with feedback will show here.' :
              'Create your first content draft to kick off the review process.'}
           </p>
@@ -1254,6 +1578,8 @@ export default function ContentReviewManager() {
               onApprove={(id) => approveMutation.mutate(id)}
               onRequestRevision={(id) => setRevisionModal(id)}
               onReject={(id) => setRejectModal(id)}
+              onPublish={(id) => setPublishModal(id)}
+              onFetchMetrics={(id) => fetchMetricsMutation.mutate(id)}
             />
           ))}
         </div>
@@ -1288,6 +1614,14 @@ export default function ContentReviewManager() {
           if (rejectModal) rejectMutation.mutate({ id: rejectModal, reason });
         }}
         onClose={() => setRejectModal(null)}
+      />
+
+      <PublishModal
+        isOpen={!!publishModal}
+        onConfirm={(url) => {
+          if (publishModal) publishMutation.mutate({ id: publishModal, publishedUrl: url });
+        }}
+        onClose={() => setPublishModal(null)}
       />
     </div>
   );

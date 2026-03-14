@@ -62,6 +62,9 @@ const RaffleEntryPage = lazy(() => import('./features/raffles/RaffleEntryPage'))
 // Content Reviews
 const ContentReviewManager = lazy(() => import('./features/concept1-platform/ContentReviewManager'));
 
+// Social Connections
+const SocialConnectionsPanel = lazy(() => import('./features/concept1-platform/SocialConnectionsPanel'));
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -159,6 +162,9 @@ export default function App() {
 
                 {/* Content Reviews */}
                 <Route path="content-reviews" element={<ContentReviewManager />} />
+
+                {/* Social Connections */}
+                <Route path="social" element={<SocialConnectionsPanel />} />
 
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />

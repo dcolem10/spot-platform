@@ -1468,7 +1468,7 @@ async function getPartnerAnalytics(event) {
 
 const VALID_PLATFORMS = ['instagram', 'tiktok', 'youtube'];
 const VALID_CONTENT_TYPES = ['reel', 'story', 'post', 'tiktok', 'shorts'];
-const VALID_REVIEW_STATUSES = ['draft', 'submitted', 'revision_requested', 'revised', 'approved', 'rejected'];
+const VALID_REVIEW_STATUSES = ['draft', 'submitted', 'revision_requested', 'revised', 'approved', 'rejected', 'published'];
 
 /**
  * POST /api/content-reviews — Creator creates a draft content review request
@@ -2704,6 +2704,642 @@ async function rejectContentReview(reviewId, event) {
   );
 
   return respond(200, { message: 'Content review rejected', reviewId });
+}
+
+// ─── Social Media Integration (Creator OAuth Connections) ────────────────────
+
+const SOCIAL_PLATFORMS = ['instagram', 'tiktok', 'youtube'];
+
+const SOCIAL_MOCK_PROFILES = {
+  instagram: {
+    platformUserId: 'MOCK_IG_',
+    username: 'spot_creator',
+    displayName: 'Spot Creator',
+    followerCount: 12500,
+    mediaCount: 342,
+    accountType: 'CREATOR',
+  },
+  tiktok: {
+    platformUserId: 'MOCK_TT_',
+    username: 'spot_tiktok',
+    displayName: 'Spot TikTok Creator',
+    followerCount: 45000,
+    videoCount: 89,
+  },
+  youtube: {
+    platformUserId: 'MOCK_YT_',
+    username: 'SpotFoodCreator',
+    displayName: 'Spot Food Creator',
+    followerCount: 8200,
+    videoCount: 156,
+  },
+};
+
+function getSocialSecretEnvVar(platform) {
+  const map = {
+    instagram: 'INSTAGRAM_APP_SECRET',
+    tiktok: 'TIKTOK_CLIENT_SECRET',
+    youtube: 'YOUTUBE_CLIENT_SECRET',
+  };
+  return process.env[map[platform]] || null;
+}
+
+function getSocialAppIdEnvVar(platform) {
+  const map = {
+    instagram: process.env.INSTAGRAM_APP_ID || 'DEMO_IG_APP',
+    tiktok: process.env.TIKTOK_CLIENT_KEY || 'DEMO_TT_APP',
+    youtube: process.env.YOUTUBE_CLIENT_ID || 'DEMO_YT_APP',
+  };
+  return map[platform];
+}
+
+function buildSocialAuthUrl(platform, appId, state, codeChallenge, callbackBase) {
+  const redirectUri = encodeURIComponent(`${callbackBase}/${platform}`);
+  switch (platform) {
+    case 'instagram':
+      return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=instagram_basic,instagram_manage_insights,pages_show_list&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256&response_type=code`;
+    case 'tiktok':
+      return `https://www.tiktok.com/v2/auth/authorize/?client_key=${appId}&scope=user.info.basic,user.info.stats,video.list&response_type=code&redirect_uri=${redirectUri}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+    case 'youtube':
+      return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${encodeURIComponent('https://www.googleapis.com/auth/youtube.readonly')}&response_type=code&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256&access_type=offline&prompt=consent`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * POST /api/social/connect/{platform} — Initiate social media OAuth flow
+ */
+async function initSocialOAuth(platform, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
+
+  const allowed = await checkUserMutationRate(userId, 'SOCIAL_CONNECT', 5);
+  if (!allowed) return respond(429, { error: 'Too many connection attempts. Try again later.' });
+
+  try {
+    const state = randomUUID();
+    const codeVerifier = toBase64Url(randomBytes(32));
+    const codeChallenge = computeCodeChallenge(codeVerifier);
+    const now = new Date();
+    const ttlSeconds = 600;
+    const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+
+    await ddb.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `CREATOR#${userId}`,
+        SK: `SOCIAL_CONNECTION#${platform}`,
+        platform,
+        status: 'pending_oauth',
+        oauthState: state,
+        codeVerifier,
+        createdAt: now.toISOString(),
+        expiresAt,
+        ttl: Math.floor(now.getTime() / 1000) + ttlSeconds,
+      },
+    }));
+
+    const hasSecret = !!getSocialSecretEnvVar(platform);
+    const appId = getSocialAppIdEnvVar(platform);
+    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/api/social/callback';
+    const authUrl = buildSocialAuthUrl(platform, appId, state, codeChallenge, callbackBase);
+
+    return respond(200, {
+      authorizationUrl: authUrl,
+      state,
+      expiresIn: 600,
+      ...(hasSecret ? {} : { mode: 'development' }),
+    });
+  } catch (err) {
+    console.error('initSocialOAuth error:', err.message);
+    return respond(500, { error: 'Failed to initiate social OAuth' });
+  }
+}
+
+/**
+ * GET /api/social/callback/{platform} — Handle social media OAuth callback
+ * Query params: code, state
+ */
+async function handleSocialCallback(platform, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
+
+  const params = event.queryStringParameters || {};
+  const code = sanitize(params.code || '', 512);
+  const state = sanitize(params.state || '', 512);
+  if (!code || !state) return respond(400, { error: 'Missing code or state' });
+
+  try {
+    const lookup = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+    }));
+
+    if (!lookup.Item) return respond(400, { error: 'No pending connection found' });
+    if (lookup.Item.status !== 'pending_oauth') return respond(400, { error: 'Connection not in pending state' });
+    if (lookup.Item.oauthState !== state) return respond(400, { error: 'OAuth state mismatch' });
+
+    const now = new Date().toISOString();
+    const hasSecret = !!getSocialSecretEnvVar(platform);
+
+    if (!hasSecret) {
+      // Dev mode — simulate connected state with mock profile
+      const mock = SOCIAL_MOCK_PROFILES[platform];
+      await ddb.send(new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+        UpdateExpression: 'SET #s = :connected, platformUserId = :pid, username = :uname, displayName = :dname, followerCount = :fc, connectedAt = :now, updatedAt = :now, environment = :env REMOVE oauthState, codeVerifier, expiresAt, #ttl',
+        ExpressionAttributeNames: { '#s': 'status', '#ttl': 'ttl' },
+        ExpressionAttributeValues: {
+          ':connected': 'connected',
+          ':pid': mock.platformUserId + randomUUID().substring(0, 8),
+          ':uname': mock.username,
+          ':dname': mock.displayName,
+          ':fc': mock.followerCount,
+          ':now': now,
+          ':env': 'development',
+        },
+      }));
+
+      return respond(200, {
+        status: 'connected',
+        platform,
+        mode: 'development',
+        username: mock.username,
+        followerCount: mock.followerCount,
+      });
+    }
+
+    // Production mode — exchange code for tokens
+    const appId = getSocialAppIdEnvVar(platform);
+    const appSecret = getSocialSecretEnvVar(platform);
+    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/api/social/callback';
+    const redirectUri = `${callbackBase}/${platform}`;
+
+    let tokenUrl, tokenBody, profileUrl, profileHeaders;
+
+    switch (platform) {
+      case 'instagram':
+        tokenUrl = 'https://graph.facebook.com/v19.0/oauth/access_token';
+        tokenBody = new URLSearchParams({ client_id: appId, client_secret: appSecret, code, redirect_uri: redirectUri, code_verifier: lookup.Item.codeVerifier }).toString();
+        break;
+      case 'tiktok':
+        tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
+        tokenBody = new URLSearchParams({ client_key: appId, client_secret: appSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri, code_verifier: lookup.Item.codeVerifier }).toString();
+        break;
+      case 'youtube':
+        tokenUrl = 'https://oauth2.googleapis.com/token';
+        tokenBody = new URLSearchParams({ client_id: appId, client_secret: appSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri, code_verifier: lookup.Item.codeVerifier }).toString();
+        break;
+    }
+
+    const tokenRes = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody,
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!tokenRes.ok) {
+      console.error(`${platform} token exchange failed:`, tokenRes.status);
+      return respond(400, { error: `Failed to exchange ${platform} authorization code` });
+    }
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+    const refreshToken = tokenData.refresh_token || null;
+    const expiresAt = tokenData.expires_in
+      ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+      : null;
+
+    // Fetch profile info
+    let profileData = { platformUserId: 'unknown', username: 'unknown', displayName: 'unknown', followerCount: 0 };
+    try {
+      switch (platform) {
+        case 'instagram': {
+          const igRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${accessToken}`, { signal: AbortSignal.timeout(10000) });
+          if (igRes.ok) {
+            const pages = await igRes.json();
+            const pageId = pages.data?.[0]?.id;
+            if (pageId) {
+              const igAcct = await fetch(`https://graph.facebook.com/v19.0/${pageId}?fields=instagram_business_account&access_token=${accessToken}`, { signal: AbortSignal.timeout(10000) });
+              const igData = await igAcct.json();
+              const igId = igData.instagram_business_account?.id;
+              if (igId) {
+                const igProfile = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,followers_count,media_count&access_token=${accessToken}`, { signal: AbortSignal.timeout(10000) });
+                const igP = await igProfile.json();
+                profileData = { platformUserId: igId, username: igP.username || 'unknown', displayName: igP.name || igP.username, followerCount: igP.followers_count || 0 };
+              }
+            }
+          }
+          break;
+        }
+        case 'tiktok': {
+          const ttRes = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url,follower_count', {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (ttRes.ok) {
+            const ttData = await ttRes.json();
+            const user = ttData.data?.user;
+            if (user) {
+              profileData = { platformUserId: user.open_id, username: user.display_name, displayName: user.display_name, followerCount: user.follower_count || 0 };
+            }
+          }
+          break;
+        }
+        case 'youtube': {
+          const ytRes = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true', {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (ytRes.ok) {
+            const ytData = await ytRes.json();
+            const ch = ytData.items?.[0];
+            if (ch) {
+              profileData = { platformUserId: ch.id, username: ch.snippet?.title || 'unknown', displayName: ch.snippet?.title || 'unknown', followerCount: parseInt(ch.statistics?.subscriberCount || '0', 10) };
+            }
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch ${platform} profile:`, e.message);
+    }
+
+    const [encAccessToken, encRefreshToken] = await Promise.all([
+      encryptPosToken(accessToken),
+      refreshToken ? encryptPosToken(refreshToken) : Promise.resolve(null),
+    ]);
+
+    const updateExpr = 'SET #s = :connected, platformUserId = :pid, username = :uname, displayName = :dname, followerCount = :fc, accessToken = :at, refreshToken = :rt, tokenExpiresAt = :texpr, tokenEncrypted = :enc, connectedAt = :now, updatedAt = :now REMOVE oauthState, codeVerifier, expiresAt, #ttl';
+
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+      UpdateExpression: updateExpr,
+      ExpressionAttributeNames: { '#s': 'status', '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':connected': 'connected',
+        ':pid': profileData.platformUserId,
+        ':uname': profileData.username,
+        ':dname': profileData.displayName,
+        ':fc': profileData.followerCount,
+        ':at': encAccessToken,
+        ':rt': encRefreshToken,
+        ':texpr': expiresAt,
+        ':enc': true,
+        ':now': now,
+      },
+    }));
+
+    return respond(200, {
+      status: 'connected',
+      platform,
+      username: profileData.username,
+      followerCount: profileData.followerCount,
+    });
+  } catch (err) {
+    console.error('handleSocialCallback error:', err.message);
+    return respond(500, { error: `Failed to complete ${platform} OAuth` });
+  }
+}
+
+/**
+ * GET /api/social/connections — List all social media connections for the creator
+ */
+async function listSocialConnections(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const results = await Promise.all(
+    SOCIAL_PLATFORMS.map((p) =>
+      ddb.send(new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${p}` },
+      })).then((r) => r.Item ? stripDdbKeys(r.Item) : { platform: p, status: 'disconnected' })
+        .catch(() => ({ platform: p, status: 'disconnected' }))
+    )
+  );
+
+  return respond(200, results);
+}
+
+/**
+ * GET /api/social/connection/{platform} — Get single social connection detail
+ */
+async function getSocialConnection(platform, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
+
+  const result = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+  }));
+
+  if (!result.Item) return respond(200, { platform, status: 'disconnected' });
+  return respond(200, stripDdbKeys(result.Item));
+}
+
+/**
+ * PUT /api/social/disconnect/{platform} — Disconnect a social media account
+ */
+async function disconnectSocial(platform, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
+
+  const allowed = await checkUserMutationRate(userId, 'SOCIAL_DISCONNECT', 3);
+  if (!allowed) return respond(429, { error: 'Too many disconnect attempts' });
+
+  await ddb.send(new DeleteCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+  }));
+
+  return respond(200, { message: 'Social account disconnected', platform });
+}
+
+/**
+ * POST /api/social/refresh/{platform} — Refresh an expired access token
+ */
+async function refreshSocialToken(platform, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
+
+  const conn = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+  }));
+
+  if (!conn.Item || conn.Item.status !== 'connected') {
+    return respond(400, { error: 'No connected account found' });
+  }
+
+  // Dev mode — no real refresh needed
+  if (conn.Item.environment === 'development') {
+    return respond(200, { message: 'Token refreshed (development)', platform });
+  }
+
+  if (!conn.Item.refreshToken) {
+    return respond(400, { error: 'No refresh token available' });
+  }
+
+  try {
+    const refreshToken = await decryptPosToken(conn.Item.refreshToken);
+    const appId = getSocialAppIdEnvVar(platform);
+    const appSecret = getSocialSecretEnvVar(platform);
+    let tokenUrl, tokenBody;
+
+    switch (platform) {
+      case 'instagram':
+        tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${refreshToken}`;
+        tokenBody = null;
+        break;
+      case 'tiktok':
+        tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
+        tokenBody = new URLSearchParams({ client_key: appId, client_secret: appSecret, grant_type: 'refresh_token', refresh_token: refreshToken }).toString();
+        break;
+      case 'youtube':
+        tokenUrl = 'https://oauth2.googleapis.com/token';
+        tokenBody = new URLSearchParams({ client_id: appId, client_secret: appSecret, grant_type: 'refresh_token', refresh_token: refreshToken }).toString();
+        break;
+    }
+
+    const res = await fetch(tokenUrl, {
+      method: tokenBody ? 'POST' : 'GET',
+      ...(tokenBody ? { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: tokenBody } : {}),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!res.ok) {
+      return respond(400, { error: `Failed to refresh ${platform} token` });
+    }
+
+    const data = await res.json();
+    const encToken = await encryptPosToken(data.access_token);
+    const newRefresh = data.refresh_token ? await encryptPosToken(data.refresh_token) : conn.Item.refreshToken;
+    const newExpiry = data.expires_in ? new Date(Date.now() + data.expires_in * 1000).toISOString() : conn.Item.tokenExpiresAt;
+
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
+      UpdateExpression: 'SET accessToken = :at, refreshToken = :rt, tokenExpiresAt = :exp, updatedAt = :now',
+      ExpressionAttributeValues: {
+        ':at': encToken,
+        ':rt': newRefresh,
+        ':exp': newExpiry,
+        ':now': new Date().toISOString(),
+      },
+    }));
+
+    return respond(200, { message: 'Token refreshed', platform });
+  } catch (err) {
+    console.error('refreshSocialToken error:', err.message);
+    return respond(500, { error: `Failed to refresh ${platform} token` });
+  }
+}
+
+// ─── Content Review Extensions (Publishing & Metrics) ────────────────────────
+
+/**
+ * PUT /api/content-reviews/{reviewId}/publish — Mark approved content as published
+ * Body: { publishedUrl, publishedAt? }
+ */
+async function markContentPublished(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  const body = parseBody(event);
+  if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  const publishedUrl = sanitize(body.publishedUrl, 500);
+  if (!publishedUrl) return respond(400, { error: 'publishedUrl is required' });
+
+  const find = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: 'PK = :pk AND SK = :sk',
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}`,
+      ':sk': `CONTENT_REVIEW#${reviewId}`,
+    },
+  }));
+
+  if (!find.Items?.length) return respond(404, { error: 'Content review not found' });
+  const existing = find.Items[0];
+
+  if (existing.status !== 'approved') {
+    return respond(400, { error: `Cannot publish from status '${existing.status}'. Must be approved first.` });
+  }
+
+  const now = new Date().toISOString();
+  const gsi1sk = `published#${existing.createdAt}`;
+
+  await ddb.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: { PK: existing.PK, SK: existing.SK },
+    UpdateExpression: 'SET #s = :published, publishedUrl = :url, publishedAt = :pubAt, #u = :now, GSI1SK = :gsi1sk',
+    ExpressionAttributeNames: { '#s': 'status', '#u': 'updatedAt' },
+    ExpressionAttributeValues: {
+      ':published': 'published',
+      ':url': publishedUrl,
+      ':pubAt': body.publishedAt ? sanitize(body.publishedAt, 30) : now,
+      ':now': now,
+      ':gsi1sk': gsi1sk,
+    },
+  }));
+
+  await createNotification(
+    existing.restaurantId,
+    'content_review_approved',
+    'Content Published',
+    `Creator published ${existing.contentType} content on ${existing.platform}`,
+    `/app/content-reviews/${reviewId}`,
+    ''
+  );
+
+  return respond(200, { message: 'Content marked as published', reviewId });
+}
+
+/**
+ * POST /api/content-reviews/{reviewId}/fetch-metrics — Fetch engagement metrics
+ */
+async function fetchContentMetrics(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  if (!(await checkUserMutationRate(userId, 'FETCH_METRICS', 20))) {
+    return respond(429, { error: 'Too many metric fetches. Please try again later.' });
+  }
+
+  const find = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: 'PK = :pk AND SK = :sk',
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}`,
+      ':sk': `CONTENT_REVIEW#${reviewId}`,
+    },
+  }));
+
+  if (!find.Items?.length) return respond(404, { error: 'Content review not found' });
+  const existing = find.Items[0];
+
+  if (existing.status !== 'published') {
+    return respond(400, { error: 'Content must be published before fetching metrics' });
+  }
+
+  const now = new Date().toISOString();
+
+  // Check if creator has a connected social account for this platform
+  const socialConn = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${existing.platform}` },
+  }));
+
+  const isDevMode = !socialConn.Item || socialConn.Item.environment === 'development' || !getSocialSecretEnvVar(existing.platform);
+
+  let metrics;
+  if (isDevMode) {
+    // Dev mode — return realistic mock metrics
+    metrics = {
+      likes: 500 + Math.floor(Math.random() * 5000),
+      comments: 20 + Math.floor(Math.random() * 200),
+      shares: 10 + Math.floor(Math.random() * 100),
+      saves: 50 + Math.floor(Math.random() * 500),
+      impressions: 5000 + Math.floor(Math.random() * 50000),
+      reach: 3000 + Math.floor(Math.random() * 30000),
+      views: 2000 + Math.floor(Math.random() * 40000),
+    };
+    metrics.engagementRate = parseFloat(((metrics.likes + metrics.comments + metrics.shares) / metrics.impressions * 100).toFixed(2));
+  } else {
+    // Production mode — fetch from platform API
+    try {
+      const accessToken = await decryptPosToken(socialConn.Item.accessToken);
+      // Platform-specific API calls would go here
+      // For now, return a placeholder that indicates production fetch
+      metrics = { likes: 0, comments: 0, shares: 0, saves: 0, impressions: 0, reach: 0, views: 0, engagementRate: 0 };
+      console.log(`Would fetch ${existing.platform} metrics with token for ${existing.publishedUrl}`);
+    } catch (e) {
+      console.error('Failed to fetch metrics:', e.message);
+      return respond(500, { error: 'Failed to fetch metrics from platform' });
+    }
+  }
+
+  // Store metrics on the content review
+  const metricsHistory = existing.metricsHistory || [];
+  metricsHistory.push({
+    fetchedAt: now,
+    likes: metrics.likes,
+    comments: metrics.comments,
+    shares: metrics.shares,
+    impressions: metrics.impressions,
+  });
+  // Keep only last 20 snapshots
+  if (metricsHistory.length > 20) metricsHistory.splice(0, metricsHistory.length - 20);
+
+  await ddb.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: { PK: existing.PK, SK: existing.SK },
+    UpdateExpression: 'SET metrics = :m, metricsUpdatedAt = :now, metricsHistory = :mh, #u = :now',
+    ExpressionAttributeNames: { '#u': 'updatedAt' },
+    ExpressionAttributeValues: {
+      ':m': metrics,
+      ':now': now,
+      ':mh': metricsHistory,
+    },
+  }));
+
+  return respond(200, { metrics, metricsUpdatedAt: now, ...(isDevMode ? { mode: 'development' } : {}) });
+}
+
+/**
+ * GET /api/content-reviews/{reviewId}/metrics — Get stored metrics
+ */
+async function getContentMetrics(reviewId, event) {
+  if (!isValidId(reviewId)) return respond(400, { error: 'Invalid review ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Try creator's PK first
+  let result = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    KeyConditionExpression: 'PK = :pk AND SK = :sk',
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}`,
+      ':sk': `CONTENT_REVIEW#${reviewId}`,
+    },
+  }));
+
+  let item = result.Items?.[0];
+
+  if (!item) {
+    // Fall back to GSI1 for restaurant access
+    result = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': `RESTAURANT#${userId}#CONTENT_REVIEWS`,
+      },
+      Limit: 100,
+    }));
+    item = (result.Items || []).find((r) => r.reviewId === reviewId);
+  }
+
+  if (!item) return respond(404, { error: 'Content review not found' });
+
+  return respond(200, {
+    metrics: item.metrics || null,
+    metricsUpdatedAt: item.metricsUpdatedAt || null,
+    metricsHistory: item.metricsHistory || [],
+  });
 }
 
 /**
@@ -5890,6 +6526,28 @@ export const handler = async (event) => {
       const creatorId = pathParts[pathParts.length - 1];
       return removeCollaborator(campaignId, creatorId, event);
     }
+
+    // Social Media Integration
+    if (path.match(/\/api\/social\/connect\/(instagram|tiktok|youtube)$/) && method === 'POST')
+      return initSocialOAuth(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/social\/callback\/(instagram|tiktok|youtube)$/) && method === 'GET')
+      return handleSocialCallback(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/social\/connections$/) && method === 'GET')
+      return listSocialConnections(event);
+    if (path.match(/\/api\/social\/connection\/(instagram|tiktok|youtube)$/) && method === 'GET')
+      return getSocialConnection(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/social\/disconnect\/(instagram|tiktok|youtube)$/) && method === 'PUT')
+      return disconnectSocial(pathParts[pathParts.length - 1], event);
+    if (path.match(/\/api\/social\/refresh\/(instagram|tiktok|youtube)$/) && method === 'POST')
+      return refreshSocialToken(pathParts[pathParts.length - 1], event);
+
+    // Content Review Extensions (Publishing & Metrics)
+    if (path.match(/\/api\/content-reviews\/[^/]+\/publish$/) && method === 'PUT')
+      return markContentPublished(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/content-reviews\/[^/]+\/fetch-metrics$/) && method === 'POST')
+      return fetchContentMetrics(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/content-reviews\/[^/]+\/metrics$/) && method === 'GET')
+      return getContentMetrics(pathParts[pathParts.length - 1], event);
 
     // POS Integration (Square, Toast, Clover)
     if (path.match(/\/api\/pos\/connect\/square$/) && method === 'POST')

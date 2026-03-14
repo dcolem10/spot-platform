@@ -341,7 +341,7 @@ export interface RestaurantFilters {
 
 // ─── Content Reviews ──────────────────────────────────────────────────────────
 
-export type ContentReviewStatus = 'draft' | 'submitted' | 'revision_requested' | 'revised' | 'approved' | 'rejected';
+export type ContentReviewStatus = 'draft' | 'submitted' | 'revision_requested' | 'revised' | 'approved' | 'rejected' | 'published';
 export type ContentPlatform = 'instagram' | 'tiktok' | 'youtube';
 export type ContentType = 'reel' | 'story' | 'post' | 'tiktok' | 'shorts';
 
@@ -357,6 +357,25 @@ export interface ReviewMessage {
   role: 'creator' | 'restaurant' | 'system';
   text: string;
   timestamp: string;
+}
+
+export interface ContentMetrics {
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  impressions: number;
+  reach: number;
+  views: number;
+  engagementRate: number;
+}
+
+export interface MetricsSnapshot {
+  fetchedAt: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  impressions: number;
 }
 
 export interface ContentReview {
@@ -377,6 +396,11 @@ export interface ContentReview {
   approvedBy?: string;
   rejectedAt?: string;
   rejectionReason?: string;
+  publishedUrl?: string;
+  publishedAt?: string;
+  metrics?: ContentMetrics | null;
+  metricsUpdatedAt?: string;
+  metricsHistory?: MetricsSnapshot[];
   revisionCount: number;
   revisionHistory: RevisionEntry[];
   messages: ReviewMessage[];
@@ -414,6 +438,29 @@ export interface RedemptionSyncResult {
   avgTransactionValue: number;
   repeatCustomerCount: number;
   environment?: string;
+}
+
+// ─── Social Media Connections ────────────────────────────────────────────────
+
+export type SocialConnectionStatus = 'pending_oauth' | 'connected' | 'disconnected' | 'failed' | 'revoked' | 'expired';
+
+export interface SocialConnection {
+  platform: ContentPlatform;
+  status: SocialConnectionStatus;
+  platformUserId?: string;
+  username?: string;
+  displayName?: string;
+  followerCount?: number;
+  connectedAt?: string;
+  lastMetricsFetchedAt?: string;
+  environment?: string;
+}
+
+export interface SocialConnectResponse {
+  authorizationUrl: string;
+  state: string;
+  expiresIn: number;
+  mode?: 'development';
 }
 
 // ─── Notifications ──────────────────────────────────────────────────────────
