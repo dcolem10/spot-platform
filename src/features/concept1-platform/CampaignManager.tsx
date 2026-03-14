@@ -236,6 +236,7 @@ export default function CampaignManager() {
         onClose={handleCloseWizard}
         onSubmit={(payload) => createMutation.mutate(payload)}
         isSubmitting={createMutation.isPending}
+        submitError={mutationError}
         restaurantContext={restaurantContext}
       />
 

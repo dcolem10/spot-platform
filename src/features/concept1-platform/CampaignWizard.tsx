@@ -108,6 +108,7 @@ interface CampaignWizardProps {
   onClose: () => void;
   onSubmit: (payload: Partial<Campaign>) => void;
   isSubmitting: boolean;
+  submitError?: string | null;
   restaurantContext?: RestaurantContext | null;
 }
 
@@ -125,7 +126,7 @@ const emptyForm: WizardForm = {
 
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
-export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting, restaurantContext }: CampaignWizardProps) {
+export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting, submitError, restaurantContext }: CampaignWizardProps) {
   const hasRestaurant = Boolean(restaurantContext?.restaurantId);
   const totalSteps = hasRestaurant ? 3 : 4;
   const [step, setStep] = useState(hasRestaurant ? 1 : 1);
@@ -874,18 +875,35 @@ export default function CampaignWizard({ isOpen, onClose, onSubmit, isSubmitting
               </div>
             )}
 
+            {/* Submit error */}
+            {submitError && (
+              <div style={{
+                backgroundColor: 'var(--color-errorMuted)',
+                border: '1px solid var(--color-error)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-4)',
+              }}>
+                <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-error)', lineHeight: 1.5, margin: 0 }}>
+                  {submitError}
+                </p>
+              </div>
+            )}
+
             {/* Ready message */}
-            <div style={{
-              backgroundColor: 'var(--color-successMuted)',
-              border: '1px solid var(--color-success)',
-              borderRadius: 'var(--radius-md)',
-              padding: 'var(--space-4)',
-              marginBottom: 'var(--space-2)',
-            }}>
-              <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-success)', lineHeight: 1.5, margin: 0 }}>
-                Your campaign is ready to launch! It will appear in your pipeline as an inquiry.
-              </p>
-            </div>
+            {!submitError && (
+              <div style={{
+                backgroundColor: 'var(--color-successMuted)',
+                border: '1px solid var(--color-success)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-2)',
+              }}>
+                <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-success)', lineHeight: 1.5, margin: 0 }}>
+                  Your campaign is ready to launch! It will appear in your pipeline as an inquiry.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
