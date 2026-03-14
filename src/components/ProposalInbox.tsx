@@ -1000,7 +1000,7 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
   const navigate = useNavigate();
 
   return (
-    <div>
+    <div className="page-container">
       {/* Header */}
       <div style={{
         display: 'flex',
