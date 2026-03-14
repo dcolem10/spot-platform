@@ -2,6 +2,7 @@ import { useState, memo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/ApiService';
 import { isDemoMode } from '../data/demoData';
+import ProposalWizard from './ProposalWizard';
 import type { Proposal, ProposalStatus, ProposalType } from '../types';
 
 /* ─── Demo Data ─────────────────────────────────────────────────────────────── */
@@ -873,6 +874,8 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
   const [tab, setTab] = useState<'inbox' | 'sent' | 'all'>('inbox');
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [statusFilter, setStatusFilter] = useState<ProposalStatus | 'all'>('all');
+  const [showWizard, setShowWizard] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // ─── Queries ─────────────────────────────────────────────────────────
@@ -953,6 +956,24 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: async (payload: { proposalType: ProposalType; targetId: string; targetName: string; terms: Record<string, unknown> }) => {
+      if (isDemoMode()) return;
+      const res = await api.post('/api/proposals', payload);
+      if (res.error) throw new Error(res.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['proposals'] });
+      setShowWizard(false);
+      setMutationError(null);
+      setTab('sent');
+    },
+    onError: (err: Error) => {
+      setMutationError(`Failed to send proposal: ${err.message}`);
+    },
+  });
+
   const handleAccept = useCallback((id: string) => acceptMutation.mutate(id), [acceptMutation]);
   const handleDecline = useCallback((id: string, reason: string) => declineMutation.mutate({ id, reason }), [declineMutation]);
   const handleCounter = useCallback((id: string, terms: Record<string, unknown>) => counterMutation.mutate({ id, terms }), [counterMutation]);
@@ -990,28 +1011,53 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
               : 'Review proposals from creators and manage partnership requests.'}
           </p>
         </div>
-        {pendingCount > 0 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-2)',
-            padding: 'var(--space-2) var(--space-4)',
-            background: 'color-mix(in srgb, var(--color-warning, #f59e0b) 13%, transparent)',
-            borderRadius: 'var(--radius-full)',
-            color: 'var(--color-warning, #f59e0b)',
-            fontSize: 'var(--font-sm)',
-            fontWeight: 600,
-          }}>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: 'var(--color-warning, #f59e0b)',
-              animation: 'pulse 2s infinite',
-            }} />
-            {pendingCount} pending
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          {pendingCount > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-2) var(--space-4)',
+              background: 'color-mix(in srgb, var(--color-warning, #f59e0b) 13%, transparent)',
+              borderRadius: 'var(--radius-full)',
+              color: 'var(--color-warning, #f59e0b)',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: 'var(--color-warning, #f59e0b)',
+                animation: 'pulse 2s infinite',
+              }} />
+              {pendingCount} pending
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => { setMutationError(null); setShowWizard(true); }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-2) var(--space-4)',
+              background: 'var(--color-accent)',
+              color: 'var(--color-textOnAccent, #fff)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'opacity var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+          >
+            + New Proposal
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -1122,6 +1168,24 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
               ? 'Partnership requests will appear here when restaurants reach out.'
               : 'Proposals you send to restaurants will appear here.'}
           </div>
+          <button
+            type="button"
+            onClick={() => { setMutationError(null); setShowWizard(true); }}
+            style={{
+              marginTop: 'var(--space-4)',
+              padding: 'var(--space-3) var(--space-5)',
+              background: 'var(--color-accent)',
+              color: 'var(--color-textOnAccent, #fff)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            + Send Your First Proposal
+          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} role="tabpanel">
@@ -1158,6 +1222,15 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
           isActing={acceptMutation.isPending || declineMutation.isPending || counterMutation.isPending}
         />
       )}
+
+      {/* Create Proposal Wizard */}
+      <ProposalWizard
+        isOpen={showWizard}
+        onClose={() => { setShowWizard(false); setMutationError(null); }}
+        onSubmit={(payload) => createMutation.mutate(payload)}
+        isSubmitting={createMutation.isPending}
+        submitError={mutationError}
+      />
     </div>
   );
 }
