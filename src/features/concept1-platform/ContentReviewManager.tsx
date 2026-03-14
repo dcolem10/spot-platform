@@ -110,28 +110,29 @@ const DEMO_REVIEWS: ContentReview[] = [
   },
 ];
 
-/* ─── Status Colors ─────────────────────────────────────────────────────────── */
+/* ─── Status & Platform Config ──────────────────────────────────────────────── */
 
-const STATUS_COLORS: Record<ContentReviewStatus, { bg: string; color: string; label: string }> = {
-  draft: { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af', label: 'Draft' },
-  submitted: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', label: 'Submitted' },
-  revision_requested: { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', label: 'Revision Requested' },
-  revised: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', label: 'Revised' },
-  approved: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Approved' },
-  rejected: { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', label: 'Rejected' },
+const STATUS_CONFIG: Record<ContentReviewStatus, { bg: string; color: string; label: string; icon: string }> = {
+  draft:              { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af', label: 'Draft',              icon: '📝' },
+  submitted:          { bg: 'rgba(59, 130, 246, 0.15)',  color: '#3b82f6', label: 'Submitted',          icon: '📤' },
+  revision_requested: { bg: 'rgba(249, 115, 22, 0.15)',  color: '#f97316', label: 'Revision Requested', icon: '🔄' },
+  revised:            { bg: 'rgba(59, 130, 246, 0.15)',  color: '#3b82f6', label: 'Revised',            icon: '📤' },
+  approved:           { bg: 'rgba(16, 185, 129, 0.15)',  color: '#10b981', label: 'Approved',           icon: '✅' },
+  rejected:           { bg: 'rgba(239, 68, 68, 0.15)',   color: '#ef4444', label: 'Rejected',           icon: '❌' },
 };
 
-const PLATFORM_COLORS: Record<ContentPlatform, { bg: string; color: string; label: string }> = {
-  instagram: { bg: 'rgba(225, 48, 108, 0.15)', color: '#E1306C', label: 'Instagram' },
-  tiktok: { bg: 'rgba(0, 0, 0, 0.08)', color: '#000', label: 'TikTok' },
-  youtube: { bg: 'rgba(255, 0, 0, 0.15)', color: '#FF0000', label: 'YouTube' },
+const PLATFORM_CONFIG: Record<ContentPlatform, { bg: string; color: string; label: string; icon: string }> = {
+  instagram: { bg: 'rgba(225, 48, 108, 0.15)', color: '#E1306C', label: 'Instagram', icon: '📸' },
+  tiktok:    { bg: 'rgba(0, 0, 0, 0.15)',       color: '#fff',    label: 'TikTok',   icon: '🎵' },
+  youtube:   { bg: 'rgba(255, 0, 0, 0.15)',     color: '#FF0000', label: 'YouTube',  icon: '🎬' },
 };
 
-/* ─── Sub-components ────────────────────────────────────────────────────────── */
+/* ─── Content Card ──────────────────────────────────────────────────────────── */
 
 const ContentCard = memo(function ContentCard({
   review,
   isCreatorView,
+  index,
   onSubmit,
   onRevise,
   onApprove,
@@ -140,24 +141,37 @@ const ContentCard = memo(function ContentCard({
 }: {
   review: ContentReview;
   isCreatorView: boolean;
+  index: number;
   onSubmit?: (id: string) => void;
   onRevise?: (id: string) => void;
   onApprove?: (id: string) => void;
   onRequestRevision?: (id: string) => void;
   onReject?: (id: string) => void;
 }) {
-  const statusConfig = STATUS_COLORS[review.status];
-  const platformConfig = PLATFORM_COLORS[review.platform];
+  const statusCfg = STATUS_CONFIG[review.status];
+  const platformCfg = PLATFORM_CONFIG[review.platform];
 
   return (
     <div style={{
-      padding: 'var(--space-4)',
-      background: 'var(--color-surface)',
+      padding: 'var(--space-5)',
+      background: 'var(--color-bgSecondary)',
       border: '1px solid var(--color-border)',
       borderRadius: 'var(--radius-lg)',
-      transition: 'box-shadow var(--transition-fast)',
-    }}>
-      {/* Header: Badges and Restaurant */}
+      transition: 'all var(--transition-fast)',
+      animation: 'fadeSlideIn 0.4s ease both',
+      animationDelay: `${index * 60}ms`,
+      cursor: 'default',
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.borderColor = 'var(--color-borderHover)';
+      e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.borderColor = 'var(--color-border)';
+      e.currentTarget.style.boxShadow = 'none';
+    }}
+    >
+      {/* Header: Restaurant + Badges */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -165,13 +179,15 @@ const ContentCard = memo(function ContentCard({
         gap: 'var(--space-3)',
         marginBottom: 'var(--space-3)',
       }}>
-        <div>
+        <div style={{ flex: 1 }}>
           <h3 style={{
             margin: 0,
+            fontFamily: 'var(--font-display)',
             fontSize: 'var(--font-md)',
             fontWeight: 600,
-            color: 'var(--color-text)',
-            marginBottom: 'var(--space-1)',
+            color: 'var(--color-textPrimary)',
+            marginBottom: 'var(--space-2)',
+            letterSpacing: '-0.01em',
           }}>
             {review.restaurantName}
           </h3>
@@ -182,33 +198,34 @@ const ContentCard = memo(function ContentCard({
             alignItems: 'center',
           }}>
             <span style={{
-              padding: '2px 8px',
+              padding: '3px 10px',
               borderRadius: 'var(--radius-full)',
               fontSize: 'var(--font-xs)',
               fontWeight: 600,
-              background: platformConfig.bg,
-              color: platformConfig.color,
+              background: platformCfg.bg,
+              color: platformCfg.color,
+              letterSpacing: '0.02em',
             }}>
-              {platformConfig.label}
+              {platformCfg.icon} {platformCfg.label}
             </span>
             <span style={{
-              padding: '2px 8px',
+              padding: '3px 10px',
               borderRadius: 'var(--radius-full)',
               fontSize: 'var(--font-xs)',
               fontWeight: 600,
-              background: statusConfig.bg,
-              color: statusConfig.color,
-              textTransform: 'capitalize',
+              background: statusCfg.bg,
+              color: statusCfg.color,
+              letterSpacing: '0.02em',
             }}>
-              {statusConfig.label}
+              {statusCfg.label}
             </span>
             {review.contentType && (
               <span style={{
-                padding: '2px 8px',
+                padding: '3px 10px',
                 borderRadius: 'var(--radius-full)',
                 fontSize: 'var(--font-xs)',
-                color: 'var(--color-text-muted)',
-                background: 'var(--color-bg)',
+                color: 'var(--color-textMuted)',
+                background: 'var(--color-bgElevated)',
                 textTransform: 'capitalize',
               }}>
                 {review.contentType}
@@ -216,30 +233,54 @@ const ContentCard = memo(function ContentCard({
             )}
           </div>
         </div>
+        {/* Revision count badge */}
+        {review.revisionCount > 0 && (
+          <span style={{
+            padding: '3px 10px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: 'var(--font-xs)',
+            fontWeight: 600,
+            background: 'rgba(249, 115, 22, 0.1)',
+            color: '#f97316',
+            whiteSpace: 'nowrap',
+          }}>
+            {review.revisionCount} revision{review.revisionCount > 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
       {/* Caption */}
       <p style={{
         margin: 0,
         fontSize: 'var(--font-sm)',
-        color: 'var(--color-text)',
-        lineHeight: 1.5,
+        color: 'var(--color-textPrimary)',
+        lineHeight: 1.6,
         marginBottom: 'var(--space-3)',
       }}>
         {review.caption}
       </p>
 
       {/* Hashtags */}
-      {review.hashtagsProposed?.join(' ') && (
-        <p style={{
-          margin: 0,
-          fontSize: 'var(--font-xs)',
-          color: 'var(--color-primary)',
+      {review.hashtagsProposed && review.hashtagsProposed.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: 'var(--space-1)',
+          flexWrap: 'wrap',
           marginBottom: 'var(--space-3)',
-          wordBreak: 'break-word',
         }}>
-          {review.hashtagsProposed?.join(' ')}
-        </p>
+          {review.hashtagsProposed.map((tag) => (
+            <span key={tag} style={{
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '11px',
+              color: 'var(--color-accent)',
+              background: 'rgba(249, 115, 22, 0.08)',
+              fontWeight: 500,
+            }}>
+              {tag}
+            </span>
+          ))}
+        </div>
       )}
 
       {/* Content URL */}
@@ -255,22 +296,25 @@ const ContentCard = memo(function ContentCard({
             rel="noopener noreferrer"
             style={{
               fontSize: 'var(--font-xs)',
-              color: 'var(--color-primary)',
+              color: 'var(--color-accent)',
               textDecoration: 'none',
               wordBreak: 'break-all',
+              transition: 'opacity var(--transition-fast)',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
           >
             {review.contentUrl}
           </a>
         </div>
       )}
 
-      {/* Revision Request Reason */}
+      {/* Revision Request Callout */}
       {review.revisionHistory?.[review.revisionHistory.length - 1]?.reason && (
         <div style={{
-          padding: 'var(--space-3)',
-          background: 'rgba(249, 115, 22, 0.08)',
-          borderLeft: '2px solid #f97316',
+          padding: 'var(--space-3) var(--space-4)',
+          background: 'rgba(249, 115, 22, 0.06)',
+          borderLeft: '3px solid #f97316',
           borderRadius: 'var(--radius-md)',
           marginBottom: 'var(--space-3)',
         }}>
@@ -279,25 +323,27 @@ const ContentCard = memo(function ContentCard({
             fontWeight: 600,
             color: '#f97316',
             marginBottom: 'var(--space-1)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
           }}>
-            Revision Request
+            Revision Requested
           </div>
           <div style={{
             fontSize: 'var(--font-sm)',
-            color: 'var(--color-text)',
-            lineHeight: 1.4,
+            color: 'var(--color-textPrimary)',
+            lineHeight: 1.5,
           }}>
-            {review.revisionHistory?.[review.revisionHistory.length - 1]?.reason}
+            {review.revisionHistory[review.revisionHistory.length - 1].reason}
           </div>
         </div>
       )}
 
-      {/* Rejection Reason */}
+      {/* Rejection Reason Callout */}
       {review.rejectionReason && (
         <div style={{
-          padding: 'var(--space-3)',
-          background: 'rgba(239, 68, 68, 0.08)',
-          borderLeft: '2px solid #ef4444',
+          padding: 'var(--space-3) var(--space-4)',
+          background: 'rgba(239, 68, 68, 0.06)',
+          borderLeft: '3px solid #ef4444',
           borderRadius: 'var(--radius-md)',
           marginBottom: 'var(--space-3)',
         }}>
@@ -306,135 +352,308 @@ const ContentCard = memo(function ContentCard({
             fontWeight: 600,
             color: '#ef4444',
             marginBottom: 'var(--space-1)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
           }}>
-            Rejection Reason
+            Rejected
           </div>
           <div style={{
             fontSize: 'var(--font-sm)',
-            color: 'var(--color-text)',
-            lineHeight: 1.4,
+            color: 'var(--color-textPrimary)',
+            lineHeight: 1.5,
           }}>
             {review.rejectionReason}
           </div>
         </div>
       )}
 
-      {/* Timestamps */}
+      {/* Footer: Timestamps + Actions */}
       <div style={{
         display: 'flex',
-        gap: 'var(--space-4)',
-        fontSize: 'var(--font-xs)',
-        color: 'var(--color-text-muted)',
-        marginBottom: 'var(--space-3)',
-      }}>
-        {review.submittedAt && (
-          <span>Submitted: {new Date(review.submittedAt).toLocaleDateString()}</span>
-        )}
-        {review.approvedAt && (
-          <span>Approved: {new Date(review.approvedAt).toLocaleDateString()}</span>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div style={{
-        display: 'flex',
-        gap: 'var(--space-2)',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         flexWrap: 'wrap',
+        gap: 'var(--space-3)',
       }}>
-        {isCreatorView ? (
-          <>
-            {review.status === 'draft' && (
-              <button
-                onClick={() => onSubmit?.(review.contentReviewId)}
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  background: 'var(--color-primary)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--font-xs)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Submit for Review
-              </button>
-            )}
-            {review.status === 'revision_requested' && (
-              <button
-                onClick={() => onRevise?.(review.contentReviewId)}
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  background: 'var(--color-primary)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--font-xs)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Revise & Resubmit
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            {review.status === 'submitted' && (
-              <>
+        {/* Timestamps */}
+        <div style={{
+          display: 'flex',
+          gap: 'var(--space-4)',
+          fontSize: 'var(--font-xs)',
+          color: 'var(--color-textMuted)',
+        }}>
+          {review.submittedAt && (
+            <span>Submitted {new Date(review.submittedAt).toLocaleDateString()}</span>
+          )}
+          {review.approvedAt && (
+            <span>Approved {new Date(review.approvedAt).toLocaleDateString()}</span>
+          )}
+          {!review.submittedAt && review.createdAt && (
+            <span>Created {new Date(review.createdAt).toLocaleDateString()}</span>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{
+          display: 'flex',
+          gap: 'var(--space-2)',
+          flexWrap: 'wrap',
+        }}>
+          {isCreatorView ? (
+            <>
+              {review.status === 'draft' && (
                 <button
-                  onClick={() => onApprove?.(review.contentReviewId)}
+                  onClick={() => onSubmit?.(review.contentReviewId)}
                   style={{
-                    padding: 'var(--space-2) var(--space-3)',
-                    background: 'var(--color-success)',
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: 'var(--color-accent)',
                     color: '#fff',
                     border: 'none',
                     borderRadius: 'var(--radius-md)',
                     fontSize: 'var(--font-xs)',
                     fontWeight: 600,
                     cursor: 'pointer',
+                    transition: 'all var(--transition-fast)',
+                    letterSpacing: '0.01em',
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none'; }}
                 >
-                  Approve
+                  Submit for Review
                 </button>
+              )}
+              {review.status === 'revision_requested' && (
                 <button
-                  onClick={() => onRequestRevision?.(review.contentReviewId)}
+                  onClick={() => onRevise?.(review.contentReviewId)}
                   style={{
-                    padding: 'var(--space-2) var(--space-3)',
-                    background: 'transparent',
-                    color: 'var(--color-warning)',
-                    border: '1px solid var(--color-warning)',
+                    padding: 'var(--space-2) var(--space-4)',
+                    background: 'var(--color-accent)',
+                    color: '#fff',
+                    border: 'none',
                     borderRadius: 'var(--radius-md)',
                     fontSize: 'var(--font-xs)',
                     fontWeight: 600,
                     cursor: 'pointer',
+                    transition: 'all var(--transition-fast)',
+                    letterSpacing: '0.01em',
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none'; }}
                 >
-                  Request Revision
+                  Revise & Resubmit
                 </button>
-                <button
-                  onClick={() => onReject?.(review.contentReviewId)}
-                  style={{
-                    padding: 'var(--space-2) var(--space-3)',
-                    background: 'transparent',
-                    color: 'var(--color-danger)',
-                    border: '1px solid var(--color-danger)',
-                    borderRadius: 'var(--radius-md)',
-                    fontSize: 'var(--font-xs)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Reject
-                </button>
-              </>
-            )}
-          </>
-        )}
+              )}
+            </>
+          ) : (
+            <>
+              {(review.status === 'submitted' || review.status === 'revised') && (
+                <>
+                  <button
+                    onClick={() => onApprove?.(review.contentReviewId)}
+                    style={{
+                      padding: 'var(--space-2) var(--space-4)',
+                      background: 'var(--color-success)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--font-xs)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none'; }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => onRequestRevision?.(review.contentReviewId)}
+                    style={{
+                      padding: 'var(--space-2) var(--space-4)',
+                      background: 'transparent',
+                      color: '#f97316',
+                      border: '1px solid rgba(249, 115, 22, 0.3)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--font-xs)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#f97316'; e.currentTarget.style.background = 'rgba(249, 115, 22, 0.08)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(249, 115, 22, 0.3)'; e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    Request Revision
+                  </button>
+                  <button
+                    onClick={() => onReject?.(review.contentReviewId)}
+                    style={{
+                      padding: 'var(--space-2) var(--space-4)',
+                      background: 'transparent',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: 'var(--font-xs)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)'; e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 });
+
+/* ─── Reason Modal (for revision request / reject) ──────────────────────────── */
+
+function ReasonModal({
+  isOpen,
+  title,
+  placeholder,
+  confirmLabel,
+  confirmColor,
+  onConfirm,
+  onClose,
+}: {
+  isOpen: boolean;
+  title: string;
+  placeholder: string;
+  confirmLabel: string;
+  confirmColor: string;
+  onConfirm: (reason: string) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState('');
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0, 0, 0, 0.6)',
+        backdropFilter: 'blur(4px)',
+        animation: 'fadeSlideIn 0.2s ease both',
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: 'var(--color-bgPrimary)',
+        borderRadius: 'var(--radius-xl)',
+        border: '1px solid var(--color-border)',
+        width: '100%',
+        maxWidth: '480px',
+        boxShadow: 'var(--shadow-xl)',
+        padding: 'var(--space-6)',
+        animation: 'fadeSlideIn 0.3s ease both',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-lg)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+          }}>
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--color-textMuted)',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: 'var(--space-1)',
+              lineHeight: 1,
+            }}
+          >
+            &times;
+          </button>
+        </div>
+
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={placeholder}
+          rows={4}
+          style={{
+            width: '100%',
+            padding: 'var(--space-3)',
+            background: 'var(--color-bgSurface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--color-textPrimary)',
+            fontSize: 'var(--font-sm)',
+            fontFamily: 'inherit',
+            boxSizing: 'border-box',
+            resize: 'vertical',
+            lineHeight: 1.5,
+          }}
+          autoFocus
+        />
+
+        <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-textMuted)',
+              fontSize: 'var(--font-sm)',
+              cursor: 'pointer',
+              transition: 'all var(--transition-fast)',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!reason.trim()}
+            onClick={() => {
+              onConfirm(reason.trim());
+              setReason('');
+              onClose();
+            }}
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              background: confirmColor,
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              color: '#fff',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              opacity: !reason.trim() ? 0.5 : 1,
+              transition: 'all var(--transition-fast)',
+            }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Create Review Form ────────────────────────────────────────────────────── */
 
@@ -475,14 +694,25 @@ function CreateReviewForm({
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: 'var(--space-2) var(--space-3)',
-    background: 'var(--color-surface)',
+    padding: 'var(--space-3)',
+    background: 'var(--color-bgSurface)',
     border: '1px solid var(--color-border)',
     borderRadius: 'var(--radius-md)',
-    color: 'var(--color-text)',
+    color: 'var(--color-textPrimary)',
     fontSize: 'var(--font-sm)',
     fontFamily: 'inherit',
     boxSizing: 'border-box',
+    transition: 'border-color var(--transition-fast)',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 'var(--font-xs)',
+    fontWeight: 600,
+    color: 'var(--color-textMuted)',
+    display: 'block',
+    marginBottom: '6px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
   };
 
   if (!isOpen) return null;
@@ -498,6 +728,7 @@ function CreateReviewForm({
         justifyContent: 'center',
         background: 'rgba(0,0,0,0.6)',
         backdropFilter: 'blur(4px)',
+        animation: 'fadeSlideIn 0.2s ease both',
       }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -505,20 +736,28 @@ function CreateReviewForm({
     >
       <div
         style={{
-          background: 'var(--color-bg)',
+          background: 'var(--color-bgPrimary)',
           borderRadius: 'var(--radius-xl)',
           border: '1px solid var(--color-border)',
           width: '100%',
-          maxWidth: '520px',
+          maxWidth: '540px',
           maxHeight: '85vh',
           overflowY: 'auto',
           boxShadow: 'var(--shadow-xl)',
-          padding: 'var(--space-5)',
+          padding: 'var(--space-6)',
+          animation: 'fadeSlideIn 0.3s ease both',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--font-lg)', color: 'var(--color-text)' }}>
-            Create Draft Review
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+          }}>
+            New Content Draft
           </h2>
           <button
             type="button"
@@ -526,67 +765,50 @@ function CreateReviewForm({
             style={{
               background: 'none',
               border: 'none',
-              color: 'var(--color-text-muted)',
+              color: 'var(--color-textMuted)',
               fontSize: '20px',
               cursor: 'pointer',
+              padding: 'var(--space-1)',
+              lineHeight: 1,
             }}
           >
-            ×
+            &times;
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <div>
-            <label style={{
-              fontSize: 'var(--font-xs)',
-              color: 'var(--color-text-muted)',
-              display: 'block',
-              marginBottom: '4px',
-            }}>
-              Platform *
-            </label>
-            <select
-              value={form.platform}
-              onChange={(e) => setForm((prev) => ({ ...prev, platform: e.target.value as ContentPlatform }))}
-              style={inputStyle}
-            >
-              <option value="instagram">Instagram</option>
-              <option value="tiktok">TikTok</option>
-              <option value="youtube">YouTube</option>
-            </select>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {/* Platform & Content Type Row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+            <div>
+              <label style={labelStyle}>Platform</label>
+              <select
+                value={form.platform}
+                onChange={(e) => setForm((prev) => ({ ...prev, platform: e.target.value as ContentPlatform }))}
+                style={inputStyle}
+              >
+                <option value="instagram">Instagram</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Content Type</label>
+              <select
+                value={form.contentType}
+                onChange={(e) => setForm((prev) => ({ ...prev, contentType: e.target.value as ContentType }))}
+                style={inputStyle}
+              >
+                <option value="reel">Reel</option>
+                <option value="post">Post</option>
+                <option value="story">Story</option>
+                <option value="tiktok">TikTok</option>
+                <option value="shorts">Shorts</option>
+              </select>
+            </div>
           </div>
 
           <div>
-            <label style={{
-              fontSize: 'var(--font-xs)',
-              color: 'var(--color-text-muted)',
-              display: 'block',
-              marginBottom: '4px',
-            }}>
-              Content Type *
-            </label>
-            <select
-              value={form.contentType}
-              onChange={(e) => setForm((prev) => ({ ...prev, contentType: e.target.value as ContentType }))}
-              style={inputStyle}
-            >
-              <option value="reel">Reel</option>
-              <option value="post">Post</option>
-              <option value="story">Story</option>
-              <option value="short">Short</option>
-              <option value="shorts">Shorts</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{
-              fontSize: 'var(--font-xs)',
-              color: 'var(--color-text-muted)',
-              display: 'block',
-              marginBottom: '4px',
-            }}>
-              Content URL
-            </label>
+            <label style={labelStyle}>Content URL</label>
             <input
               type="url"
               value={form.contentUrl}
@@ -597,33 +819,27 @@ function CreateReviewForm({
           </div>
 
           <div>
-            <label style={{
-              fontSize: 'var(--font-xs)',
-              color: 'var(--color-text-muted)',
-              display: 'block',
-              marginBottom: '4px',
-            }}>
-              Caption *
-            </label>
+            <label style={labelStyle}>Caption</label>
             <textarea
               value={form.caption}
               onChange={(e) => setForm((prev) => ({ ...prev, caption: e.target.value }))}
               placeholder="Write your caption..."
-              rows={3}
-              style={{ ...inputStyle, resize: 'vertical' }}
+              rows={4}
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
               maxLength={500}
             />
+            <div style={{
+              fontSize: '11px',
+              color: 'var(--color-textMuted)',
+              textAlign: 'right',
+              marginTop: '4px',
+            }}>
+              {form.caption.length}/500
+            </div>
           </div>
 
           <div>
-            <label style={{
-              fontSize: 'var(--font-xs)',
-              color: 'var(--color-text-muted)',
-              display: 'block',
-              marginBottom: '4px',
-            }}>
-              Hashtags
-            </label>
+            <label style={labelStyle}>Hashtags</label>
             <input
               type="text"
               value={form.hashtags}
@@ -634,7 +850,7 @@ function CreateReviewForm({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end', marginTop: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end', marginTop: 'var(--space-5)' }}>
           <button
             type="button"
             onClick={onClose}
@@ -643,9 +859,10 @@ function CreateReviewForm({
               background: 'transparent',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-md)',
-              color: 'var(--color-text-muted)',
+              color: 'var(--color-textMuted)',
               fontSize: 'var(--font-sm)',
               cursor: 'pointer',
+              transition: 'all var(--transition-fast)',
             }}
           >
             Cancel
@@ -656,7 +873,7 @@ function CreateReviewForm({
             onClick={() => createMutation.mutate()}
             style={{
               padding: 'var(--space-2) var(--space-4)',
-              background: 'var(--color-primary)',
+              background: 'var(--color-accent)',
               border: 'none',
               borderRadius: 'var(--radius-md)',
               color: '#fff',
@@ -664,6 +881,8 @@ function CreateReviewForm({
               fontWeight: 600,
               cursor: 'pointer',
               opacity: !form.caption ? 0.5 : 1,
+              transition: 'all var(--transition-fast)',
+              boxShadow: form.caption ? 'var(--shadow-glow)' : 'none',
             }}
           >
             {createMutation.isPending ? 'Creating...' : 'Create Draft'}
@@ -676,28 +895,29 @@ function CreateReviewForm({
 
 /* ─── Main Component ────────────────────────────────────────────────────────── */
 
+type TabType = 'all' | 'drafts' | 'pending' | 'approved' | 'rejected';
+
+const TABS: { key: TabType; label: string; icon: string }[] = [
+  { key: 'all',      label: 'All Content', icon: '📋' },
+  { key: 'drafts',   label: 'Drafts',      icon: '📝' },
+  { key: 'pending',  label: 'Pending',     icon: '📤' },
+  { key: 'approved', label: 'Approved',    icon: '✅' },
+  { key: 'rejected', label: 'Rejected',    icon: '❌' },
+];
+
 export default function ContentReviewManager() {
-  const [tab, setTab] = useState<'drafts' | 'inbox' | 'archive'>('drafts');
+  const [tab, setTab] = useState<TabType>('all');
   const [showCreate, setShowCreate] = useState(false);
+  const [revisionModal, setRevisionModal] = useState<string | null>(null);
+  const [rejectModal, setRejectModal] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { userId } = useAuth();
 
-  const draftsQuery = useQuery({
-    queryKey: ['content-reviews', userId, 'my-drafts'],
+  const reviewsQuery = useQuery({
+    queryKey: ['content-reviews', userId],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_REVIEWS;
       const res = await api.get<{ reviews: ContentReview[] }>('/api/content-reviews');
-      return res.data?.reviews || [];
-    },
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  });
-
-  const inboxQuery = useQuery({
-    queryKey: ['content-reviews', userId, 'inbox'],
-    queryFn: async () => {
-      if (isDemoMode()) return DEMO_REVIEWS;
-      const res = await api.get<{ reviews: ContentReview[] }>('/api/content-reviews?inbox=true');
       return res.data?.reviews || [];
     },
     staleTime: 30_000,
@@ -740,124 +960,185 @@ export default function ContentReviewManager() {
     onError: (err: Error) => logger.error('Content review reject failed', { mutation: 'reject', err }),
   });
 
-  const reviews = tab === 'inbox' ? inboxQuery.data || [] : draftsQuery.data || [];
-  const isLoading = tab === 'inbox' ? inboxQuery.isLoading : draftsQuery.isLoading;
+  const reviews = reviewsQuery.data || [];
+  const isLoading = reviewsQuery.isLoading;
 
+  // Stats
+  const stats = {
+    total: reviews.length,
+    drafts: reviews.filter((r) => r.status === 'draft').length,
+    pending: reviews.filter((r) => ['submitted', 'revised', 'revision_requested'].includes(r.status)).length,
+    approved: reviews.filter((r) => r.status === 'approved').length,
+    rejected: reviews.filter((r) => r.status === 'rejected').length,
+  };
+
+  // Filter by tab
   const filtered = reviews.filter((r) => {
+    if (tab === 'all') return true;
     if (tab === 'drafts') return r.status === 'draft';
-    if (tab === 'inbox') return ['submitted', 'revised'].includes(r.status);
-    return ['approved', 'rejected', 'revision_requested'].includes(r.status);
+    if (tab === 'pending') return ['submitted', 'revised', 'revision_requested'].includes(r.status);
+    if (tab === 'approved') return r.status === 'approved';
+    if (tab === 'rejected') return r.status === 'rejected';
+    return true;
   });
 
-  const isCreatorView = tab !== 'inbox';
+  const statCards = [
+    { label: 'Total Content', value: stats.total, color: 'var(--color-accent)' },
+    { label: 'Drafts', value: stats.drafts, color: '#9ca3af' },
+    { label: 'Pending Review', value: stats.pending, color: '#3b82f6' },
+    { label: 'Approved', value: stats.approved, color: 'var(--color-success)' },
+    { label: 'Rejected', value: stats.rejected, color: 'var(--color-error)' },
+  ];
 
   return (
-    <div>
+    <div className="page-container">
       {/* Header */}
       <div style={{
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'space-between',
-        marginBottom: 'var(--space-5)',
+        marginBottom: 'var(--space-6)',
+        gap: 'var(--space-4)',
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-xl)', color: 'var(--color-text)' }}>
-            Content Review Manager
+          <h1 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-2xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.02em',
+          }}>
+            Content Reviews
           </h1>
-          <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
-            {isCreatorView ? 'Manage your social content drafts and submissions.' : 'Review creator content submissions.'}
+          <p style={{
+            margin: 'var(--space-2) 0 0',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-textSecondary)',
+            lineHeight: 1.5,
+          }}>
+            Manage your content drafts, track submissions, and review approvals.
           </p>
         </div>
-        {isCreatorView && (
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            style={{
-              padding: 'var(--space-2) var(--space-4)',
-              background: 'var(--color-primary)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              color: '#fff',
-              fontSize: 'var(--font-sm)',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            + New Draft
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          style={{
+            padding: 'var(--space-3) var(--space-5)',
+            background: 'var(--color-accent)',
+            border: 'none',
+            borderRadius: 'var(--radius-md)',
+            color: '#fff',
+            fontSize: 'var(--font-sm)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            transition: 'all var(--transition-fast)',
+            boxShadow: 'var(--shadow-glow)',
+            letterSpacing: '0.01em',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'none'; }}
+        >
+          + New Draft
+        </button>
       </div>
+
+      {/* Stat Cards */}
+      {!isLoading && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: 'var(--space-4)',
+          marginBottom: 'var(--space-6)',
+        }}>
+          {statCards.map((stat, i) => (
+            <div key={stat.label} style={{
+              background: 'var(--color-bgSecondary)',
+              border: '1px solid var(--color-border)',
+              borderLeft: `3px solid ${stat.color}`,
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-5)',
+              animation: 'fadeSlideIn 0.4s ease both',
+              animationDelay: `${i * 60}ms`,
+            }}>
+              <div style={{
+                fontSize: 'var(--font-xs)',
+                fontWeight: 600,
+                color: 'var(--color-textMuted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                marginBottom: 'var(--space-2)',
+              }}>
+                {stat.label}
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'var(--font-3xl)',
+                fontWeight: 800,
+                color: 'var(--color-textPrimary)',
+                lineHeight: 1.2,
+                letterSpacing: '-0.02em',
+              }}>
+                {stat.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <div
         style={{
           display: 'flex',
-          gap: 'var(--space-1)',
-          marginBottom: 'var(--space-4)',
-          borderBottom: '1px solid var(--color-border)',
-          paddingBottom: 'var(--space-1)',
+          gap: 'var(--space-2)',
+          marginBottom: 'var(--space-5)',
+          borderBottom: '2px solid var(--color-border)',
+          paddingBottom: 'var(--space-2)',
+          overflowX: 'auto',
         }}
         role="tablist"
       >
-        {isCreatorView ? (
-          <>
-            <button
-              role="tab"
-              aria-selected={tab === 'drafts'}
-              onClick={() => setTab('drafts')}
-              style={{
-                padding: 'var(--space-2) var(--space-4)',
-                background: tab === 'drafts' ? 'var(--color-primary)' : 'transparent',
-                color: tab === 'drafts' ? '#fff' : 'var(--color-text-muted)',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 'var(--font-sm)',
-                fontWeight: tab === 'drafts' ? 600 : 400,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              My Drafts
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === 'archive'}
-              onClick={() => setTab('archive')}
-              style={{
-                padding: 'var(--space-2) var(--space-4)',
-                background: tab === 'archive' ? 'var(--color-primary)' : 'transparent',
-                color: tab === 'archive' ? '#fff' : 'var(--color-text-muted)',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                fontSize: 'var(--font-sm)',
-                fontWeight: tab === 'archive' ? 600 : 400,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              Archive
-            </button>
-          </>
-        ) : (
+        {TABS.map((t) => (
           <button
+            key={t.key}
             role="tab"
-            aria-selected={tab === 'inbox'}
-            onClick={() => setTab('inbox')}
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
             style={{
-              padding: 'var(--space-2) var(--space-4)',
-              background: tab === 'inbox' ? 'var(--color-primary)' : 'transparent',
-              color: tab === 'inbox' ? '#fff' : 'var(--color-text-muted)',
-              border: 'none',
+              padding: 'var(--space-3) var(--space-5)',
+              background: tab === t.key ? 'var(--color-accent)' : 'transparent',
+              color: tab === t.key ? '#fff' : 'var(--color-textSecondary)',
+              border: tab === t.key ? 'none' : '1px solid transparent',
               borderRadius: 'var(--radius-md)',
               fontSize: 'var(--font-sm)',
-              fontWeight: tab === 'inbox' ? 600 : 400,
+              fontWeight: tab === t.key ? 600 : 500,
               cursor: 'pointer',
               fontFamily: 'inherit',
+              transition: 'all var(--transition-fast)',
+              letterSpacing: '0.01em',
+              whiteSpace: 'nowrap',
             }}
           >
-            Inbox
+            {t.icon} {t.label}
+            {tab !== t.key && t.key !== 'all' && (
+              <span style={{
+                marginLeft: '6px',
+                padding: '1px 6px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '11px',
+                fontWeight: 600,
+                background: 'var(--color-bgElevated)',
+                color: 'var(--color-textMuted)',
+              }}>
+                {t.key === 'drafts' ? stats.drafts :
+                 t.key === 'pending' ? stats.pending :
+                 t.key === 'approved' ? stats.approved :
+                 stats.rejected}
+              </span>
+            )}
           </button>
-        )}
+        ))}
       </div>
 
       {/* Content */}
@@ -867,8 +1148,8 @@ export default function ContentReviewManager() {
             <div
               key={i}
               style={{
-                height: '120px',
-                background: 'var(--color-surface)',
+                height: '140px',
+                background: 'var(--color-bgSecondary)',
                 borderRadius: 'var(--radius-lg)',
                 border: '1px solid var(--color-border)',
                 animation: 'pulse 1.5s ease-in-out infinite',
@@ -877,52 +1158,102 @@ export default function ContentReviewManager() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-8) var(--space-4)', color: 'var(--color-text-muted)' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--space-3)' }}>
-            {tab === 'drafts' ? '✏️' : tab === 'inbox' ? '📥' : '📦'}
+        <div style={{
+          textAlign: 'center',
+          padding: 'var(--space-12) var(--space-6)',
+          background: 'var(--color-bgSecondary)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-xl)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {/* Warm gradient overlay */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(249, 115, 22, 0.03) 0%, transparent 60%)',
+            pointerEvents: 'none',
+          }} />
+
+          <div style={{
+            fontSize: '64px',
+            marginBottom: 'var(--space-4)',
+            animation: 'float 3s ease-in-out infinite',
+            display: 'inline-block',
+            position: 'relative',
+          }}>
+            {tab === 'drafts' ? '📝' : tab === 'pending' ? '📤' : tab === 'approved' ? '🎉' : tab === 'rejected' ? '📦' : '🎬'}
           </div>
-          <div style={{ fontSize: 'var(--font-md)', fontWeight: 500, marginBottom: 'var(--space-1)' }}>
-            {tab === 'drafts'
-              ? 'No drafts yet'
-              : tab === 'inbox'
-              ? 'No pending reviews'
-              : 'No archived content'}
-          </div>
-          <div style={{ fontSize: 'var(--font-sm)' }}>
-            {tab === 'drafts'
-              ? 'Create your first draft to get started.'
-              : tab === 'inbox'
-              ? 'All submissions have been reviewed.'
-              : 'Your approved and rejected content will appear here.'}
-          </div>
+
+          <h3 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            margin: '0 0 var(--space-2)',
+            letterSpacing: '-0.01em',
+            position: 'relative',
+          }}>
+            {tab === 'drafts' ? 'No drafts yet' :
+             tab === 'pending' ? 'No pending reviews' :
+             tab === 'approved' ? 'No approved content' :
+             tab === 'rejected' ? 'No rejected content' :
+             'No content yet'}
+          </h3>
+
+          <p style={{
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-textSecondary)',
+            maxWidth: '360px',
+            margin: '0 auto',
+            lineHeight: 1.6,
+            position: 'relative',
+            marginBottom: 'var(--space-5)',
+          }}>
+            {tab === 'drafts' ? 'Start creating content drafts and submit them for partner review.' :
+             tab === 'pending' ? 'All submissions have been reviewed. Nice work!' :
+             tab === 'approved' ? 'Your approved content will appear here once partners sign off.' :
+             tab === 'rejected' ? 'Rejected submissions with feedback will show here.' :
+             'Create your first content draft to kick off the review process.'}
+          </p>
+
+          {(tab === 'all' || tab === 'drafts') && (
+            <button
+              onClick={() => setShowCreate(true)}
+              style={{
+                padding: 'var(--space-3) var(--space-5)',
+                background: 'var(--color-accent)',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                color: '#fff',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                position: 'relative',
+                boxShadow: 'var(--shadow-glow)',
+                transition: 'all var(--transition-fast)',
+                letterSpacing: '0.01em',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; }}
+            >
+              + Create Your First Draft
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }} role="tabpanel">
-          {filtered.map((review) => (
+          {filtered.map((review, i) => (
             <ContentCard
               key={review.contentReviewId}
               review={review}
-              isCreatorView={isCreatorView}
+              isCreatorView={true}
+              index={i}
               onSubmit={(id) => submitMutation.mutate(id)}
-              onRevise={(id) => {
-                // In a real app, this would open a form to update the content
-                submitMutation.mutate(id);
-              }}
+              onRevise={(id) => submitMutation.mutate(id)}
               onApprove={(id) => approveMutation.mutate(id)}
-              onRequestRevision={(id) => {
-                // In a real app, this would open a modal for reason
-                requestRevisionMutation.mutate({
-                  id,
-                  reason: 'Please make revisions and resubmit.',
-                });
-              }}
-              onReject={(id) => {
-                // In a real app, this would open a modal for reason
-                rejectMutation.mutate({
-                  id,
-                  reason: 'This content does not meet our guidelines.',
-                });
-              }}
+              onRequestRevision={(id) => setRevisionModal(id)}
+              onReject={(id) => setRejectModal(id)}
             />
           ))}
         </div>
@@ -933,6 +1264,30 @@ export default function ContentReviewManager() {
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={() => queryClient.invalidateQueries({ queryKey: ['content-reviews'] })}
+      />
+
+      <ReasonModal
+        isOpen={!!revisionModal}
+        title="Request Revision"
+        placeholder="Explain what changes you'd like the creator to make..."
+        confirmLabel="Send Revision Request"
+        confirmColor="#f97316"
+        onConfirm={(reason) => {
+          if (revisionModal) requestRevisionMutation.mutate({ id: revisionModal, reason });
+        }}
+        onClose={() => setRevisionModal(null)}
+      />
+
+      <ReasonModal
+        isOpen={!!rejectModal}
+        title="Reject Content"
+        placeholder="Explain why this content is being rejected..."
+        confirmLabel="Reject Content"
+        confirmColor="#ef4444"
+        onConfirm={(reason) => {
+          if (rejectModal) rejectMutation.mutate({ id: rejectModal, reason });
+        }}
+        onClose={() => setRejectModal(null)}
       />
     </div>
   );
