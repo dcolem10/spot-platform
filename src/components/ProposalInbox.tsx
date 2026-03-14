@@ -1,4 +1,5 @@
 import { useState, memo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/ApiService';
 import { isDemoMode } from '../data/demoData';
@@ -990,7 +991,13 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
     : currentList.filter(p => p.status === statusFilter);
 
   const pendingCount = inboxData.filter(p => p.status === 'pending').length;
+  const acceptedCount = allData.filter(p => p.status === 'accepted').length;
+  const totalProposals = allData.length;
+  const responseRate = sentData.length > 0
+    ? Math.round((sentData.filter(p => p.status === 'accepted').length / sentData.length) * 100)
+    : 0;
   const isLoading = inboxQuery.isLoading || sentQuery.isLoading;
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -1002,7 +1009,14 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
         marginBottom: 'var(--space-5)',
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-xl)', color: 'var(--color-textPrimary)' }}>
+          <h1 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-2xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.02em',
+          }}>
             Partnership Proposals
           </h1>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)' }}>
@@ -1010,6 +1024,13 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
               ? 'Review partnership requests from restaurants and manage your proposals.'
               : 'Review proposals from creators and manage partnership requests.'}
           </p>
+          <div style={{
+            width: '48px',
+            height: '3px',
+            background: 'linear-gradient(135deg, #f97316, #ef4444)',
+            borderRadius: 'var(--radius-full)',
+            marginTop: 'var(--space-2)',
+          }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           {pendingCount > 0 && (
@@ -1058,6 +1079,55 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
             + New Proposal
           </button>
         </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: 'var(--space-4)',
+        marginBottom: 'var(--space-6)',
+      }}>
+        {[
+          { label: 'Total Proposals', value: totalProposals, color: 'var(--color-accent, #f97316)' },
+          { label: 'Pending', value: pendingCount, color: 'var(--color-warning, #eab308)' },
+          { label: 'Active Partnerships', value: acceptedCount, color: 'var(--color-success, #22c55e)' },
+          { label: 'Response Rate', value: `${responseRate}%`, color: 'var(--color-info, #3b82f6)' },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            style={{
+              background: 'var(--color-bgSecondary)',
+              border: '1px solid var(--color-border)',
+              borderLeft: `3px solid ${stat.color}`,
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-5)',
+              animation: 'fadeSlideIn 0.4s ease both',
+              animationDelay: `${i * 60}ms`,
+            }}
+          >
+            <div style={{
+              fontSize: 'var(--font-xs)',
+              fontWeight: 600,
+              color: 'var(--color-textMuted)',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.05em',
+              marginBottom: 'var(--space-2)',
+            }}>
+              {stat.label}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'var(--font-3xl)',
+              fontWeight: 800,
+              color: 'var(--color-textPrimary)',
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+            }}>
+              {stat.value}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Tabs */}
@@ -1156,36 +1226,110 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
       ) : filteredList.length === 0 ? (
         <div style={{
           textAlign: 'center',
-          padding: 'var(--space-8) var(--space-4)',
-          color: 'var(--color-textMuted)',
+          padding: 'var(--space-12) var(--space-6)',
+          background: 'var(--color-bgSecondary)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-xl)',
+          position: 'relative',
+          overflow: 'hidden',
         }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--space-3)' }}>📭</div>
-          <div style={{ fontSize: 'var(--font-md)', fontWeight: 500, marginBottom: 'var(--space-1)' }}>
-            {tab === 'inbox' ? 'No incoming proposals' : tab === 'sent' ? 'No sent proposals' : 'No proposals yet'}
+          {/* Warm gradient overlay */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(249, 115, 22, 0.03) 0%, transparent 60%)',
+            pointerEvents: 'none',
+          }} />
+
+          {/* Animated emoji */}
+          <div style={{
+            fontSize: '64px',
+            marginBottom: 'var(--space-4)',
+            animation: 'float 3s ease-in-out infinite',
+            display: 'inline-block',
+            position: 'relative',
+          }}>
+            📭
           </div>
-          <div style={{ fontSize: 'var(--font-sm)' }}>
+
+          <h3 style={{
+            margin: '0 0 var(--space-2)',
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+            position: 'relative',
+          }}>
+            {tab === 'inbox' ? 'No incoming proposals yet' : tab === 'sent' ? 'No sent proposals yet' : 'No proposals yet'}
+          </h3>
+
+          <p style={{
+            margin: '0 0 var(--space-6)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-textSecondary)',
+            maxWidth: '360px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            lineHeight: 1.6,
+            position: 'relative',
+          }}>
             {tab === 'inbox'
               ? 'Partnership requests will appear here when restaurants reach out.'
               : 'Proposals you send to restaurants will appear here.'}
+          </p>
+
+          <div style={{
+            display: 'flex',
+            gap: 'var(--space-3)',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            position: 'relative',
+          }}>
+            <button
+              type="button"
+              onClick={() => { setMutationError(null); setShowWizard(true); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                padding: 'var(--space-3) var(--space-6)',
+                background: 'var(--color-accent)',
+                color: 'var(--color-textOnAccent, #fff)',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 0 20px rgba(249, 115, 22, 0.15)',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              + New Proposal
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/app/restaurants')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                padding: 'var(--space-3) var(--space-6)',
+                background: 'transparent',
+                color: 'var(--color-textSecondary)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              Browse Restaurants
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => { setMutationError(null); setShowWizard(true); }}
-            style={{
-              marginTop: 'var(--space-4)',
-              padding: 'var(--space-3) var(--space-5)',
-              background: 'var(--color-accent)',
-              color: 'var(--color-textOnAccent, #fff)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--font-sm)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            + Send Your First Proposal
-          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} role="tabpanel">
@@ -1202,6 +1346,97 @@ export default function ProposalInbox({ role }: ProposalInboxProps) {
               onSelect={setSelectedProposal}
             />
           ))}
+        </div>
+      )}
+
+      {/* Quick Action Cards — shown when few proposals */}
+      {!isLoading && totalProposals < 3 && (
+        <div style={{
+          marginTop: 'var(--space-8)',
+          padding: 'var(--space-6)',
+          background: 'var(--color-bgSecondary)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-xl)',
+        }}>
+          <h3 style={{
+            margin: '0 0 var(--space-1)',
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-lg)',
+            fontWeight: 600,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+          }}>
+            Send a Proposal
+          </h3>
+          <p style={{
+            margin: '0 0 var(--space-5)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-textMuted)',
+          }}>
+            Get started by choosing a proposal type below
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: 'var(--space-4)',
+          }}>
+            {([
+              { icon: '🤝', label: 'Deal Proposal', desc: 'Discount, BOGO, or flat fee' },
+              { icon: '📈', label: 'Campaign', desc: 'Multi-deliverable partnership' },
+              { icon: '📱', label: 'QR Code Deal', desc: 'Tracked discount code' },
+              { icon: '📝', label: 'Content Review', desc: 'Pre-publish approval' },
+            ]).map((action, i) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => { setMutationError(null); setShowWizard(true); }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  padding: 'var(--space-5)',
+                  background: 'var(--color-bgElevated)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-lg)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  gap: 'var(--space-2)',
+                  transition: 'all var(--transition-fast)',
+                  animation: 'fadeSlideIn 0.4s ease both',
+                  animationDelay: `${i * 60}ms`,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--color-accent)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 0 20px rgba(249, 115, 22, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--color-border)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <span style={{ fontSize: 'var(--font-2xl)' }}>{action.icon}</span>
+                <span style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-textPrimary)',
+                }}>
+                  {action.label}
+                </span>
+                <span style={{
+                  fontSize: 'var(--font-xs)',
+                  color: 'var(--color-textMuted)',
+                  lineHeight: 1.4,
+                }}>
+                  {action.desc}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
