@@ -2827,6 +2827,10 @@ async function handleSocialCallback(platform, event) {
   if (!userId) return respond(401, { error: 'Unauthorized' });
   if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
 
+  if (!(await checkUserMutationRate(userId, 'SOCIAL_CALLBACK', 10))) {
+    return respond(429, { error: 'Too many callback attempts. Please try again later.' });
+  }
+
   const params = event.queryStringParameters || {};
   const code = sanitize(params.code || '', 512);
   const state = sanitize(params.state || '', 512);
@@ -2841,6 +2845,11 @@ async function handleSocialCallback(platform, event) {
     if (!lookup.Item) return respond(400, { error: 'No pending connection found' });
     if (lookup.Item.status !== 'pending_oauth') return respond(400, { error: 'Connection not in pending state' });
     if (lookup.Item.oauthState !== state) return respond(400, { error: 'OAuth state mismatch' });
+
+    // Check TTL expiration — OAuth state should not be used after it expires
+    if (lookup.Item.expiresAt && new Date(lookup.Item.expiresAt).getTime() < Date.now()) {
+      return respond(400, { error: 'OAuth state has expired. Please restart the connection flow.' });
+    }
 
     const now = new Date().toISOString();
     const hasSecret = !!getSocialSecretEnvVar(platform);
@@ -3072,6 +3081,10 @@ async function refreshSocialToken(platform, event) {
   if (!userId) return respond(401, { error: 'Unauthorized' });
   if (!SOCIAL_PLATFORMS.includes(platform)) return respond(400, { error: 'Invalid platform' });
 
+  if (!(await checkUserMutationRate(userId, 'REFRESH_TOKEN', 10))) {
+    return respond(429, { error: 'Too many refresh attempts. Please try again later.' });
+  }
+
   const conn = await ddb.send(new GetCommand({
     TableName: TABLE,
     Key: { PK: `CREATOR#${userId}`, SK: `SOCIAL_CONNECTION#${platform}` },
@@ -3098,8 +3111,8 @@ async function refreshSocialToken(platform, event) {
 
     switch (platform) {
       case 'instagram':
-        tokenUrl = `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${refreshToken}`;
-        tokenBody = null;
+        tokenUrl = 'https://graph.facebook.com/v19.0/oauth/access_token';
+        tokenBody = new URLSearchParams({ grant_type: 'fb_exchange_token', client_id: appId, client_secret: appSecret, fb_exchange_token: refreshToken }).toString();
         break;
       case 'tiktok':
         tokenUrl = 'https://open.tiktokapis.com/v2/oauth/token/';
@@ -3112,8 +3125,9 @@ async function refreshSocialToken(platform, event) {
     }
 
     const res = await fetch(tokenUrl, {
-      method: tokenBody ? 'POST' : 'GET',
-      ...(tokenBody ? { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: tokenBody } : {}),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody,
       signal: AbortSignal.timeout(10000),
     });
 
@@ -3156,11 +3170,28 @@ async function markContentPublished(reviewId, event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
+  if (!(await checkUserMutationRate(userId, 'PUBLISH_CONTENT', 20))) {
+    return respond(429, { error: 'Too many publish attempts. Please try again later.' });
+  }
+
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
 
   const publishedUrl = sanitize(body.publishedUrl, 500);
   if (!publishedUrl) return respond(400, { error: 'publishedUrl is required' });
+
+  // Validate URL scheme — only allow https (or http for localhost dev)
+  try {
+    const parsed = new URL(publishedUrl);
+    if (!['https:', 'http:'].includes(parsed.protocol)) {
+      return respond(400, { error: 'publishedUrl must use https' });
+    }
+    if (parsed.protocol === 'http:' && !parsed.hostname.startsWith('localhost')) {
+      return respond(400, { error: 'publishedUrl must use https' });
+    }
+  } catch {
+    return respond(400, { error: 'publishedUrl must be a valid URL' });
+  }
 
   const find = await ddb.send(new QueryCommand({
     TableName: TABLE,
@@ -3189,7 +3220,7 @@ async function markContentPublished(reviewId, event) {
     ExpressionAttributeValues: {
       ':published': 'published',
       ':url': publishedUrl,
-      ':pubAt': body.publishedAt ? sanitize(body.publishedAt, 30) : now,
+      ':pubAt': (body.publishedAt && !isNaN(new Date(sanitize(body.publishedAt, 30)).getTime())) ? sanitize(body.publishedAt, 30) : now,
       ':now': now,
       ':gsi1sk': gsi1sk,
     },
@@ -6547,7 +6578,7 @@ export const handler = async (event) => {
     if (path.match(/\/api\/content-reviews\/[^/]+\/fetch-metrics$/) && method === 'POST')
       return fetchContentMetrics(pathParts[pathParts.length - 2], event);
     if (path.match(/\/api\/content-reviews\/[^/]+\/metrics$/) && method === 'GET')
-      return getContentMetrics(pathParts[pathParts.length - 1], event);
+      return getContentMetrics(pathParts[pathParts.length - 2], event);
 
     // POS Integration (Square, Toast, Clover)
     if (path.match(/\/api\/pos\/connect\/square$/) && method === 'POST')
