@@ -209,18 +209,25 @@ function RaffleCreateForm({ onClose, onCreated }: { onClose: () => void; onCreat
     >
       <div style={{
         background: 'var(--color-bgSecondary)', borderRadius: 'var(--radius-xl)',
-        border: '1px solid var(--color-border)', width: '100%', maxWidth: '520px',
+        border: '1px solid var(--color-border)', width: 'calc(100% - 48px)', maxWidth: '580px',
         maxHeight: '85vh', overflowY: 'auto', boxShadow: 'var(--shadow-xl)',
-        padding: 'var(--space-5)',
+        padding: 'var(--space-6)', margin: '0 24px',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--font-lg)', color: 'var(--color-textPrimary)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+          }}>
             Create Raffle
           </h2>
           <button type="button" onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--color-textMuted)',
-            fontSize: '20px', cursor: 'pointer',
-          }}>x</button>
+            fontSize: '20px', cursor: 'pointer', padding: 'var(--space-1)',
+          }} aria-label="Close">×</button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -309,28 +316,36 @@ function EntriesPanel({ raffle, onClose }: { raffle: Raffle; onClose: () => void
     >
       <div style={{
         background: 'var(--color-bgSecondary)', borderRadius: 'var(--radius-xl)',
-        border: '1px solid var(--color-border)', width: '100%', maxWidth: '600px',
+        border: '1px solid var(--color-border)', width: 'calc(100% - 48px)', maxWidth: '660px',
         maxHeight: '85vh', overflowY: 'auto', boxShadow: 'var(--shadow-xl)',
+        margin: '0 24px',
       }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: 'var(--space-4) var(--space-5)', borderBottom: '1px solid var(--color-border)',
+          padding: 'var(--space-6) var(--space-6) var(--space-4)', borderBottom: '1px solid var(--color-border)',
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 'var(--font-lg)', color: 'var(--color-textPrimary)' }}>
+            <h2 style={{
+              margin: 0,
+              fontFamily: 'var(--font-display)',
+              fontSize: 'var(--font-xl)',
+              fontWeight: 700,
+              color: 'var(--color-textPrimary)',
+              letterSpacing: '-0.01em',
+            }}>
               Entries &mdash; {raffle.title}
             </h2>
-            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginTop: '2px' }}>
+            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginTop: 'var(--space-1)' }}>
               {raffle.entryCount} total entries
             </div>
           </div>
           <button type="button" onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--color-textMuted)',
-            fontSize: '20px', cursor: 'pointer',
-          }}>x</button>
+            fontSize: '20px', cursor: 'pointer', padding: 'var(--space-1)',
+          }} aria-label="Close">×</button>
         </div>
 
-        <div style={{ padding: 'var(--space-4) var(--space-5)' }}>
+        <div style={{ padding: 'var(--space-5) var(--space-6)' }}>
           {entriesQuery.isLoading ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-textMuted)' }}>Loading entries...</div>
           ) : entries.length === 0 ? (
@@ -415,52 +430,133 @@ export default function RaffleManager() {
     return r.status === 'drawn' || r.status === 'closed' || r.status === 'cancelled';
   });
 
+  const totalEntries = raffles.reduce((sum, r) => sum + r.entryCount, 0);
+  const totalRevenue = raffles.reduce((sum, r) => sum + (r.creatorRevenue || 0), 0);
+
   return (
-    <div>
+    <div className="page-container">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-5)' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 'var(--space-5)',
+      }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 'var(--font-xl)', color: 'var(--color-textPrimary)' }}>Spot Raffles</h1>
+          <h1 style={{
+            margin: 0,
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-2xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.02em',
+          }}>
+            Spot Raffles
+          </h1>
           <p style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)' }}>
             Create giveaways that grow your audience and drive restaurant traffic.
           </p>
+          <div style={{
+            width: '48px',
+            height: '3px',
+            background: 'linear-gradient(135deg, #f97316, #ef4444)',
+            borderRadius: 'var(--radius-full)',
+            marginTop: 'var(--space-2)',
+          }} />
         </div>
         <button type="button" onClick={() => setShowCreate(true)} style={{
-          padding: 'var(--space-2) var(--space-4)', background: 'var(--color-accent)',
-          border: 'none', borderRadius: 'var(--radius-md)', color: '#fff',
-          fontSize: 'var(--font-sm)', fontWeight: 600, cursor: 'pointer',
-        }}>
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-2) var(--space-4)',
+          background: 'var(--color-accent)',
+          color: 'var(--color-textOnAccent, #fff)',
+          border: 'none',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 'var(--font-sm)',
+          fontWeight: 600,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          transition: 'opacity var(--transition-fast)',
+        }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+        >
           + New Raffle
         </button>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
+      {/* Summary Stats */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: 'var(--space-4)',
+        marginBottom: 'var(--space-6)',
+      }}>
         {[
-          { label: 'Active Raffles', value: raffles.filter(r => r.status === 'active').length, color: '#10b981' },
-          { label: 'Total Entries', value: raffles.reduce((sum, r) => sum + r.entryCount, 0), color: 'var(--color-accent)' },
-          { label: 'Winners Drawn', value: raffles.filter(r => r.winner).length, color: '#6366f1' },
-        ].map(stat => (
-          <div key={stat.label} style={{
-            padding: 'var(--space-4)', background: 'var(--color-bgElevated)',
-            borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)',
-          }}>
-            <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-1)' }}>{stat.label}</div>
-            <div style={{ fontSize: 'var(--font-xl)', fontWeight: 700, color: stat.color }}>{stat.value.toLocaleString()}</div>
+          { label: 'Active Raffles', value: raffles.filter(r => r.status === 'active').length, color: 'var(--color-success, #22c55e)' },
+          { label: 'Total Entries', value: totalEntries.toLocaleString(), color: 'var(--color-accent, #f97316)' },
+          { label: 'Winners Drawn', value: raffles.filter(r => r.winner).length, color: 'var(--color-info, #3b82f6)' },
+          { label: 'Creator Revenue', value: `$${totalRevenue}`, color: '#6366f1' },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            style={{
+              background: 'var(--color-bgSecondary)',
+              border: '1px solid var(--color-border)',
+              borderLeft: `3px solid ${stat.color}`,
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-5)',
+              animation: 'fadeSlideIn 0.4s ease both',
+              animationDelay: `${i * 60}ms`,
+            }}
+          >
+            <div style={{
+              fontSize: 'var(--font-xs)',
+              fontWeight: 600,
+              color: 'var(--color-textMuted)',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.05em',
+              marginBottom: 'var(--space-2)',
+            }}>
+              {stat.label}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'var(--font-3xl)',
+              fontWeight: 800,
+              color: 'var(--color-textPrimary)',
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+            }}>
+              {stat.value}
+            </div>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)', paddingBottom: 'var(--space-1)' }} role="tablist">
+      <div style={{
+        display: 'flex',
+        gap: 'var(--space-2)',
+        marginBottom: 'var(--space-4)',
+        borderBottom: '2px solid var(--color-border)',
+        paddingBottom: 'var(--space-2)',
+      }} role="tablist">
         {(['active', 'draft', 'completed'] as const).map(t => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} style={{
-            padding: 'var(--space-2) var(--space-4)',
+            padding: 'var(--space-3) var(--space-5)',
             background: tab === t ? 'var(--color-accent)' : 'transparent',
-            color: tab === t ? '#fff' : 'var(--color-textSecondary)',
-            border: 'none', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-sm)',
-            fontWeight: tab === t ? 600 : 400, cursor: 'pointer', fontFamily: 'inherit',
+            color: tab === t ? 'var(--color-textOnAccent, #fff)' : 'var(--color-textSecondary)',
+            border: tab === t ? 'none' : '1px solid transparent',
+            borderRadius: 'var(--radius-md)',
+            fontSize: 'var(--font-sm)',
+            fontWeight: tab === t ? 600 : 500,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
             textTransform: 'capitalize',
+            transition: 'all var(--transition-fast)',
+            letterSpacing: '0.01em',
           }}>
             {t}
           </button>
@@ -471,17 +567,98 @@ export default function RaffleManager() {
       {rafflesQuery.isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {[1, 2, 3].map(i => (
-            <div key={i} style={{ height: '80px', background: 'var(--color-bgElevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+            <div key={i} style={{
+              height: '80px',
+              background: 'var(--color-bgElevated)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--color-border)',
+              animation: 'pulse 1.5s ease-in-out infinite',
+            }} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 'var(--space-8) var(--space-4)', color: 'var(--color-textMuted)' }}>
-          <div style={{ fontSize: '48px', marginBottom: 'var(--space-3)' }}>🎰</div>
-          <div style={{ fontSize: 'var(--font-md)', fontWeight: 500, marginBottom: 'var(--space-1)' }}>
-            {tab === 'active' ? 'No active raffles' : tab === 'draft' ? 'No drafts' : 'No completed raffles'}
+        <div style={{
+          textAlign: 'center',
+          padding: 'var(--space-12) var(--space-6)',
+          background: 'var(--color-bgSecondary)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--radius-xl)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}>
+          {/* Warm gradient overlay */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(249, 115, 22, 0.03) 0%, transparent 60%)',
+            pointerEvents: 'none',
+          }} />
+
+          {/* Animated emoji */}
+          <div style={{
+            fontSize: '64px',
+            marginBottom: 'var(--space-4)',
+            animation: 'float 3s ease-in-out infinite',
+            display: 'inline-block',
+            position: 'relative',
+          }}>
+            🎰
           </div>
-          <div style={{ fontSize: 'var(--font-sm)' }}>
-            Create your first raffle to start growing your audience!
+
+          <h3 style={{
+            margin: '0 0 var(--space-2)',
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--font-xl)',
+            fontWeight: 700,
+            color: 'var(--color-textPrimary)',
+            letterSpacing: '-0.01em',
+            position: 'relative',
+          }}>
+            {tab === 'active' ? 'No active raffles' : tab === 'draft' ? 'No drafts yet' : 'No completed raffles'}
+          </h3>
+
+          <p style={{
+            margin: '0 0 var(--space-6)',
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-textSecondary)',
+            maxWidth: '360px',
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            lineHeight: 1.6,
+            position: 'relative',
+          }}>
+            Create your first raffle to start growing your audience and driving restaurant traffic!
+          </p>
+
+          <div style={{
+            display: 'flex',
+            gap: 'var(--space-3)',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            position: 'relative',
+          }}>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                padding: 'var(--space-3) var(--space-6)',
+                background: 'var(--color-accent)',
+                color: 'var(--color-textOnAccent, #fff)',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 0 20px rgba(249, 115, 22, 0.15)',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              + New Raffle
+            </button>
           </div>
         </div>
       ) : (
