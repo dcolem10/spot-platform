@@ -41,9 +41,9 @@ interface FormData {
 }
 
 const CHECKLIST_ITEMS = [
-  { id: 'campaign', label: 'Create your first campaign', description: 'Pick a restaurant, set up a deal for your audience, and start tracking attribution.', link: '/app/campaigns', icon: 'campaign' },
-  { id: 'partner', label: 'Browse restaurants', description: 'Discover restaurants in your area worth creating content about.', link: '/app/restaurants', icon: 'restaurant' },
-  { id: 'offer', label: 'Set up a deal', description: 'Create a deal code your audience can redeem — every redemption counts toward your portfolio.', link: '/app/offers', icon: 'offer' },
+  { id: 'restaurants', label: 'Browse restaurants', description: 'Discover restaurants in your area worth creating content about and start building partnerships.', link: '/app/restaurants', icon: 'restaurant' },
+  { id: 'social', label: 'Connect your social accounts', description: 'Link Instagram, TikTok, or YouTube to track engagement metrics on your published content.', link: '/app/social', icon: 'social' },
+  { id: 'campaign', label: 'Create your first campaign', description: 'Set up a campaign with a restaurant, attach a deal, and start tracking attribution.', link: '/app/campaigns', icon: 'campaign' },
 ];
 
 const CREATOR_TYPES = [
@@ -57,12 +57,6 @@ const CREATOR_TYPES = [
 const ChartIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
-  </svg>
-);
-
-const SparklesIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
   </svg>
 );
 
@@ -82,6 +76,15 @@ const ArrowRightIcon = () => (
 const CheckIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
+const HandshakeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88" />
+    <path d="m9.5 16.5-1-1a1 1 0 0 0-3 3l2 2a1 1 0 0 0 3-3" />
+    <path d="M3 7V5a1 1 0 0 1 1-1h3" /><path d="M21 7V5a1 1 0 0 0-1-1h-3" />
+    <path d="M6 12H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h3" /><path d="M18 12h2a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3" />
   </svg>
 );
 
@@ -252,12 +255,12 @@ export default function CreatorOnboarding() {
   ];
 
   const STEP_SUBTITLES = [
-    "Spot tracks every customer who discovers restaurants through your content. You create, people visit, everybody wins. Let's set up your profile in under 2 minutes.",
+    "The operating system for food creators. Manage restaurant partnerships, track attribution through QR codes and deals, and prove your content drives real customers.",
     "Let's start with the basics to build your creator profile.",
     "Tell us about your favorite neighborhoods to feature.",
     "What cuisines do you love to create content about?",
     "Add your social media handles and follower count.",
-    "Your profile is ready. Here are three things to do next to start tracking your impact.",
+    "Your profile is ready. Here are three things to do next to start building your creator business.",
   ];
 
   return (
@@ -888,20 +891,20 @@ export default function CreatorOnboarding() {
               <div className="onboarding-features">
                 <div className="onboarding-feature">
                   <div className="onboarding-feature-icon onboarding-feature-icon--orange">
-                    <ChartIcon />
+                    <HandshakeIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Attribution tracking</div>
-                    <div className="onboarding-feature-desc">See exactly how many people visit restaurants because of your content — through QR scans and deal redemptions.</div>
+                    <div className="onboarding-feature-title">Restaurant partnerships</div>
+                    <div className="onboarding-feature-desc">Discover restaurants, send proposals, manage content approvals, and build long-term partnerships — all in one place.</div>
                   </div>
                 </div>
                 <div className="onboarding-feature">
                   <div className="onboarding-feature-icon onboarding-feature-icon--purple">
-                    <SparklesIcon />
+                    <ChartIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Deals that drive traffic</div>
-                    <div className="onboarding-feature-desc">Set up real deals your audience will love. Every redemption builds your attribution portfolio.</div>
+                    <div className="onboarding-feature-title">Attribution + engagement</div>
+                    <div className="onboarding-feature-desc">QR codes, deal redemptions, and social media metrics prove exactly how many customers your content drives.</div>
                   </div>
                 </div>
                 <div className="onboarding-feature">
@@ -909,8 +912,8 @@ export default function CreatorOnboarding() {
                     <FileTextIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Proof of impact</div>
-                    <div className="onboarding-feature-desc">One-click reports showing how many new customers you sent to each restaurant. Real data, not vanity metrics.</div>
+                    <div className="onboarding-feature-title">Grow your business</div>
+                    <div className="onboarding-feature-desc">Campaign pipeline, editorial calendar, content archive, and ROI reports to run your creator business like a pro.</div>
                   </div>
                 </div>
               </div>
