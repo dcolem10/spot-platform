@@ -47,11 +47,11 @@ export default function TermsOfService() {
 
         <Section title="2. Description of the Service">
           <P>
-            Spot is a creator-first restaurant attribution platform. The Service enables food content
-            creators ("Creators") to track how their content drives real-world restaurant visits through
-            campaign management, QR code tracking, offer distribution, and performance analytics.
-            Restaurant operators ("Partners") can use the Service to manage partnerships, offers, and
-            attribution data.
+            Spot is a two-sided marketplace connecting food content creators with restaurants for paid
+            partnerships. The Service enables food content creators ("Creators") to earn income by creating
+            content for restaurants, with attribution tracking (QR codes, promo codes, POS integration) that
+            proves how many customers their content drives. Restaurant operators ("Partners") can use the
+            Service to find creators, manage partnerships, and see measurable ROI on their marketing spend.
           </P>
           <P>
             The Service includes AI-powered features (content insights, campaign recommendations) that

@@ -275,7 +275,7 @@ export default function AuthPage() {
 
   const subtitles: Record<AuthMode, string> = {
     signIn: 'Sign in to your Spot Platform account',
-    signUp: 'Join the creator-first restaurant platform',
+    signUp: 'Get paid for food content. Prove your ROI. Grow your income.',
     confirm: `We sent a code to ${email}`,
     forgotPassword: 'Enter your email to receive a reset code',
     resetPassword: `Enter the code sent to ${email}`,

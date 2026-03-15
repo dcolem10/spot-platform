@@ -255,12 +255,12 @@ export default function CreatorOnboarding() {
   ];
 
   const STEP_SUBTITLES = [
-    "The operating system for food creators. Manage restaurant partnerships, track attribution through QR codes and deals, and prove your content drives real customers.",
+    "Get paid to create food content you love. Land restaurant partnerships, track every customer you send, and prove your ROI to command higher rates.",
     "Let's start with the basics to build your creator profile.",
     "Tell us about your favorite neighborhoods to feature.",
     "What cuisines do you love to create content about?",
     "Add your social media handles and follower count.",
-    "Your profile is ready. Here are three things to do next to start building your creator business.",
+    "Your profile is ready. Here are three things to do next to start earning from your food content.",
   ];
 
   return (
@@ -894,8 +894,8 @@ export default function CreatorOnboarding() {
                     <HandshakeIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Restaurant partnerships</div>
-                    <div className="onboarding-feature-desc">Discover restaurants, send proposals, manage content approvals, and build long-term partnerships — all in one place.</div>
+                    <div className="onboarding-feature-title">Paid restaurant partnerships</div>
+                    <div className="onboarding-feature-desc">Find restaurants open to paid content deals, send proposals, manage approvals, and build long-term income streams — all in one place.</div>
                   </div>
                 </div>
                 <div className="onboarding-feature">
@@ -903,8 +903,8 @@ export default function CreatorOnboarding() {
                     <ChartIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Attribution + engagement</div>
-                    <div className="onboarding-feature-desc">QR codes, deal redemptions, and social media metrics prove exactly how many customers your content drives.</div>
+                    <div className="onboarding-feature-title">Prove your impact, earn more</div>
+                    <div className="onboarding-feature-desc">QR codes, deal redemptions, and POS data prove exactly how many customers your content drives — the data that justifies higher rates.</div>
                   </div>
                 </div>
                 <div className="onboarding-feature">
@@ -912,8 +912,8 @@ export default function CreatorOnboarding() {
                     <FileTextIcon />
                   </div>
                   <div>
-                    <div className="onboarding-feature-title">Grow your business</div>
-                    <div className="onboarding-feature-desc">Campaign pipeline, editorial calendar, content archive, and ROI reports to run your creator business like a pro.</div>
+                    <div className="onboarding-feature-title">Grow your income</div>
+                    <div className="onboarding-feature-desc">Earnings pipeline, editorial calendar, content portfolio, and ROI reports — everything you need to turn food content into a real business.</div>
                   </div>
                 </div>
               </div>

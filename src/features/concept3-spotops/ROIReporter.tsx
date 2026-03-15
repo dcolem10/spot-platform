@@ -444,7 +444,7 @@ export default function ROIReporter() {
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Attribution Reporter</h1>
-        <p className="page-subtitle">Track and share how your content drives real restaurant traffic</p>
+        <p className="page-subtitle">Prove your financial impact — the data that justifies your rate</p>
       </div>
 
       {/* Error */}
@@ -487,7 +487,7 @@ export default function ROIReporter() {
         <EmptyState
           icon={'\uD83D\uDCCA'}
           title="No attribution data yet"
-          description="Once you have active or completed campaigns, your attribution reports will appear here — showing exactly how your content drives real restaurant traffic."
+          description="Once you have active or completed partnerships, your attribution reports will appear here — showing exactly how many customers and how much revenue your content drives for each restaurant."
           ctaLabel="Start a Campaign"
           ctaTo="/app/campaigns"
           secondaryLabel="Discover Restaurants"

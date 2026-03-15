@@ -285,8 +285,8 @@ export default function CampaignManager() {
         <div style={{ marginTop: 'var(--space-8)' }}>
           <EmptyState
             icon={'\uD83D\uDE80'}
-            title="Launch your first campaign"
-            description="Create content campaigns for restaurants, track deliverables, and measure your attribution impact."
+            title="Land your first paid deal"
+            description="Create paid content partnerships with restaurants, track every customer you send, and build the attribution portfolio that commands higher rates."
             ctaLabel="New Campaign"
             onCtaClick={handleOpenWizard}
             secondaryLabel="Discover Restaurants"
