@@ -1374,10 +1374,10 @@
     padding: var(--space-5);
   }
   .landing-hero {
-    padding: calc(var(--space-16) + 40px) var(--space-4) var(--space-10);
+    padding: calc(var(--space-12) + 40px) var(--space-4) var(--space-8);
   }
   .landing-hero-3d {
-    height: 220px;
+    height: 200px;
   }
   .landing-hero::before {
     width: 400px;
@@ -1385,6 +1385,7 @@
   }
   .landing-hero-desc {
     font-size: var(--font-base);
+    max-width: 100%;
   }
   .landing-hero-actions {
     flex-direction: column;
@@ -1455,6 +1456,10 @@
   .landing-footer-links {
     flex-wrap: wrap;
     justify-content: center;
+    gap: var(--space-3);
+  }
+  .pricing-card {
+    padding: var(--space-6);
   }
   .how-it-works-grid {
     grid-template-columns: 1fr;
