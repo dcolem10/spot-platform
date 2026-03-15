@@ -1405,6 +1405,8 @@
     width: calc(100% - var(--space-4));
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-lg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
   .landing-nav-logo-mark {
     width: 30px;
