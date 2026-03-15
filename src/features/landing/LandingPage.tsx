@@ -126,33 +126,33 @@ function MiniPipeline() {
         <div className="mini-pipeline-label">Planned</div>
         <div className="mini-pipeline-item mini-pipeline-item--blue">
           <span className="mini-pipeline-name">Rasika</span>
-          <span className="mini-pipeline-value">Visit & Create</span>
+          <span className="mini-pipeline-value">$800 deal</span>
         </div>
         <div className="mini-pipeline-item mini-pipeline-item--blue">
           <span className="mini-pipeline-name">Tail Up Goat</span>
-          <span className="mini-pipeline-value">Menu Feature</span>
+          <span className="mini-pipeline-value">$500 deal</span>
         </div>
       </div>
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Active</div>
         <div className="mini-pipeline-item mini-pipeline-item--green">
           <span className="mini-pipeline-name">Bad Saint</span>
-          <span className="mini-pipeline-value">47 visits</span>
+          <span className="mini-pipeline-value">$1,200 earned</span>
         </div>
         <div className="mini-pipeline-item mini-pipeline-item--green">
           <span className="mini-pipeline-name">Rose&rsquo;s Luxury</span>
-          <span className="mini-pipeline-value">89 visits</span>
+          <span className="mini-pipeline-value">$2,400 earned</span>
         </div>
         <div className="mini-pipeline-item mini-pipeline-item--green">
           <span className="mini-pipeline-name">Maydan</span>
-          <span className="mini-pipeline-value">132 visits</span>
+          <span className="mini-pipeline-value">$3,100 earned</span>
         </div>
       </div>
       <div className="mini-pipeline-col">
         <div className="mini-pipeline-label">Complete</div>
         <div className="mini-pipeline-item mini-pipeline-item--orange">
           <span className="mini-pipeline-name">Le Dip</span>
-          <span className="mini-pipeline-value">63 visits</span>
+          <span className="mini-pipeline-value">$1,800 paid</span>
         </div>
       </div>
     </div>
@@ -286,26 +286,64 @@ function MiniQROffer() {
   );
 }
 
+/* ─── Mini Restaurant ROI Mockup ─────────────────────────────────────────── */
+
+function MiniROIDashboard() {
+  const newCustomers = useCountUp(247, 1400);
+  const revenue = useCountUp(18, 1600);
+
+  return (
+    <div className="mini-roi-dashboard">
+      <div className="mini-roi-row">
+        <div className="mini-roi-metric">
+          <span className="mini-roi-metric-value" ref={newCustomers.ref}>{newCustomers.value}</span>
+          <span className="mini-roi-metric-label">New Customers</span>
+        </div>
+        <div className="mini-roi-metric">
+          <span className="mini-roi-metric-value">$<span ref={revenue.ref}>{revenue.value}</span>K</span>
+          <span className="mini-roi-metric-label">Attributed Revenue</span>
+        </div>
+      </div>
+      <div className="mini-roi-creators">
+        {[
+          { name: 'Sarah K.', followers: '45K', visits: 89 },
+          { name: 'Marcus T.', followers: '120K', visits: 132 },
+          { name: 'Priya D.', followers: '28K', visits: 47 },
+        ].map((c) => (
+          <div key={c.name} className="mini-roi-creator-row">
+            <div className="mini-roi-creator-avatar" />
+            <div className="mini-roi-creator-info">
+              <span className="mini-roi-creator-name">{c.name}</span>
+              <span className="mini-roi-creator-meta">{c.followers} followers</span>
+            </div>
+            <span className="mini-roi-creator-visits">{c.visits} visits sent</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Pricing Tiers ──────────────────────────────────────────────────────── */
 
 const pricingTiers = [
   {
     name: 'Starter',
     price: '$49',
-    description: 'For creators building their first attribution portfolio',
+    description: 'For creators building their first paid restaurant partnerships',
     features: ['Up to 5 active campaigns', 'Content archive', 'Basic attribution reports', 'Restaurant directory'],
   },
   {
     name: 'Pro',
     price: '$99',
-    description: 'For creators with proven impact',
+    description: 'For creators earning consistent income from restaurant content',
     features: ['Unlimited campaigns', 'Editorial calendar', 'Advanced attribution + benchmarks', 'QR & deal tracking', 'Audience discovery app'],
     highlighted: true,
   },
   {
     name: 'Scale',
     price: '$149',
-    description: 'For creator teams tracking real results',
+    description: 'For creator teams running a full content business',
     features: ['Everything in Pro', 'Team member access', 'White-label reports', 'API access', 'Priority support'],
   },
 ];
@@ -378,15 +416,15 @@ export default function LandingPage() {
         <div className="landing-hero-content">
           <div className="landing-hero-badge">
             <span className="landing-hero-badge-dot" />
-            Attribution-first creator platform
+            Creators earn. Restaurants grow. Spot proves it.
           </div>
           <h1>
-            Your content drives customers.{' '}
-            <span className="text-gradient">Now you can prove it.</span>
+            Paid partnerships between food creators and restaurants &mdash;{' '}
+            <span className="text-gradient">with proof that it works.</span>
           </h1>
           <p className="landing-hero-desc">
-            Spot tracks every restaurant visit your content inspires &mdash; through QR codes, deals,
-            and smart links. Creators get credit, restaurants get customers, and everybody profits from new traffic.
+            Spot is the platform where food creators get paid to make the content they already love,
+            restaurants get measurable new customers, and every dollar is tracked from post to plate.
           </p>
           <div className="landing-hero-actions">
             <div className="cta-pulse-wrap">
@@ -401,7 +439,7 @@ export default function LandingPage() {
               onClick={() => enterDemo('/app/discover')}
               className="btn btn-secondary btn-lg"
             >
-              Explore Restaurants
+              I&rsquo;m a Restaurant
             </button>
           </div>
         </div>
@@ -422,8 +460,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Social Proof Stats ───────────────────────────────────────────── */}
-      {/* ── Platform Capabilities (truthful — not fake user counts) ──── */}
+      {/* ── Platform Capabilities ──────────────────────────────────────── */}
       <section className="landing-stats reveal">
         <div className="landing-stat">
           <div className="landing-stat-value"><span ref={cities.ref}>{cities.value}</span></div>
@@ -439,33 +476,96 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Creator Features Bento ──────────────────────────────────────── */}
+      {/* ── How It Works — The Value Loop ──────────────────────────────── */}
+      <section className="landing-section landing-section--alt">
+        <div className="landing-section-header reveal">
+          <h2>How Spot works</h2>
+          <p>
+            A simple loop where everyone profits. Creators earn money, restaurants earn customers,
+            and Spot earns its fee only when both sides see results.
+          </p>
+        </div>
+
+        <div className="how-it-works-grid reveal-stagger">
+          <div className="how-it-works-step">
+            <div className="how-it-works-number">1</div>
+            <div className="how-it-works-icon how-it-works-icon--orange">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88" />
+                <path d="m9.5 16.5-1-1a1 1 0 0 0-3 3l2 2a1 1 0 0 0 3-3" />
+                <path d="M3 7V5a1 1 0 0 1 1-1h3" /><path d="M21 7V5a1 1 0 0 0-1-1h-3" />
+                <path d="M6 12H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h3" /><path d="M18 12h2a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3" />
+              </svg>
+            </div>
+            <h3>Creator partners with restaurant</h3>
+            <p>A food creator proposes a paid content campaign to a restaurant they love. They agree on deliverables and compensation.</p>
+          </div>
+
+          <div className="how-it-works-step">
+            <div className="how-it-works-number">2</div>
+            <div className="how-it-works-icon how-it-works-icon--blue">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" />
+              </svg>
+            </div>
+            <h3>Creator publishes content</h3>
+            <p>The creator visits, eats, creates authentic content, and publishes with a tracked link, QR code, or deal code attached.</p>
+          </div>
+
+          <div className="how-it-works-step">
+            <div className="how-it-works-number">3</div>
+            <div className="how-it-works-icon how-it-works-icon--green">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
+              </svg>
+            </div>
+            <h3>Spot tracks every customer</h3>
+            <p>When someone scans, clicks, or redeems &mdash; Spot attributes that visit back to the creator. Real customers, real data.</p>
+          </div>
+
+          <div className="how-it-works-step">
+            <div className="how-it-works-number">4</div>
+            <div className="how-it-works-icon how-it-works-icon--gold">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                <path d="M12 18V6" />
+              </svg>
+            </div>
+            <h3>Everyone gets paid</h3>
+            <p>Creators earn for the customers they drive. Restaurants see exactly what they got for their spend. Spot takes a platform fee only when both sides see value.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Creator Value: Get Paid for Your Content ───────────────────── */}
       <section className="landing-section">
         <div className="landing-section-header reveal">
-          <h2>Track the real impact of your content</h2>
+          <h2>Creators: turn your food content into a real income</h2>
           <p>
-            No more guessing whether your posts actually drive customers.
-            One platform for attribution, content, and your audience.
+            Stop guessing whether your posts drive customers. Spot gives you the
+            attribution data to command higher rates and the pipeline to keep deals flowing.
           </p>
         </div>
 
         <div className="landing-bento reveal-stagger">
           {/* Campaign Pipeline — primary feature card */}
           <BentoCard className="bento-card--large bento-card--hero bento-card--glow-orange">
-            <h3>Campaign Pipeline</h3>
+            <h3>Your Earnings Pipeline</h3>
             <p>
-              See every restaurant you&rsquo;re creating content for at a glance &mdash;
-              planned visits, active campaigns, and the customers you&rsquo;ve driven.
+              Every restaurant deal at a glance &mdash; what&rsquo;s planned, what&rsquo;s
+              active, and how much you&rsquo;ve earned from each partnership.
             </p>
             <MiniPipeline />
           </BentoCard>
 
           {/* Attribution Reports — SVG chart with gradient fills */}
           <BentoCard className="bento-card--medium bento-card--glow-blue">
-            <h3>Attribution Reports</h3>
+            <h3>Prove Your Impact</h3>
             <p>
-              One-click reports that show how many customers
-              your content actually sent to each restaurant.
+              One-click reports showing how many customers your content actually
+              sent to each restaurant &mdash; the data that justifies your rate.
             </p>
             <MiniChartSVG />
           </BentoCard>
@@ -473,46 +573,68 @@ export default function LandingPage() {
           {/* Content Archive */}
           <BentoCard className="bento-card--third bento-card--glow-purple">
             <h3>Content Archive</h3>
-            <p>Every post, metric, and performance tier in one searchable library.</p>
+            <p>Every post, metric, and performance tier in one searchable library &mdash; your portfolio for landing bigger deals.</p>
             <MiniPhotos />
           </BentoCard>
 
           {/* Editorial Calendar */}
           <BentoCard className="bento-card--third bento-card--glow-green">
             <h3>Editorial Calendar</h3>
-            <p>Plan your restaurant visits and content on a visual timeline.</p>
+            <p>Plan restaurant visits and content drops on a visual timeline. More consistency means more revenue.</p>
             <MiniCalendar />
           </BentoCard>
 
           {/* Offer Tracking — count-up stats */}
           <BentoCard className="bento-card--third bento-card--glow-gold">
-            <h3>QR Codes &amp; Offer Tracking</h3>
-            <p>Promo codes and QR links that attribute every scan and redemption back to you.</p>
+            <h3>QR Codes &amp; Deals</h3>
+            <p>Promo codes and QR links that attribute every scan and redemption back to you &mdash; so you get credit for every customer.</p>
             <MiniQROffer />
           </BentoCard>
         </div>
+
+        <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
+          <button
+            onClick={() => enterDemo('/app/dashboard')}
+            className="btn btn-gradient btn-lg"
+          >
+            Try the Creator Demo
+          </button>
+        </div>
       </section>
 
-      {/* ── For Foodies ─────────────────────────────────────────────────── */}
+      {/* ── Restaurant Value: Measurable New Customers ─────────────────── */}
       <section className="landing-section landing-section--alt">
         <div className="landing-section-header reveal">
-          <h2>Love discovering new restaurants? This is for you.</h2>
+          <h2>Restaurants: know exactly what your marketing spend brings in</h2>
           <p>
-            Browse creator-recommended restaurants, save your favorites, and grab real deals
-            &mdash; every visit supports the creators who helped you find these spots.
+            No more paying influencers and hoping for the best. Spot shows you
+            precisely how many new customers each creator drives through your door.
           </p>
         </div>
 
         <div className="landing-bento reveal-stagger">
-          {/* Discover */}
-          <BentoCard className="bento-card--large bento-card--glow-green">
-            <h3>Discover</h3>
-            <p>Browse curated restaurants with filters for cuisine, vibe, and neighborhood.</p>
+          {/* ROI Dashboard — primary feature card */}
+          <BentoCard className="bento-card--large bento-card--hero bento-card--glow-green">
+            <h3>Attribution Dashboard</h3>
+            <p>
+              See new customers and attributed revenue for every creator partnership.
+              Real numbers, not vanity metrics.
+            </p>
+            <MiniROIDashboard />
+          </BentoCard>
+
+          {/* Creator Marketplace */}
+          <BentoCard className="bento-card--medium bento-card--glow-coral">
+            <h3>Find the Right Creators</h3>
+            <p>
+              Browse creators by cuisine, neighborhood, and audience size.
+              Choose partners whose followers match your ideal customer.
+            </p>
             <div className="mini-restaurant-list">
               {[
-                { emoji: '\u{1F363}', name: 'Omakase Room', area: 'Georgetown', bg: 'var(--color-accentMuted)' },
-                { emoji: '\u{1F35D}', name: 'Trattoria Nova', area: 'Dupont Circle', bg: 'var(--color-successMuted)' },
-                { emoji: '\u{1F32E}', name: 'El Cielo', area: '14th Street', bg: 'var(--color-warningMuted)' },
+                { emoji: '\u{1F4F8}', name: 'Sarah K.', area: '45K followers', bg: 'var(--color-accentMuted)' },
+                { emoji: '\u{1F3AC}', name: 'Marcus T.', area: '120K followers', bg: 'var(--color-successMuted)' },
+                { emoji: '\u{2B50}', name: 'Priya D.', area: '28K followers', bg: 'var(--color-warningMuted)' },
               ].map((r) => (
                 <div key={r.name} className="mini-restaurant-row">
                   <div className="mini-restaurant-avatar" style={{ background: r.bg }}>
@@ -525,26 +647,15 @@ export default function LandingPage() {
             </div>
           </BentoCard>
 
-          {/* Deals */}
-          <BentoCard className="bento-card--medium bento-card--glow-coral">
-            <h3>Creator Deals</h3>
-            <p>Real discounts from creators who eat there &mdash; not generic coupons.</p>
-            <div className="mini-deal-card">
-              <div className="mini-deal-pct">20% off</div>
-              <div className="mini-deal-name">Omakase Room &mdash; Tasting Menu</div>
-              <span className="mini-deal-code">SPOT-OMAKASE</span>
-            </div>
-          </BentoCard>
-
-          {/* Save Lists — full width */}
-          <BentoCard style={{ gridColumn: '1 / -1' }} className="bento-card--glow-purple">
+          {/* Full-width: Pay for Results */}
+          <BentoCard style={{ gridColumn: '1 / -1' }} className="bento-card--glow-gold">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
               <div>
-                <h3>Save Lists</h3>
-                <p>Organize your favorites by occasion &mdash; date night, brunch, group dinners, solo adventures.</p>
+                <h3>Pay for Results, Not Promises</h3>
+                <p>Review content before it goes live. See attribution reports after. Only continue partnerships that actually grow your business.</p>
               </div>
               <div className="save-tags">
-                {['Date Night', 'Brunch', 'Group Dinners', 'Solo'].map((tag) => (
+                {['Content Approval', 'QR Tracking', 'ROI Reports', 'Deal Analytics'].map((tag) => (
                   <span key={tag} className="badge badge--accent">{tag}</span>
                 ))}
               </div>
@@ -557,16 +668,88 @@ export default function LandingPage() {
             onClick={() => enterDemo('/app/discover')}
             className="btn btn-primary btn-lg"
           >
-            Explore Restaurants
+            Explore the Restaurant View
           </button>
         </div>
       </section>
 
-      {/* ── Pricing ─────────────────────────────────────────────────────── */}
-      <section id="pricing" className="landing-section">
+      {/* ── Spot's Role — Platform Value Proposition ───────────────────── */}
+      <section className="landing-section">
         <div className="landing-section-header reveal">
-          <h2>Simple, transparent pricing</h2>
-          <p>Try the full demo free. Subscribe when you&rsquo;re ready.</p>
+          <h2>Spot only wins when creators and restaurants win</h2>
+          <p>
+            We don&rsquo;t sell ads. We don&rsquo;t sell data. Spot charges a platform fee
+            on successful partnerships &mdash; which means our incentive is to make both sides profitable.
+          </p>
+        </div>
+
+        <div className="value-prop-grid reveal-stagger">
+          <div className="value-prop-card value-prop-card--creator">
+            <div className="value-prop-card-header">
+              <span className="value-prop-card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </span>
+              <h3>For Creators</h3>
+            </div>
+            <ul className="value-prop-list">
+              <li>Get paid to create content you already love</li>
+              <li>Prove your ROI to command higher rates</li>
+              <li>Build a portfolio of attributed restaurant partnerships</li>
+              <li>Pipeline of deals keeps income consistent</li>
+            </ul>
+          </div>
+
+          <div className="value-prop-card value-prop-card--restaurant">
+            <div className="value-prop-card-header">
+              <span className="value-prop-card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" />
+                  <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                </svg>
+              </span>
+              <h3>For Restaurants</h3>
+            </div>
+            <ul className="value-prop-list">
+              <li>Get measurable new customers, not just impressions</li>
+              <li>See exactly which creators drive real traffic</li>
+              <li>Approve content before it goes live</li>
+              <li>Only pay for partnerships that deliver results</li>
+            </ul>
+          </div>
+
+          <div className="value-prop-card value-prop-card--spot">
+            <div className="value-prop-card-header">
+              <span className="value-prop-card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                  <path d="M12 18V6" />
+                </svg>
+              </span>
+              <h3>How Spot Earns</h3>
+            </div>
+            <ul className="value-prop-list">
+              <li>Platform fee on successful partnerships</li>
+              <li>Creator subscriptions for tools &amp; analytics</li>
+              <li>We profit only when both sides profit</li>
+              <li>No ads, no data selling, no hidden fees</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ─────────────────────────────────────────────────────── */}
+      <section id="pricing" className="landing-section landing-section--alt">
+        <div className="landing-section-header reveal">
+          <h2>Creator plans that pay for themselves</h2>
+          <p>
+            The tools to land restaurant deals, prove your impact, and grow your income.
+            Try the full demo free &mdash; subscribe when you land your first partnership.
+          </p>
         </div>
 
         <div className="pricing-grid reveal-stagger">
@@ -612,6 +795,10 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
+
+        <p style={{ textAlign: 'center', marginTop: 'var(--space-8)', color: 'var(--color-textMuted)', fontSize: 'var(--font-sm)' }} className="reveal">
+          Restaurants join free. Spot takes a platform fee on successful creator partnerships &mdash; no upfront cost.
+        </p>
       </section>
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
