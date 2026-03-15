@@ -1290,9 +1290,6 @@
   .value-prop-grid {
     grid-template-columns: 1fr;
   }
-}
-
-@media (max-width: 900px) {
   .landing-hero--split {
     flex-direction: column-reverse;
     text-align: center;
