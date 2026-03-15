@@ -904,6 +904,16 @@
   position: relative;
 }
 
+/* ─── Pay for Results Inner ───────────────────────────────────────────────── */
+
+.pay-for-results-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
 /* ─── Save List Tags ──────────────────────────────────────────────────────── */
 
 .save-tags {
@@ -1268,6 +1278,25 @@
   white-space: nowrap;
 }
 
+/* ─── Reduce Motion ──────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-orb,
+  .hero-device-img,
+  .hero-device-glow,
+  .mini-qr-scanline,
+  .mini-cal-day--active,
+  .landing-hero::before,
+  .landing-hero-badge-dot,
+  .mini-deal-card::after,
+  .save-tags .badge,
+  .reveal-stagger.visible .mini-pipeline-item,
+  .reveal-stagger.visible .mini-photo,
+  .pricing-card--highlighted::before {
+    animation: none !important;
+  }
+}
+
 /* ─── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
@@ -1281,6 +1310,9 @@
   .bento-card--third {
     grid-column: span 3;
   }
+  .bento-card {
+    padding: var(--space-6);
+  }
   .landing-stats {
     gap: var(--space-8);
   }
@@ -1289,6 +1321,9 @@
   }
   .value-prop-grid {
     grid-template-columns: 1fr;
+  }
+  .value-prop-card {
+    padding: var(--space-6);
   }
   .landing-hero--split {
     flex-direction: column-reverse;
@@ -1300,12 +1335,29 @@
     height: 320px;
     width: 100%;
   }
+  .hero-device-img {
+    max-width: 100%;
+  }
   .landing-hero--split .landing-hero-actions {
     justify-content: center;
   }
   .landing-hero--split .landing-hero-desc {
     margin-left: auto;
     margin-right: auto;
+  }
+  .mini-pipeline {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .mini-roi-metric-value {
+    font-size: var(--font-2xl);
+  }
+  .mini-offer-stat-value {
+    font-size: var(--font-2xl);
+  }
+  /* Hide "For Restaurants" nav link on tablets */
+  .landing-nav-link--restaurants {
+    display: none;
   }
 }
 
@@ -1318,18 +1370,28 @@
   .bento-card--third {
     grid-column: 1 / -1;
   }
+  .bento-card {
+    padding: var(--space-5);
+  }
   .landing-hero {
     padding: calc(var(--space-16) + 40px) var(--space-4) var(--space-10);
   }
   .landing-hero-3d {
-    height: 260px;
+    height: 220px;
   }
   .landing-hero::before {
-    width: 500px;
-    height: 500px;
+    width: 400px;
+    height: 400px;
   }
-  .mini-pipeline {
-    gap: var(--space-2);
+  .landing-hero-desc {
+    font-size: var(--font-base);
+  }
+  .landing-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .landing-hero-actions .btn {
+    text-align: center;
   }
   .mini-qr-offer-wrap {
     flex-direction: column;
@@ -1344,13 +1406,36 @@
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-lg);
   }
+  .landing-nav-logo-mark {
+    width: 30px;
+    height: 30px;
+    font-size: var(--font-sm);
+  }
   .landing-nav-logo-text {
     font-size: var(--font-base);
+  }
+  .landing-nav-link {
+    font-size: var(--font-xs);
+    padding: var(--space-2) var(--space-2);
+  }
+  .landing-nav-actions .btn {
+    font-size: var(--font-xs);
+    padding: 6px 12px;
+  }
+  /* Hide demo link on mobile */
+  .landing-nav-link--demo {
+    display: none;
   }
   .landing-stats {
     flex-direction: column;
     gap: var(--space-6);
     align-items: center;
+  }
+  .landing-stat + .landing-stat::before {
+    display: none;
+  }
+  .landing-stat-value {
+    font-size: var(--font-3xl);
   }
   .landing-section {
     padding: var(--space-12) var(--space-4);
@@ -1358,9 +1443,16 @@
   .landing-section-header h2 {
     font-size: var(--font-2xl);
   }
+  .landing-section-header p {
+    font-size: var(--font-base);
+  }
   .landing-footer-inner {
     flex-direction: column;
     gap: var(--space-4);
+  }
+  .landing-footer-links {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   .how-it-works-grid {
     grid-template-columns: 1fr;
@@ -1369,5 +1461,40 @@
   .mini-roi-row {
     flex-direction: column;
     gap: var(--space-4);
+  }
+  .mini-roi-metric-value {
+    font-size: var(--font-xl);
+  }
+  /* Restaurant pricing callout — stack on mobile */
+  .restaurant-pricing-callout {
+    flex-direction: column !important;
+    text-align: center;
+    align-items: stretch !important;
+    padding: var(--space-5) var(--space-4) !important;
+  }
+  .restaurant-pricing-callout p {
+    max-width: none !important;
+  }
+  /* Pay for results card — stack on mobile */
+  .pay-for-results-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  /* Reduce heavy animations on mobile for performance */
+  .floating-orb {
+    animation-duration: 30s !important;
+    filter: blur(60px);
+  }
+  .hero-device-img {
+    filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.3));
+    animation: none;
+  }
+  .hero-device-glow {
+    animation: none;
+    filter: blur(30px);
+  }
+  /* Pricing card font sizing */
+  .pricing-card-price {
+    font-size: var(--font-3xl) !important;
   }
 }

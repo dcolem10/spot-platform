@@ -395,11 +395,11 @@ export default function LandingPage() {
           <span className="landing-nav-logo-text">Spot</span>
         </div>
         <div className="landing-nav-actions">
-          <a href="#restaurants" className="landing-nav-link">For Restaurants</a>
+          <a href="#restaurants" className="landing-nav-link landing-nav-link--restaurants">For Restaurants</a>
           <Link to="/auth" className="landing-nav-link">Sign In</Link>
           <button
             onClick={() => enterDemo('/app/dashboard')}
-            className="landing-nav-link"
+            className="landing-nav-link landing-nav-link--demo"
             style={{ color: 'var(--color-textMuted)' }}
           >
             Demo
@@ -656,7 +656,7 @@ export default function LandingPage() {
 
           {/* Full-width: Pay for Results */}
           <BentoCard style={{ gridColumn: '1 / -1' }} className="bento-card--glow-gold">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+            <div className="pay-for-results-inner">
               <div>
                 <h3>Pay for Results, Not Promises</h3>
                 <p>You set the partnership terms upfront. Review and approve all content before it publishes. After it goes live, Spot tracks every customer via QR codes, promo codes, and POS integration. You see the full attribution report before deciding to continue.</p>
@@ -776,7 +776,7 @@ export default function LandingPage() {
                 )}
               </div>
               <div style={{ marginBottom: 'var(--space-4)' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-4xl)', fontWeight: 800, color: 'var(--color-accent)', letterSpacing: '-0.03em' }}>
+                <span className="pricing-card-price" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-4xl)', fontWeight: 800, color: 'var(--color-accent)', letterSpacing: '-0.03em' }}>
                   {tier.price}
                 </span>
                 <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginLeft: 4 }}>/mo</span>
@@ -803,7 +803,7 @@ export default function LandingPage() {
           ))}
         </div>
 
-        <div className="restaurant-pricing-callout reveal" style={{ maxWidth: '1100px', margin: 'var(--space-8) auto 0', padding: 'var(--space-6) var(--space-8)', background: 'var(--color-bgElevated)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+        <div className="restaurant-pricing-callout reveal" style={{ maxWidth: '1100px', margin: 'var(--space-8) auto 0', padding: 'var(--space-6) var(--space-8)', background: 'var(--color-bgElevated)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', overflow: 'hidden' }}>
           <div>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-xl)', fontWeight: 700, color: 'var(--color-success)', marginBottom: 'var(--space-1)' }}>
               Restaurants: always free to join
