@@ -1,7 +1,192 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import './LandingPage.css';
+
+/* ─── Interactive Dashboard Tab Preview ─────────────────────────────────── */
+
+type DashboardTab = 'attribution' | 'pipeline' | 'pos' | 'content';
+
+const dashboardTabs: { id: DashboardTab; label: string; icon: ReactNode }[] = [
+  {
+    id: 'attribution',
+    label: 'Attribution',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
+      </svg>
+    ),
+  },
+  {
+    id: 'pipeline',
+    label: 'Deal Pipeline',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+      </svg>
+    ),
+  },
+  {
+    id: 'pos',
+    label: 'POS Tracking',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    id: 'content',
+    label: 'Content Studio',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+      </svg>
+    ),
+  },
+];
+
+function DashboardPreviewTab({ activeTab }: { activeTab: DashboardTab }) {
+  if (activeTab === 'attribution') {
+    return (
+      <div className="preview-tab-content">
+        <div className="preview-metric-row">
+          <div className="preview-metric">
+            <span className="preview-metric-value" style={{ color: 'var(--color-accent)' }}>247</span>
+            <span className="preview-metric-label">Attributed Visits</span>
+          </div>
+          <div className="preview-metric">
+            <span className="preview-metric-value" style={{ color: 'var(--color-success)' }}>$18.4K</span>
+            <span className="preview-metric-label">Revenue Tracked</span>
+          </div>
+          <div className="preview-metric">
+            <span className="preview-metric-value" style={{ color: 'var(--color-info)' }}>5.6x</span>
+            <span className="preview-metric-label">Avg. ROAS</span>
+          </div>
+        </div>
+        <div className="preview-chart">
+          <div className="preview-chart-label">Revenue attribution over 90 days</div>
+          <div className="preview-chart-bars">
+            {[28, 45, 38, 62, 55, 72, 68, 85, 78, 92, 88, 95].map((h, i) => (
+              <div key={i} className="preview-chart-bar" style={{ '--bar-height': `${h}%`, '--bar-delay': `${i * 60}ms` } as React.CSSProperties} />
+            ))}
+          </div>
+        </div>
+        <div className="preview-insight">
+          <span className="preview-insight-icon">&#x2728;</span>
+          <span>Creator Sarah K. drove <strong>89 new customers</strong> in the last 30 days — 3.2x above average</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === 'pipeline') {
+    return (
+      <div className="preview-tab-content">
+        <div className="preview-pipeline">
+          <div className="preview-pipeline-col">
+            <div className="preview-pipeline-header preview-pipeline-header--blue">Proposed (3)</div>
+            <div className="preview-pipeline-card">
+              <div className="preview-pipeline-card-name">Rasika</div>
+              <div className="preview-pipeline-card-meta">$800 &middot; 2 reels + 1 story</div>
+            </div>
+            <div className="preview-pipeline-card">
+              <div className="preview-pipeline-card-name">Tail Up Goat</div>
+              <div className="preview-pipeline-card-meta">$500 &middot; 1 reel + 1 post</div>
+            </div>
+          </div>
+          <div className="preview-pipeline-col">
+            <div className="preview-pipeline-header preview-pipeline-header--green">Active (2)</div>
+            <div className="preview-pipeline-card preview-pipeline-card--active">
+              <div className="preview-pipeline-card-name">Bad Saint</div>
+              <div className="preview-pipeline-card-meta">$1,200 earned &middot; 89 visits</div>
+            </div>
+            <div className="preview-pipeline-card preview-pipeline-card--active">
+              <div className="preview-pipeline-card-name">Rose&rsquo;s Luxury</div>
+              <div className="preview-pipeline-card-meta">$2,400 earned &middot; 132 visits</div>
+            </div>
+          </div>
+          <div className="preview-pipeline-col">
+            <div className="preview-pipeline-header preview-pipeline-header--gold">Completed (5)</div>
+            <div className="preview-pipeline-card">
+              <div className="preview-pipeline-card-name">Le Dip</div>
+              <div className="preview-pipeline-card-meta">$1,800 paid &middot; 4.2x ROAS</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === 'pos') {
+    return (
+      <div className="preview-tab-content">
+        <div className="preview-pos-header">
+          <div className="preview-pos-integrations">
+            <span className="preview-pos-badge">Square</span>
+            <span className="preview-pos-badge preview-pos-badge--green">Connected</span>
+          </div>
+          <div className="preview-pos-integrations">
+            <span className="preview-pos-badge">Clover</span>
+            <span className="preview-pos-badge preview-pos-badge--green">Connected</span>
+          </div>
+          <div className="preview-pos-integrations">
+            <span className="preview-pos-badge">Toast</span>
+            <span className="preview-pos-badge preview-pos-badge--pending">Pending</span>
+          </div>
+        </div>
+        <div className="preview-pos-transactions">
+          <div className="preview-pos-tx">
+            <span className="preview-pos-tx-time">2:34 PM</span>
+            <span className="preview-pos-tx-desc">Table 12 &middot; QR scan from @sarah.eats</span>
+            <span className="preview-pos-tx-amount">$47.80</span>
+          </div>
+          <div className="preview-pos-tx">
+            <span className="preview-pos-tx-time">1:15 PM</span>
+            <span className="preview-pos-tx-desc">Online order &middot; Promo MARCUS20</span>
+            <span className="preview-pos-tx-amount">$32.50</span>
+          </div>
+          <div className="preview-pos-tx">
+            <span className="preview-pos-tx-time">12:48 PM</span>
+            <span className="preview-pos-tx-desc">Table 7 &middot; QR scan from @priya.food</span>
+            <span className="preview-pos-tx-amount">$65.20</span>
+          </div>
+        </div>
+        <div className="preview-insight">
+          <span className="preview-insight-icon">&#x1F517;</span>
+          <span>Real POS data — no codes needed. We match transactions to creator content automatically.</span>
+        </div>
+      </div>
+    );
+  }
+
+  // content tab
+  return (
+    <div className="preview-tab-content">
+      <div className="preview-content-grid">
+        {[
+          { status: 'Published', platform: 'Instagram Reel', reach: '45.2K', color: 'var(--color-success)' },
+          { status: 'In Review', platform: 'TikTok', reach: '—', color: 'var(--color-warning)' },
+          { status: 'Published', platform: 'Instagram Story', reach: '12.8K', color: 'var(--color-success)' },
+          { status: 'Draft', platform: 'Instagram Post', reach: '—', color: 'var(--color-textMuted)' },
+        ].map((item, i) => (
+          <div key={i} className="preview-content-card">
+            <div className="preview-content-thumb" style={{ '--thumb-i': i } as React.CSSProperties} />
+            <div className="preview-content-info">
+              <span className="preview-content-platform">{item.platform}</span>
+              <span className="preview-content-status" style={{ color: item.color }}>{item.status}</span>
+            </div>
+            {item.reach !== '—' && <span className="preview-content-reach">{item.reach} reach</span>}
+          </div>
+        ))}
+      </div>
+      <div className="preview-insight">
+        <span className="preview-insight-icon">&#x1F4F7;</span>
+        <span>Restaurant approves content before it goes live. You keep full creative control.</span>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Hooks ──────────────────────────────────────────────────────────────── */
 
@@ -353,6 +538,116 @@ const pricingTiers = [
   },
 ];
 
+/* ─── Dashboard Preview Section ─────────────────────────────────────────── */
+
+function DashboardPreviewSection({ enterDemo }: { enterDemo: (path: string) => void }) {
+  const [activeTab, setActiveTab] = useState<DashboardTab>('attribution');
+
+  return (
+    <section className="landing-section landing-section--alt">
+      <div className="landing-section-header reveal">
+        <h2>See the platform in action</h2>
+        <p>
+          Not a mockup. This is what Spot actually looks like &mdash; the same dashboard
+          creators and restaurants use to track every partnership, every dollar.
+        </p>
+      </div>
+
+      <div className="dashboard-preview reveal">
+        <div className="dashboard-preview-chrome">
+          <div className="dashboard-preview-dots">
+            <span /><span /><span />
+          </div>
+          <div className="dashboard-preview-tabs">
+            {dashboardTabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`dashboard-preview-tab${activeTab === tab.id ? ' dashboard-preview-tab--active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="dashboard-preview-body">
+          <DashboardPreviewTab activeTab={activeTab} />
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 'var(--space-8)' }} className="reveal">
+        <button onClick={() => enterDemo('/app/dashboard')} className="btn btn-gradient btn-lg">
+          Try the Full Dashboard
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Social Proof Section ──────────────────────────────────────────────── */
+
+function SocialProofSection() {
+  return (
+    <section className="landing-section">
+      <div className="landing-section-header reveal">
+        <h2>What sets Spot apart</h2>
+        <p>Other platforms track clicks and impressions. Spot tracks actual revenue through direct POS integration.</p>
+      </div>
+
+      <div className="comparison-grid reveal-stagger">
+        <div className="comparison-card comparison-card--others">
+          <div className="comparison-card-header">
+            <span className="comparison-card-label">Other Platforms</span>
+          </div>
+          <ul className="comparison-list comparison-list--negative">
+            <li>Link-click attribution only</li>
+            <li>7-day attribution windows</li>
+            <li>Discount code dependent</li>
+            <li>No POS integration</li>
+            <li>Agencies manage campaigns</li>
+            <li>Revenue estimates, not actuals</li>
+          </ul>
+        </div>
+
+        <div className="comparison-card comparison-card--spot">
+          <div className="comparison-card-header">
+            <div className="comparison-card-logo-mark">S</div>
+            <span className="comparison-card-label">Spot Platform</span>
+          </div>
+          <ul className="comparison-list comparison-list--positive">
+            <li>POS-verified transaction attribution</li>
+            <li>90-day attribution windows</li>
+            <li>QR codes + POS &mdash; no codes needed</li>
+            <li>Square, Clover, Toast integration</li>
+            <li>Direct creator-restaurant partnerships</li>
+            <li>Real revenue from real receipts</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="trust-signals reveal">
+        <div className="trust-signal">
+          <span className="trust-signal-icon">&#x1F4B3;</span>
+          <span>POS-Verified Attribution</span>
+        </div>
+        <div className="trust-signal">
+          <span className="trust-signal-icon">&#x1F512;</span>
+          <span>SOC 2 Compliant</span>
+        </div>
+        <div className="trust-signal">
+          <span className="trust-signal-icon">&#x26A1;</span>
+          <span>Real-Time Tracking</span>
+        </div>
+        <div className="trust-signal">
+          <span className="trust-signal-icon">&#x1F4CA;</span>
+          <span>90-Day Windows</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Landing Page ───────────────────────────────────────────────────────── */
 
 export default function LandingPage() {
@@ -422,16 +717,16 @@ export default function LandingPage() {
         <div className="landing-hero-content">
           <div className="landing-hero-badge">
             <span className="landing-hero-badge-dot" />
-            Creators earn. Restaurants grow. Spot proves it.
+            Beyond Impressions. Into Revenue.
           </div>
           <h1>
-            Get paid for the food content you already create &mdash;{' '}
-            <span className="text-gradient">and prove to restaurants what you&rsquo;re worth.</span>
+            Stop guessing if your food content drives sales.{' '}
+            <span className="text-gradient">Start proving it.</span>
           </h1>
           <p className="landing-hero-desc">
-            Spot connects food creators with restaurants for paid partnerships.
-            You set your rate, create authentic content, and Spot tracks every customer
-            you send &mdash; so restaurants see the ROI and keep coming back.
+            Most food creators can&rsquo;t prove they sent a single customer through the door.
+            Spot changes that &mdash; with POS-integrated attribution that tracks every visit, every
+            dollar, every partnership. Set your rate, create content, and let the data speak.
           </p>
           <div className="landing-hero-actions">
             <div className="cta-pulse-wrap">
@@ -482,6 +777,54 @@ export default function LandingPage() {
           <div className="landing-stat-label">Built-In Tools</div>
         </div>
       </section>
+
+      {/* ── Pain Points — Problem-First Messaging ────────────────────── */}
+      <section className="landing-section">
+        <div className="landing-section-header reveal">
+          <h2>The problem every food creator faces</h2>
+          <p>You create content that fills restaurants. But you can&rsquo;t prove it — and that&rsquo;s costing you thousands in partnerships you deserve.</p>
+        </div>
+
+        <div className="pain-point-grid reveal-stagger">
+          <div className="pain-point-card">
+            <div className="pain-point-icon pain-point-icon--red">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
+              </svg>
+            </div>
+            <h3>No attribution data</h3>
+            <p>You post, customers show up, but the restaurant has no idea you sent them. Without attribution, you&rsquo;re just &ldquo;exposure.&rdquo;</p>
+          </div>
+          <div className="pain-point-card">
+            <div className="pain-point-icon pain-point-icon--red">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" />
+              </svg>
+            </div>
+            <h3>Discount codes fail</h3>
+            <p>Customers forget codes, share them, or buy later. Studies show coupon-based tracking misses 60%+ of influencer-driven revenue.</p>
+          </div>
+          <div className="pain-point-card">
+            <div className="pain-point-icon pain-point-icon--red">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+            </div>
+            <h3>Underpriced partnerships</h3>
+            <p>Without data proving your ROI, restaurants lowball you &mdash; or offer free meals instead of real pay. Your content is worth more.</p>
+          </div>
+        </div>
+
+        <div className="pain-point-solution reveal">
+          <div className="pain-point-solution-inner">
+            <span className="pain-point-solution-badge">Spot&rsquo;s Answer</span>
+            <p>POS-integrated attribution that tracks every customer from content to checkout &mdash; through Square, Clover, QR codes, and promo links. No discount codes required. Restaurants see the ROI. You get paid what you&rsquo;re worth.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Interactive Dashboard Preview ──────────────────────────────── */}
+      <DashboardPreviewSection enterDemo={enterDemo} />
 
       {/* ── How It Works — The Value Loop ──────────────────────────────── */}
       <section className="landing-section landing-section--alt">
@@ -679,6 +1022,9 @@ export default function LandingPage() {
           </button>
         </div>
       </section>
+
+      {/* ── Social Proof / Comparison ──────────────────────────────────── */}
+      <SocialProofSection />
 
       {/* ── Spot's Role — Platform Value Proposition ───────────────────── */}
       <section className="landing-section">
