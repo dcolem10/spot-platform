@@ -22,23 +22,45 @@ interface PlaceDetails {
   photos?: Array<{ name: string }>;
 }
 
-const DC_NEIGHBORHOODS = [
-  'Adams Morgan',
-  'Capitol Hill',
-  'Chinatown/Penn Quarter',
-  'Columbia Heights',
-  'Dupont Circle',
-  'Foggy Bottom',
-  'Georgetown',
-  'H Street NE',
-  'Logan Circle',
-  'Navy Yard',
-  'NoMa',
-  'Petworth',
-  'Shaw',
-  'U Street',
-  'Brookland',
-];
+const NEIGHBORHOODS_BY_CITY: Record<string, string[]> = {
+  'Washington, DC': [
+    'Adams Morgan', 'Capitol Hill', 'Chinatown/Penn Quarter', 'Columbia Heights',
+    'Dupont Circle', 'Foggy Bottom', 'Georgetown', 'H Street NE', 'Logan Circle',
+    'Navy Yard', 'NoMa', 'Petworth', 'Shaw', 'U Street', 'Brookland',
+  ],
+  'Baltimore, MD': [
+    'Fells Point', 'Federal Hill', 'Inner Harbor', 'Canton', 'Mount Vernon',
+    'Hampden', 'Station North', 'Locust Point',
+  ],
+  'Arlington, VA': [
+    'Clarendon', 'Ballston', 'Rosslyn', 'Crystal City', 'Pentagon City',
+    'Shirlington', 'Columbia Pike', 'Courthouse',
+  ],
+  'Alexandria, VA': [
+    'Old Town', 'Del Ray', 'Carlyle', 'Eisenhower', 'Potomac Yard',
+    'Seminary Hill', 'Rosemont',
+  ],
+  'New York, NY': [
+    'Manhattan', 'Brooklyn', 'Queens', 'Williamsburg', 'SoHo',
+    'East Village', 'West Village', 'Harlem', 'Chelsea', 'Lower East Side',
+  ],
+  'Atlanta, GA': [
+    'Midtown', 'Buckhead', 'Old Fourth Ward', 'Inman Park', 'Decatur',
+    'West Midtown', 'Poncey-Highland', 'Virginia-Highland',
+  ],
+  'Chicago, IL': [
+    'River North', 'Wicker Park', 'Logan Square', 'West Loop', 'Lincoln Park',
+    'Pilsen', 'Chinatown', 'Andersonville',
+  ],
+  'Los Angeles, CA': [
+    'Silver Lake', 'West Hollywood', 'Santa Monica', 'Downtown', 'Koreatown',
+    'Echo Park', 'Venice', 'Highland Park',
+  ],
+  'Miami, FL': [
+    'Wynwood', 'Brickell', 'Little Havana', 'Coconut Grove', 'Design District',
+    'South Beach', 'Coral Gables',
+  ],
+};
 
 const CUISINES = [
   'American', 'Italian', 'Ethiopian', 'Mexican', 'Japanese', 'Chinese',
@@ -51,6 +73,18 @@ const OFFER_TYPES = [
   { label: 'Free Item', value: 'free_item' },
   { label: 'Buy One Get One', value: 'bogo' }
 ];
+
+/** Detect city from a Google Places address string */
+function detectCityFromAddress(address: string): string | null {
+  const cityKeys = Object.keys(NEIGHBORHOODS_BY_CITY);
+  const lower = address.toLowerCase();
+  for (const city of cityKeys) {
+    // Match "Arlington" in "Arlington, VA" or "Washington" in "Washington, DC"
+    const cityName = city.split(',')[0].toLowerCase();
+    if (lower.includes(cityName)) return city;
+  }
+  return null;
+}
 
 interface FormData {
   restaurantName: string;
@@ -246,7 +280,7 @@ export default function PartnerOnboarding() {
         return false;
       }
       if (!formData.neighborhood) {
-        setError('Neighborhood is required');
+        setError('Neighborhood / Area is required');
         return false;
       }
     } else if (step === 2) {
@@ -785,19 +819,27 @@ export default function PartnerOnboarding() {
               </div>
 
               <div style={formGroupStyle}>
-                <label style={labelStyle}>Neighborhood *</label>
-                <select
-                  style={selectStyle}
-                  value={formData.neighborhood}
-                  onChange={handleNeighborhoodChange}
-                >
-                  <option value="">Select a neighborhood</option>
-                  {DC_NEIGHBORHOODS.map((neighborhood) => (
-                    <option key={neighborhood} value={neighborhood}>
-                      {neighborhood}
-                    </option>
-                  ))}
-                </select>
+                <label style={labelStyle}>Neighborhood / Area *</label>
+                {(() => {
+                  const detectedCity = detectCityFromAddress(formData.address);
+                  const neighborhoods = detectedCity ? (NEIGHBORHOODS_BY_CITY[detectedCity] || []) : Object.values(NEIGHBORHOODS_BY_CITY).flat();
+                  return (
+                    <select
+                      style={selectStyle}
+                      value={formData.neighborhood}
+                      onChange={handleNeighborhoodChange}
+                    >
+                      <option value="">
+                        {detectedCity ? `Select a neighborhood in ${detectedCity}` : 'Select a neighborhood'}
+                      </option>
+                      {neighborhoods.map((neighborhood) => (
+                        <option key={neighborhood} value={neighborhood}>
+                          {neighborhood}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
               </div>
 
               <div style={formGroupStyle}>
@@ -915,7 +957,7 @@ export default function PartnerOnboarding() {
                   </div>
                 )}
                 <div style={reviewRowStyle}>
-                  <span style={reviewLabelStyle}>Neighborhood</span>
+                  <span style={reviewLabelStyle}>Neighborhood / Area</span>
                   <span style={reviewValueStyle}>{formData.neighborhood}</span>
                 </div>
                 <div style={reviewRowStyle}>
