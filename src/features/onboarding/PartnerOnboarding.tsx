@@ -118,6 +118,7 @@ export default function PartnerOnboarding() {
   const [placeSelected, setPlaceSelected] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -141,6 +142,9 @@ export default function PartnerOnboarding() {
     }
     setIsSearching(true);
     searchTimeout.current = setTimeout(async () => {
+      // Cancel any in-flight request
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
       try {
         const res = await api.get(`/api/places/autocomplete?query=${encodeURIComponent(query)}`);
         const data = res.data as { results?: PlaceResult[] } | undefined;
