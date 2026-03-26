@@ -633,7 +633,7 @@ function SocialProofSection() {
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x1F512;</span>
-          <span>SOC 2 Compliant</span>
+          <span>First-Party Tracking</span>
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x26A1;</span>
@@ -724,9 +724,8 @@ export default function LandingPage() {
             <span className="text-gradient">Start proving it.</span>
           </h1>
           <p className="landing-hero-desc">
-            Most food creators can&rsquo;t prove they sent a single customer through the door.
-            Spot changes that &mdash; with POS-integrated attribution that tracks every visit, every
-            dollar, every partnership. Set your rate, create content, and let the data speak.
+            Can&rsquo;t prove your content drives restaurant sales? Spot tracks every
+            visit and every dollar through POS integration &mdash; so you get paid what you&rsquo;re worth.
           </p>
           <div className="landing-hero-actions">
             <div className="cta-pulse-wrap">
@@ -775,51 +774,6 @@ export default function LandingPage() {
         <div className="landing-stat">
           <div className="landing-stat-value"><span ref={features.ref}>{features.value}</span></div>
           <div className="landing-stat-label">Built-In Tools</div>
-        </div>
-      </section>
-
-      {/* ── Pain Points — Problem-First Messaging ────────────────────── */}
-      <section className="landing-section">
-        <div className="landing-section-header reveal">
-          <h2>The problem every food creator faces</h2>
-          <p>You create content that fills restaurants. But you can&rsquo;t prove it — and that&rsquo;s costing you thousands in partnerships you deserve.</p>
-        </div>
-
-        <div className="pain-point-grid reveal-stagger">
-          <div className="pain-point-card">
-            <div className="pain-point-icon pain-point-icon--red">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" />
-              </svg>
-            </div>
-            <h3>No attribution data</h3>
-            <p>You post, customers show up, but the restaurant has no idea you sent them. Without attribution, you&rsquo;re just &ldquo;exposure.&rdquo;</p>
-          </div>
-          <div className="pain-point-card">
-            <div className="pain-point-icon pain-point-icon--red">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" />
-              </svg>
-            </div>
-            <h3>Discount codes fail</h3>
-            <p>Customers forget codes, share them, or buy later. Studies show coupon-based tracking misses 60%+ of influencer-driven revenue.</p>
-          </div>
-          <div className="pain-point-card">
-            <div className="pain-point-icon pain-point-icon--red">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
-            </div>
-            <h3>Underpriced partnerships</h3>
-            <p>Without data proving your ROI, restaurants lowball you &mdash; or offer free meals instead of real pay. Your content is worth more.</p>
-          </div>
-        </div>
-
-        <div className="pain-point-solution reveal">
-          <div className="pain-point-solution-inner">
-            <span className="pain-point-solution-badge">Spot&rsquo;s Answer</span>
-            <p>POS-integrated attribution that tracks every customer from content to checkout &mdash; through Square, Clover, QR codes, and promo links. No discount codes required. Restaurants see the ROI. You get paid what you&rsquo;re worth.</p>
-          </div>
         </div>
       </section>
 
