@@ -171,7 +171,7 @@
 .landing-hero {
   position: relative;
   text-align: center;
-  padding: calc(var(--space-20) + 40px) var(--space-6) var(--space-16);
+  padding: 100px var(--space-6) var(--space-12);
   max-width: 900px;
   margin: 0 auto;
   overflow: hidden;
@@ -184,7 +184,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  min-height: 600px;
+  min-height: auto;
 }
 
 .landing-hero-content {
@@ -197,7 +197,7 @@
 .landing-hero-3d {
   flex: 1;
   min-width: 0;
-  height: 500px;
+  height: 420px;
   position: relative;
   z-index: 2;
 }
@@ -345,7 +345,7 @@
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.03em;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
   color: var(--color-textPrimary);
 }
 
@@ -353,8 +353,8 @@
   font-size: var(--font-lg);
   color: var(--color-textSecondary);
   max-width: 580px;
-  margin: 0 auto var(--space-10);
-  line-height: 1.7;
+  margin: 0 auto var(--space-6);
+  line-height: 1.6;
 }
 
 .landing-hero-actions {
@@ -1890,7 +1890,7 @@
     gap: var(--space-4);
   }
   .landing-hero-3d {
-    height: 320px;
+    height: 260px;
     width: 100%;
   }
   .hero-device-img {
@@ -1953,10 +1953,10 @@
     padding: var(--space-5);
   }
   .landing-hero {
-    padding: calc(var(--space-12) + 40px) var(--space-4) var(--space-8);
+    padding: calc(var(--space-10) + 40px) var(--space-4) var(--space-6);
   }
   .landing-hero-3d {
-    height: 200px;
+    height: 180px;
   }
   .landing-hero::before {
     width: 400px;
