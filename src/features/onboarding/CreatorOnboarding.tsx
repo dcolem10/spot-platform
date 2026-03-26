@@ -1,13 +1,59 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { useAuthStore } from '../../store/authStore';
 
-const NEIGHBORHOODS = [
-  'Shaw', 'Adams Morgan', 'Capitol Hill', 'Georgetown', 'Dupont Circle',
-  'H Street', '14th Street', 'U Street', 'Navy Yard', 'Columbia Heights',
-  'Petworth', 'Brookland'
+const CITY_OPTIONS = [
+  'Washington, DC',
+  'Baltimore, MD',
+  'Arlington, VA',
+  'Alexandria, VA',
+  'New York, NY',
+  'Atlanta, GA',
+  'Chicago, IL',
+  'Los Angeles, CA',
+  'Miami, FL',
 ];
+
+const NEIGHBORHOODS_BY_CITY: Record<string, string[]> = {
+  'Washington, DC': [
+    'Shaw', 'Adams Morgan', 'Capitol Hill', 'Georgetown', 'Dupont Circle',
+    'H Street', '14th Street', 'U Street', 'Navy Yard', 'Columbia Heights',
+    'Petworth', 'Brookland'
+  ],
+  'Baltimore, MD': [
+    'Fells Point', 'Federal Hill', 'Inner Harbor', 'Canton', 'Mount Vernon',
+    'Hampden', 'Station North', 'Locust Point'
+  ],
+  'Arlington, VA': [
+    'Clarendon', 'Ballston', 'Rosslyn', 'Crystal City', 'Pentagon City',
+    'Shirlington', 'Columbia Pike', 'Courthouse'
+  ],
+  'Alexandria, VA': [
+    'Old Town', 'Del Ray', 'Carlyle', 'Eisenhower', 'Potomac Yard',
+    'Seminary Hill', 'Rosemont'
+  ],
+  'New York, NY': [
+    'Manhattan', 'Brooklyn', 'Queens', 'Williamsburg', 'SoHo',
+    'East Village', 'West Village', 'Harlem', 'Chelsea', 'Lower East Side'
+  ],
+  'Atlanta, GA': [
+    'Midtown', 'Buckhead', 'Old Fourth Ward', 'Inman Park', 'Decatur',
+    'West Midtown', 'Poncey-Highland', 'Virginia-Highland'
+  ],
+  'Chicago, IL': [
+    'River North', 'Wicker Park', 'Logan Square', 'West Loop', 'Lincoln Park',
+    'Pilsen', 'Chinatown', 'Andersonville'
+  ],
+  'Los Angeles, CA': [
+    'Silver Lake', 'West Hollywood', 'Santa Monica', 'Downtown', 'Koreatown',
+    'Echo Park', 'Venice', 'Highland Park'
+  ],
+  'Miami, FL': [
+    'Wynwood', 'Brickell', 'Little Havana', 'Coconut Grove', 'Design District',
+    'South Beach', 'Coral Gables'
+  ],
+};
 
 const CUISINES = [
   'American', 'Italian', 'Mexican', 'Japanese', 'Chinese', 'Thai',
@@ -144,9 +190,40 @@ export default function CreatorOnboarding() {
     setFormData(prev => ({ ...prev, creatorType: type }));
   };
 
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const cityInputRef = useRef<HTMLDivElement>(null);
+
   const handleCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, city: e.target.value }));
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, city: value, neighborhoods: [] }));
+    if (value.length > 0) {
+      const filtered = CITY_OPTIONS.filter(c =>
+        c.toLowerCase().includes(value.toLowerCase())
+      );
+      setCitySuggestions(filtered);
+      setShowCitySuggestions(filtered.length > 0);
+    } else {
+      setCitySuggestions(CITY_OPTIONS);
+      setShowCitySuggestions(true);
+    }
   };
+
+  const selectCity = (city: string) => {
+    setFormData(prev => ({ ...prev, city, neighborhoods: [] }));
+    setShowCitySuggestions(false);
+  };
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cityInputRef.current && !cityInputRef.current.contains(e.target as Node)) {
+        setShowCitySuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleNeighborhood = (neighborhood: string) => {
     setFormData(prev => ({
@@ -553,6 +630,49 @@ export default function CreatorOnboarding() {
         .onboarding-chip--selected:hover {
           background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(251, 146, 60, 0.2));
           color: #fb923c;
+        }
+
+        /* ── City autocomplete ───────────────────────── */
+        .city-suggestions {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          margin-top: 4px;
+          background: rgba(17, 17, 25, 0.95);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          overflow: hidden;
+          z-index: 20;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .city-suggestion-item {
+          display: block;
+          width: 100%;
+          padding: 12px 16px;
+          background: none;
+          border: none;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          color: #c8cdd8;
+          font-size: 15px;
+          font-family: inherit;
+          text-align: left;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .city-suggestion-item:last-child {
+          border-bottom: none;
+        }
+        .city-suggestion-item:hover {
+          background: rgba(249, 115, 22, 0.1);
+          color: #fb923c;
+        }
+        .city-suggestion-item--selected {
+          background: rgba(249, 115, 22, 0.15);
+          color: #fb923c;
+          font-weight: 600;
         }
 
         /* ── Social input with prefix ────────────────── */
@@ -972,30 +1092,60 @@ export default function CreatorOnboarding() {
             <>
               <div className="onboarding-form-group">
                 <label className="onboarding-label" htmlFor="city">City</label>
-                <input
-                  id="city"
-                  type="text"
-                  className="onboarding-input"
-                  placeholder="Washington, DC"
-                  value={formData.city}
-                  onChange={handleCityChange}
-                />
+                <div ref={cityInputRef} style={{ position: 'relative' }}>
+                  <input
+                    id="city"
+                    type="text"
+                    className="onboarding-input"
+                    placeholder="Start typing a city..."
+                    value={formData.city}
+                    onChange={handleCityChange}
+                    onFocus={() => {
+                      const filtered = formData.city
+                        ? CITY_OPTIONS.filter(c => c.toLowerCase().includes(formData.city.toLowerCase()))
+                        : CITY_OPTIONS;
+                      setCitySuggestions(filtered);
+                      setShowCitySuggestions(true);
+                    }}
+                    autoComplete="off"
+                  />
+                  {showCitySuggestions && citySuggestions.length > 0 && (
+                    <div className="city-suggestions">
+                      {citySuggestions.map((city) => (
+                        <button
+                          key={city}
+                          type="button"
+                          className={`city-suggestion-item${city === formData.city ? ' city-suggestion-item--selected' : ''}`}
+                          onClick={() => selectCity(city)}
+                        >
+                          {city}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="onboarding-form-group">
                 <label className="onboarding-label">Neighborhoods</label>
-                <div className="onboarding-chips">
-                  {NEIGHBORHOODS.map((neighborhood) => (
-                    <button
-                      key={neighborhood}
-                      className={`onboarding-chip ${formData.neighborhoods.includes(neighborhood) ? 'onboarding-chip--selected' : ''}`}
-                      onClick={() => toggleNeighborhood(neighborhood)}
-                      type="button"
-                    >
-                      {neighborhood}
-                    </button>
-                  ))}
-                </div>
+                {(NEIGHBORHOODS_BY_CITY[formData.city] || []).length > 0 ? (
+                  <div className="onboarding-chips">
+                    {(NEIGHBORHOODS_BY_CITY[formData.city] || []).map((neighborhood) => (
+                      <button
+                        key={neighborhood}
+                        className={`onboarding-chip ${formData.neighborhoods.includes(neighborhood) ? 'onboarding-chip--selected' : ''}`}
+                        onClick={() => toggleNeighborhood(neighborhood)}
+                        type="button"
+                      >
+                        {neighborhood}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)' }}>
+                    Select a supported city above to see neighborhoods
+                  </p>
+                )}
               </div>
             </>
           )}

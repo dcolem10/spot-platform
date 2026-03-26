@@ -804,6 +804,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setDemoMode = useAuthStore((s) => s.setDemoMode);
+  const setDemoOnboarded = useAuthStore((s) => s.setDemoOnboarded);
   const navScrolled = useScrolledNav();
 
   const enterDemo = useCallback(async (path: string, role: 'creator' | 'partner' = 'creator') => {
@@ -815,6 +816,7 @@ export default function LandingPage() {
 
     const isPartner = role === 'partner';
     setDemoMode(true);
+    setDemoOnboarded(false); // Reset so new demo session goes through onboarding
     setAuth({
       userId: isPartner ? 'demo-partner' : 'demo-user',
       email: isPartner ? 'demo-restaurant@spot.app' : 'demo@spot.app',
@@ -824,7 +826,7 @@ export default function LandingPage() {
       orgId: 'org-demo',
     });
     navigate(path);
-  }, [setDemoMode, setAuth, navigate]);
+  }, [setDemoMode, setDemoOnboarded, setAuth, navigate]);
 
   // Rotating hero phrases for dynamic value prop showcase
   const rotatingText = useRotatingText([
@@ -1307,6 +1309,39 @@ export default function LandingPage() {
           >
             Get Started Free
           </button>
+        </div>
+      </section>
+
+      {/* ── FAQ ───────────────────────────────────────────────────────── */}
+      <section className="landing-section">
+        <div className="landing-section-header reveal">
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div className="faq-grid reveal-stagger">
+          <div className="faq-item">
+            <h3 className="faq-question">Do I need a minimum follower count?</h3>
+            <p className="faq-answer">No minimum. Spot values engagement and attribution over raw follower counts. If your content drives customers to restaurants, Spot will help you prove it regardless of audience size.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">How do I get my first restaurant deal?</h3>
+            <p className="faq-answer">Browse the restaurant directory, find places you genuinely love, and send a partnership proposal directly through Spot. You set your rate, deliverables, and timeline.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">Is Spot really free for restaurants?</h3>
+            <p className="faq-answer">Yes. Restaurants never pay a subscription or setup fee. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">What if I don&rsquo;t like the content a creator makes?</h3>
+            <p className="faq-answer">Restaurants review and approve all content before it goes live. You always have final say over what gets published about your business.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">How does POS integration work?</h3>
+            <p className="faq-answer">Connect your Square, Clover, or Toast account in under 2 minutes. Spot uses read-only access to match customer visits to creator content &mdash; no new hardware, no staff training, no disruption to service.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">Can I use Spot alongside my existing brand deals?</h3>
+            <p className="faq-answer">Absolutely. Spot is specifically for restaurant partnerships. Your existing brand deals, sponsorships, and agency relationships stay exactly as they are.</p>
+          </div>
         </div>
       </section>
 

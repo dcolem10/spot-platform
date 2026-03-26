@@ -74,7 +74,7 @@ export default function SocialConnectionsPanel() {
   const queryClient = useQueryClient();
   const [connectingPlatform, setConnectingPlatform] = useState<ContentPlatform | null>(null);
 
-  const { data: connections = [], isLoading } = useQuery<SocialConnection[]>({
+  const { data: connections = [], isLoading, isError, error, refetch } = useQuery<SocialConnection[]>({
     queryKey: ['social-connections', userId],
     queryFn: async () => {
       if (isDemoMode()) return DEMO_CONNECTIONS;
@@ -133,6 +133,49 @@ export default function SocialConnectionsPanel() {
               animation: 'pulse 1.5s ease-in-out infinite',
             }} />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="page-container">
+        <h1 style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'var(--font-2xl)',
+          fontWeight: 700,
+          letterSpacing: '-0.02em',
+          color: 'var(--color-textPrimary)',
+          marginBottom: 'var(--space-2)',
+        }}>
+          Social Accounts
+        </h1>
+        <p style={{
+          color: 'var(--color-textMuted)',
+          fontSize: 'var(--font-sm)',
+          marginBottom: 'var(--space-6)',
+        }}>
+          Connect your social media accounts to track content performance and engagement metrics.
+        </p>
+
+        <div style={{
+          padding: 'var(--space-4)',
+          background: 'var(--color-errorMuted)',
+          color: 'var(--color-error)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 'var(--font-sm)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <span>{(error as Error)?.message || 'Unable to load your social connections. Please try again.'}</span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => refetch()}
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

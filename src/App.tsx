@@ -83,8 +83,11 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   const demoOnboarded = useAuthStore((s) => s.demoOnboarded);
 
   useEffect(() => {
+    // Reset state at start of each evaluation to prevent stale redirects
+    setNeedsOnboarding(false);
+    setChecking(true);
+
     if (storeIsDemoMode) {
-      // Demo users still need to go through onboarding once
       if (!demoOnboarded) {
         setNeedsOnboarding(true);
       }
@@ -138,7 +141,7 @@ export default function App() {
               {/* Auth */}
               <Route path="/auth" element={<AuthPage />} />
 
-              {/* Onboarding */}
+              {/* Onboarding — renders PartnerOnboarding or CreatorOnboarding based on role */}
               <Route path="/onboarding" element={<RequireAuth><OnboardingRouter /></RequireAuth>} />
 
               {/* Dashboard routes */}
