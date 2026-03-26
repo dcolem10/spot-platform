@@ -68,12 +68,12 @@ const SOURCE_COLORS: Record<string, { bg: string; color: string; label: string }
 };
 
 const APPROVAL_BADGE: Record<OfferApprovalStatus, { bg: string; color: string; label: string }> = {
-  creator_only: { bg: 'rgba(107, 114, 128, 0.15)', color: '#9ca3af', label: 'Creator Only' },
-  pending_restaurant: { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', label: 'Pending Approval' },
-  approved: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Mutually Approved' },
-  paused_by_creator: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', label: 'Paused by Creator' },
-  paused_by_restaurant: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', label: 'Paused by Restaurant' },
-  rejected: { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', label: 'Rejected' },
+  creator_only: { bg: 'rgba(107, 114, 128, 0.15)', color: 'var(--color-textMuted)', label: 'Creator Only' },
+  pending_restaurant: { bg: 'var(--color-accentMuted)', color: 'var(--color-accent)', label: 'Pending Approval' },
+  approved: { bg: 'var(--color-successMuted)', color: 'var(--color-success)', label: 'Mutually Approved' },
+  paused_by_creator: { bg: 'var(--color-errorMuted)', color: 'var(--color-error)', label: 'Paused by Creator' },
+  paused_by_restaurant: { bg: 'var(--color-errorMuted)', color: 'var(--color-error)', label: 'Paused by Restaurant' },
+  rejected: { bg: 'var(--color-errorMuted)', color: 'var(--color-error)', label: 'Rejected' },
 };
 
 /**

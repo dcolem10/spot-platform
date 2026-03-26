@@ -89,19 +89,19 @@ Provides derived booleans: `isCreator`, `isPartner`, `isAdmin`, `isAuthenticated
 
 The app uses CSS custom properties, NOT Tailwind. Follow these conventions:
 
-### CSS Variables (defined in global.css)
+### CSS Variables (defined in theme.css)
 ```css
---bg-primary, --bg-secondary, --bg-card
---text-primary, --text-secondary, --text-muted
---accent-primary, --accent-hover
---border-color, --border-radius
+--color-bgPrimary, --color-bgSecondary, --color-bgElevated
+--color-textPrimary, --color-textSecondary, --color-textMuted
+--color-accent, --color-accentHover
+--color-border, --radius-md
 --shadow-sm, --shadow-md, --shadow-lg
 ```
 
 ### Component Styling Pattern
 - Each component has its own CSS file or uses inline styles with CSS variables
 - Use `.page-container` wrapper for consistent page spacing
-- Stat cards use consistent card styling with `.stat-card` class
+- Stat cards use the generic `.card` class with inline styling
 - Dark theme throughout — respect dark backgrounds
 
 ### Typography
