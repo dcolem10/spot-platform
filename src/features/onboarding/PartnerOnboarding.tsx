@@ -319,6 +319,18 @@ export default function PartnerOnboarding() {
           return;
         }
 
+        // Create a profile so OnboardingGuard doesn't redirect back
+        await api.post('/api/profile', {
+          displayName: formData.restaurantName,
+          bio: '',
+          city: 'Washington, DC',
+          neighborhoods: [formData.neighborhood],
+          cuisinePreferences: formData.cuisines,
+          socialLinks: { instagram: '', tiktok: '', youtube: '', website: formData.website || '' },
+          followerCount: 0,
+          creatorType: 'food',
+        });
+
         setIsSubmitting(false);
         navigate('/app/partner');
       } catch (err) {
