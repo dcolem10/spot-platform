@@ -633,7 +633,7 @@ function SocialProofSection() {
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x1F512;</span>
-          <span>SOC 2 Compliant</span>
+          <span>First-Party Tracking</span>
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x26A1;</span>
