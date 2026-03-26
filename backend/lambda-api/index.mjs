@@ -42,8 +42,19 @@ async function decryptPosToken(ciphertext) {
 }
 if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@tryspot.app';
-const ORIGIN = process.env.ALLOWED_ORIGIN || '';
-if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
+// ─── Dynamic CORS — supports multiple origins (dev + prod simultaneously) ────
+const ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean)
+);
+if (!ALLOWED_ORIGINS.size) console.warn('No allowed origins configured — CORS will block all cross-origin requests');
+
+/** Set per-request CORS origin by matching the request's Origin header */
+function setRequestOrigin(event) {
+  const reqOrigin = event?.headers?.origin || event?.headers?.Origin || '';
+  headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGINS.has(reqOrigin)
+    ? reqOrigin
+    : ([...ALLOWED_ORIGINS][0] || '');
+}
 
 // ─── Secrets (fetched once per cold start, cached in memory) ─────────────────
 let _apiSecrets = null;
@@ -77,7 +88,7 @@ async function getApiSecrets() {
 
 const headers = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': [...ALLOWED_ORIGINS][0] || '',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'X-Content-Type-Options': 'nosniff',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -3848,6 +3859,124 @@ async function getGoogleDetails(restaurantId, event) {
   return respond(200, data);
 }
 
+// ─── Google Places Autocomplete (for restaurant onboarding) ─────────────────
+
+async function placesAutocomplete(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Rate limit to protect paid API (20 req / 5 min per user)
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
+  const qs = event.queryStringParameters || {};
+  const query = (qs.query || '').trim();
+  if (!query || query.length < 2) return respond(400, { error: 'Query too short' });
+
+  const secrets = await getApiSecrets();
+  const googleKey = secrets.GOOGLE_PLACES_API_KEY;
+  if (!googleKey) return respond(503, { error: 'Service temporarily unavailable' });
+
+  try {
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      signal: AbortSignal.timeout(5000),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': googleKey,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.types',
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        includedType: 'restaurant',
+        locationBias: {
+          circle: {
+            center: { latitude: 38.9072, longitude: -77.0369 }, // DC area
+            radius: 50000,
+          },
+        },
+        maxResultCount: 5,
+      }),
+    });
+
+    if (!res.ok) return respond(502, { error: 'External service error' });
+    const data = await res.json();
+
+    // Return minimal data to client
+    const results = (data.places || []).map(p => ({
+      placeId: p.id,
+      name: p.displayName?.text || '',
+      address: p.formattedAddress || '',
+    }));
+
+    return respond(200, { results });
+  } catch (err) {
+    console.error('Places autocomplete error:', err);
+    return respond(502, { error: 'External service error' });
+  }
+}
+
+async function placesDetails(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  if (!(await checkPublicRateLimit(event))) {
+    return respond(429, { error: 'Too many requests. Please try again later.' });
+  }
+
+  const qs = event.queryStringParameters || {};
+  const placeId = (qs.placeId || '').trim();
+  if (!placeId) return respond(400, { error: 'placeId is required' });
+
+  // Check cache first
+  const cacheKey = { PK: `GOOGLE_CACHE#${placeId}`, SK: 'DETAILS' };
+  const cached = await ddb.send(new GetCommand({ TableName: TABLE, Key: cacheKey }));
+
+  if (cached.Item && cached.Item.ttl > Math.floor(Date.now() / 1000)) {
+    return respond(200, cached.Item.data);
+  }
+
+  const secrets = await getApiSecrets();
+  const googleKey = secrets.GOOGLE_PLACES_API_KEY;
+  if (!googleKey) return respond(503, { error: 'Service temporarily unavailable' });
+
+  const fields = 'displayName,formattedAddress,regularOpeningHours,rating,priceLevel,photos,websiteUri,nationalPhoneNumber,reviews,userRatingCount,location,types';
+  try {
+    const res = await fetch(
+      `https://places.googleapis.com/v1/places/${placeId}?fields=${fields}`,
+      {
+        signal: AbortSignal.timeout(5000),
+        headers: {
+          'X-Goog-Api-Key': googleKey,
+          'X-Goog-FieldMask': fields,
+        },
+      }
+    );
+
+    if (!res.ok) return respond(502, { error: 'External service error' });
+    const data = await res.json();
+
+    // Cache for 24 hours
+    await ddb.send(
+      new PutCommand({
+        TableName: TABLE,
+        Item: {
+          ...cacheKey,
+          data,
+          ttl: Math.floor(Date.now() / 1000) + 86400,
+          cachedAt: new Date().toISOString(),
+        },
+      })
+    );
+
+    return respond(200, data);
+  } catch (err) {
+    console.error('Places details error:', err);
+    return respond(502, { error: 'External service error' });
+  }
+}
+
 // ─── Email Subscribe ──────────────────────────────────────────────────────────
 
 async function subscribe(event) {
@@ -6317,6 +6446,7 @@ async function drawRaffleWinner(raffleId, event) {
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
+  setRequestOrigin(event); // Dynamic CORS — match request origin against allowed list
   const method = event.httpMethod;
   const path = event.path || '';
   const pathParts = path.split('/').filter(Boolean);
@@ -6456,6 +6586,12 @@ export const handler = async (event) => {
     // Google Places JIT (rate-limited to protect paid API)
     if (path.match(/\/api\/restaurants\/[^/]+\/google-details$/) && method === 'GET')
       return getGoogleDetails(pathParts[pathParts.length - 2], event);
+
+    // Google Places Autocomplete & Details (for restaurant onboarding)
+    if (path === '/api/places/autocomplete' && method === 'GET')
+      return placesAutocomplete(event);
+    if (path === '/api/places/details' && method === 'GET')
+      return placesDetails(event);
 
     // Subscribe / Unsubscribe
     if (path.match(/\/api\/subscribe$/) && method === 'POST')

@@ -1,8 +1,26 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
 import { useAuthStore } from '../../store/authStore';
+
+interface PlaceResult {
+  placeId: string;
+  name: string;
+  address: string;
+}
+
+interface PlaceDetails {
+  displayName?: { text: string };
+  formattedAddress?: string;
+  nationalPhoneNumber?: string;
+  websiteUri?: string;
+  rating?: number;
+  priceLevel?: string;
+  location?: { latitude: number; longitude: number };
+  regularOpeningHours?: { weekdayDescriptions?: string[] };
+  photos?: Array<{ name: string }>;
+}
 
 const DC_NEIGHBORHOODS = [
   'Adams Morgan',
@@ -40,6 +58,12 @@ interface FormData {
   neighborhood: string;
   phone: string;
   website: string;
+  address: string;
+  googlePlaceId: string;
+  coords: { lat: number; lng: number } | null;
+  rating: number | null;
+  priceLevel: number;
+  hours: string[] | null;
   discountPercentage: number;
   offerDescription: string;
   offerType: string;
@@ -75,14 +99,98 @@ export default function PartnerOnboarding() {
     neighborhood: '',
     phone: '',
     website: '',
+    address: '',
+    googlePlaceId: '',
+    coords: null,
+    rating: null,
+    priceLevel: 2,
+    hours: null,
     discountPercentage: 20,
     offerDescription: '',
     offerType: 'percentage',
     expiryDate: getDefaultExpiryDate(),
   });
 
+  // Google Places autocomplete state
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [placeSelected, setPlaceSelected] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced Places autocomplete search
+  const searchPlaces = useCallback((query: string) => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (query.length < 2 || isDemoMode()) {
+      setPlaceResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    setIsSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await api.get(`/api/places/autocomplete?query=${encodeURIComponent(query)}`);
+        const data = res.data as { results?: PlaceResult[] } | undefined;
+        if (res.status === 'success' && data?.results) {
+          setPlaceResults(data.results);
+          setShowDropdown(data.results.length > 0);
+        }
+      } catch {
+        // Fail silently — user can still type manually
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+  }, []);
+
+  // When a place is selected from dropdown, fetch full details and auto-fill
+  const handlePlaceSelect = useCallback(async (place: PlaceResult) => {
+    setFormData(prev => ({ ...prev, restaurantName: place.name, address: place.address, googlePlaceId: place.placeId }));
+    setPlaceSelected(true);
+    setShowDropdown(false);
+    setPlaceResults([]);
+
+    // Fetch full details to auto-fill phone, website, hours, coords, etc.
+    setLoadingDetails(true);
+    try {
+      const res = await api.get(`/api/places/details?placeId=${encodeURIComponent(place.placeId)}`);
+      if (res.status === 'success' && res.data) {
+        const d = res.data as PlaceDetails;
+        setFormData(prev => ({
+          ...prev,
+          phone: d.nationalPhoneNumber || prev.phone,
+          website: d.websiteUri || prev.website,
+          rating: d.rating || null,
+          priceLevel: d.priceLevel === 'PRICE_LEVEL_EXPENSIVE' ? 3 : d.priceLevel === 'PRICE_LEVEL_VERY_EXPENSIVE' ? 4 : d.priceLevel === 'PRICE_LEVEL_MODERATE' ? 2 : 1,
+          coords: d.location ? { lat: d.location.latitude, lng: d.location.longitude } : null,
+          hours: d.regularOpeningHours?.weekdayDescriptions || null,
+        }));
+      }
+    } catch {
+      // Details fetch failed — user can fill in manually
+    } finally {
+      setLoadingDetails(false);
+    }
+  }, []);
+
   const handleRestaurantNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, restaurantName: e.target.value }));
+    const val = e.target.value;
+    setFormData(prev => ({ ...prev, restaurantName: val }));
+    setPlaceSelected(false);
+    searchPlaces(val);
   };
 
   const toggleCuisine = (cuisine: string) => {
@@ -169,13 +277,18 @@ export default function PartnerOnboarding() {
     if (!demo) {
       setIsSubmitting(true);
       try {
-        // Create restaurant
+        // Create restaurant with Google Places data
         const restaurantRes = await api.post('/api/restaurants', {
           name: formData.restaurantName,
-          cuisines: formData.cuisines,
+          cuisine: formData.cuisines,
           neighborhood: formData.neighborhood,
           phone: formData.phone,
           website: formData.website || undefined,
+          address: formData.address || undefined,
+          googlePlaceId: formData.googlePlaceId || undefined,
+          coords: formData.coords || undefined,
+          priceLevel: formData.priceLevel,
+          hours: formData.hours || undefined,
           isPartner: true,
         });
 
@@ -577,15 +690,66 @@ export default function PartnerOnboarding() {
           {/* Step 1: Restaurant Info */}
           {step === 1 && (
             <>
-              <div style={formGroupStyle}>
+              <div style={formGroupStyle} ref={dropdownRef}>
                 <label style={labelStyle}>Restaurant Name *</label>
-                <input
-                  type="text"
-                  style={inputStyle}
-                  placeholder="e.g., Rasika, The Dabney"
-                  value={formData.restaurantName}
-                  onChange={handleRestaurantNameChange}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    style={inputStyle}
+                    placeholder="Start typing to search Google Places..."
+                    value={formData.restaurantName}
+                    onChange={handleRestaurantNameChange}
+                    autoComplete="off"
+                  />
+                  {isSearching && (
+                    <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: 'var(--color-textMuted)' }}>
+                      Searching...
+                    </div>
+                  )}
+                  {showDropdown && placeResults.length > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                      backgroundColor: 'var(--color-bgCard, #1a1a2e)', border: '1px solid var(--color-border, #333)',
+                      borderRadius: '8px', marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', overflow: 'hidden',
+                    }}>
+                      {placeResults.map((place) => (
+                        <button
+                          key={place.placeId}
+                          type="button"
+                          onClick={() => handlePlaceSelect(place)}
+                          style={{
+                            width: '100%', padding: '12px 16px', border: 'none', textAlign: 'left', cursor: 'pointer',
+                            backgroundColor: 'transparent', color: 'var(--color-textPrimary, #fff)', display: 'block',
+                            borderBottom: '1px solid var(--color-border, #222)',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bgElevated, #252540)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          <div style={{ fontWeight: '600', fontSize: '14px' }}>{place.name}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--color-textSecondary)', marginTop: '2px' }}>{place.address}</div>
+                        </button>
+                      ))}
+                      <div style={{ padding: '6px 16px', fontSize: '11px', color: 'var(--color-textMuted)', textAlign: 'center', borderTop: '1px solid var(--color-border, #222)' }}>
+                        Powered by Google Places
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {!isDemoMode() && !placeSelected && formData.restaurantName.length === 0 && (
+                  <div style={{ fontSize: '12px', color: 'var(--color-textMuted)', marginTop: '6px' }}>
+                    Search for your restaurant to auto-fill details from Google
+                  </div>
+                )}
+                {placeSelected && (
+                  <div style={{ fontSize: '12px', color: 'var(--color-success, #22c55e)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {loadingDetails ? 'Loading restaurant details...' : 'Restaurant details auto-filled from Google Places'}
+                  </div>
+                )}
+                {formData.address && (
+                  <div style={{ fontSize: '12px', color: 'var(--color-textSecondary)', marginTop: '4px' }}>
+                    {formData.address}
+                  </div>
+                )}
               </div>
 
               <div style={formGroupStyle}>
@@ -728,6 +892,12 @@ export default function PartnerOnboarding() {
                   <span style={reviewLabelStyle}>Cuisines</span>
                   <span style={reviewValueStyle}>{formData.cuisines.join(', ')}</span>
                 </div>
+                {formData.address && (
+                  <div style={reviewRowStyle}>
+                    <span style={reviewLabelStyle}>Address</span>
+                    <span style={reviewValueStyle}>{formData.address}</span>
+                  </div>
+                )}
                 <div style={reviewRowStyle}>
                   <span style={reviewLabelStyle}>Neighborhood</span>
                   <span style={reviewValueStyle}>{formData.neighborhood}</span>
@@ -768,8 +938,8 @@ export default function PartnerOnboarding() {
                 </div>
               </div>
 
-              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                <div style={{ fontSize: '14px', color: '#166534', lineHeight: '1.5' }}>
+              <div style={{ backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '14px', color: 'var(--color-success, #22c55e)', lineHeight: '1.5' }}>
                   ✓ You&rsquo;re all set! Creators can now discover your restaurant and drive new customers through tracked content partnerships &mdash; always free for restaurants, with measurable ROI on every deal.
                 </div>
               </div>
