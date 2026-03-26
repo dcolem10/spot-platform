@@ -806,20 +806,21 @@ export default function LandingPage() {
   const setDemoMode = useAuthStore((s) => s.setDemoMode);
   const navScrolled = useScrolledNav();
 
-  const enterDemo = useCallback(async (path: string) => {
+  const enterDemo = useCallback(async (path: string, role: 'creator' | 'partner' = 'creator') => {
     // Clear any stale Cognito session so demo mode doesn't conflict
     try {
       const { signOut } = await import('aws-amplify/auth');
       await signOut();
     } catch { /* no session to clear */ }
 
+    const isPartner = role === 'partner';
     setDemoMode(true);
     setAuth({
-      userId: 'demo-user',
-      email: 'demo@spot.app',
-      name: 'Demo Creator',
-      role: 'creator',
-      groups: ['creator'],
+      userId: isPartner ? 'demo-partner' : 'demo-user',
+      email: isPartner ? 'demo-restaurant@spot.app' : 'demo@spot.app',
+      name: isPartner ? 'Demo Restaurant' : 'Demo Creator',
+      role,
+      groups: [role],
       orgId: 'org-demo',
     });
     navigate(path);
@@ -900,7 +901,7 @@ export default function LandingPage() {
               </button>
             </div>
             <button
-              onClick={() => enterDemo('/app/partner')}
+              onClick={() => enterDemo('/app/partner', 'partner')}
               className="btn btn-secondary btn-lg"
             >
               I&rsquo;m a Restaurant &mdash; Join Free
@@ -1153,7 +1154,7 @@ export default function LandingPage() {
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
           <button
-            onClick={() => enterDemo('/app/partner')}
+            onClick={() => enterDemo('/app/partner', 'partner')}
             className="btn btn-primary btn-lg"
           >
             Explore the Restaurant View
@@ -1300,7 +1301,7 @@ export default function LandingPage() {
             </p>
           </div>
           <button
-            onClick={() => enterDemo('/app/partner')}
+            onClick={() => enterDemo('/app/partner', 'partner')}
             className="btn btn-primary"
             style={{ padding: 'var(--space-3) var(--space-6)', whiteSpace: 'nowrap' }}
           >

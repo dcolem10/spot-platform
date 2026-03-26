@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
+import { useAuthStore } from '../../store/authStore';
 
 const DC_NEIGHBORHOODS = [
   'Adams Morgan',
@@ -62,6 +63,7 @@ function getDefaultExpiryDate(): string {
 
 export default function PartnerOnboarding() {
   const navigate = useNavigate();
+  const setDemoOnboarded = useAuthStore((s) => s.setDemoOnboarded);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,7 +209,8 @@ export default function PartnerOnboarding() {
         setIsSubmitting(false);
       }
     } else {
-      // Demo mode - just navigate
+      // Demo mode - mark onboarding complete and navigate
+      setDemoOnboarded(true);
       navigate('/app/partner');
     }
   };
@@ -226,9 +229,9 @@ export default function PartnerOnboarding() {
   const wrapperStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: '560px',
-    backgroundColor: 'white',
+    backgroundColor: 'var(--color-bgCard, #1a1a2e)',
     borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
     padding: '40px',
   };
 
@@ -276,24 +279,28 @@ export default function PartnerOnboarding() {
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px',
-    border: '1px solid #d1d5db',
+    border: '1px solid var(--color-border, #333)',
     borderRadius: '8px',
     fontSize: '14px',
     fontFamily: 'inherit',
     boxSizing: 'border-box',
     transition: 'border-color 0.2s',
+    backgroundColor: 'var(--color-bgElevated, #252540)',
+    color: 'var(--color-textPrimary, #fff)',
   };
 
   const textareaStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px',
-    border: '1px solid #d1d5db',
+    border: '1px solid var(--color-border, #333)',
     borderRadius: '8px',
     fontSize: '14px',
     fontFamily: 'inherit',
     boxSizing: 'border-box',
     minHeight: '80px',
     resize: 'vertical',
+    backgroundColor: 'var(--color-bgElevated, #252540)',
+    color: 'var(--color-textPrimary, #fff)',
   };
 
   const charCounterStyle: React.CSSProperties = {
@@ -306,11 +313,13 @@ export default function PartnerOnboarding() {
   const selectStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px',
-    border: '1px solid #d1d5db',
+    border: '1px solid var(--color-border, #333)',
     borderRadius: '8px',
     fontSize: '14px',
     fontFamily: 'inherit',
     boxSizing: 'border-box',
+    backgroundColor: 'var(--color-bgElevated, #252540)',
+    color: 'var(--color-textPrimary, #fff)',
   };
 
   const sliderContainerStyle: React.CSSProperties = {
@@ -372,7 +381,7 @@ export default function PartnerOnboarding() {
 
   const qrCodeBoxStyle: React.CSSProperties = {
     backgroundColor: 'var(--color-bgSurface)',
-    border: '2px dashed #d1d5db',
+    border: '2px dashed var(--color-border, #333)',
     borderRadius: '8px',
     padding: '20px',
     textAlign: 'center',
@@ -395,7 +404,7 @@ export default function PartnerOnboarding() {
 
   const reviewBoxStyle: React.CSSProperties = {
     backgroundColor: 'var(--color-bgSurface)',
-    border: '1px solid #d1d5db',
+    border: '1px solid var(--color-border, #333)',
     borderRadius: '8px',
     padding: '20px',
     marginBottom: '24px',
@@ -406,7 +415,7 @@ export default function PartnerOnboarding() {
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingBottom: '12px',
-    borderBottom: '1px solid #e5e7eb',
+    borderBottom: '1px solid var(--color-border, #333)',
   };
 
   const reviewRowLastStyle: React.CSSProperties = {
@@ -438,8 +447,8 @@ export default function PartnerOnboarding() {
   const backButtonStyle: React.CSSProperties = {
     flex: 1,
     padding: '12px 24px',
-    border: '2px solid #d1d5db',
-    backgroundColor: 'white',
+    border: '2px solid var(--color-border, #333)',
+    backgroundColor: 'var(--color-bgElevated, #252540)',
     color: 'var(--color-textPrimary)',
     borderRadius: '8px',
     fontSize: '14px',
@@ -513,7 +522,7 @@ export default function PartnerOnboarding() {
           width: 100%;
           height: 6px;
           border-radius: 3px;
-          background: #e5e7eb;
+          background: var(--color-bgElevated, #252540);
           outline: none;
           -webkit-slider-thumb-appearance: none;
           appearance: none;
