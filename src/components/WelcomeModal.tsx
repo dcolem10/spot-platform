@@ -128,7 +128,7 @@ export function WelcomeModal() {
                 marginBottom: 'var(--space-8)',
               }}
             >
-              Spot connects food creators with restaurants through attribution — proving your content drives real traffic.
+              Spot connects food creators with restaurants for paid partnerships — and proves the ROI for both sides. You create content, we track every customer you send.
             </p>
           </div>
         )}
@@ -201,7 +201,7 @@ export function WelcomeModal() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Find restaurants that match your style
+                  Find restaurants open to paid partnerships
                 </div>
               </div>
 
@@ -250,7 +250,7 @@ export function WelcomeModal() {
                     lineHeight: 1.5,
                   }}
                 >
-                  Visit, create content, and set up tracking
+                  Create content, attach tracking, and get paid
                 </div>
               </div>
 
@@ -299,7 +299,7 @@ export function WelcomeModal() {
                     lineHeight: 1.5,
                   }}
                 >
-                  See exactly how many people you send
+                  Prove your ROI to command higher rates
                 </div>
               </div>
             </div>

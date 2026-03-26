@@ -289,13 +289,13 @@ export default function CreatorDashboard() {
     {
       label: 'New Campaign',
       icon: '+',
-      description: 'Create content for a restaurant',
+      description: 'Start a paid restaurant partnership',
       onClick: () => navigate('/app/campaigns'),
     },
     {
       label: 'Generate Report',
       icon: '\u{1F4CA}',
-      description: 'See your attribution impact',
+      description: 'Prove your ROI to restaurants',
       onClick: () => navigate('/app/reports'),
     },
     {
@@ -341,7 +341,7 @@ export default function CreatorDashboard() {
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
         <div>
           <h1 className="page-title">Creator Dashboard</h1>
-          <p className="page-subtitle">Your attribution overview at a glance</p>
+          <p className="page-subtitle">Your earnings and attribution overview at a glance</p>
         </div>
         {/* Stale data indicator + refresh */}
         {lastFetchedAt && (

@@ -34,8 +34,8 @@ export default function PrivacyPolicy() {
 
         <Section title="1. Who We Are">
           <P>
-            Spot Platform ("Spot," "we," "us," or "our") is a creator-first restaurant attribution platform
-            that helps food content creators track how their content drives real-world restaurant visits.
+            Spot Platform ("Spot," "we," "us," or "our") is a two-sided marketplace that connects food content
+            creators with restaurants for paid partnerships — tracking attribution from content to customer visit.
             This Privacy Policy explains how we collect, use, share, and protect your information when you
             use our website, application, and services (collectively, the "Service").
           </P>

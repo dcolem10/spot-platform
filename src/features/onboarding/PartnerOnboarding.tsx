@@ -557,9 +557,9 @@ export default function PartnerOnboarding() {
         </h1>
 
         <p style={subtitleStyle}>
-          {step === 1 && "Let's get your restaurant on Spot so creators can discover you and bring new customers."}
-          {step === 2 && 'Set up a deal that creators can share with their audience. Every redemption means a new customer for you.'}
-          {step === 3 && 'Review your restaurant and offer details before going live.'}
+          {step === 1 && "Let's get your restaurant on Spot — it's free. Creators will find you and drive measurable new customers to your door."}
+          {step === 2 && 'Set up a deal that creators can share with their audience. Every redemption is a tracked new customer for you.'}
+          {step === 3 && 'Review your restaurant and offer details before going live. You only pay for partnerships that deliver results.'}
         </p>
 
         {error && <div style={errorStyle}>{error}</div>}
@@ -761,7 +761,7 @@ export default function PartnerOnboarding() {
 
               <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
                 <div style={{ fontSize: '14px', color: '#166534', lineHeight: '1.5' }}>
-                  ✓ You&rsquo;re all set! Creators can now discover your restaurant and share your deal with their audience &mdash; new customers, no upfront cost.
+                  ✓ You&rsquo;re all set! Creators can now discover your restaurant and drive new customers through tracked content partnerships &mdash; always free for restaurants, with measurable ROI on every deal.
                 </div>
               </div>
             </>
