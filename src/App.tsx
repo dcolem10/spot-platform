@@ -26,6 +26,7 @@ const TermsOfService = lazy(() => import('./features/legal/TermsOfService'));
 
 // Onboarding
 const CreatorOnboarding = lazy(() => import('./features/onboarding/CreatorOnboarding'));
+const PartnerOnboarding = lazy(() => import('./features/onboarding/PartnerOnboarding'));
 
 // Partnerships & Restaurants
 const RestaurantDirectory = lazy(() => import('./features/concept1-platform/RestaurantDirectory'));
@@ -104,6 +105,13 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/* Route to the correct onboarding based on user role/group */
+function OnboardingRouter() {
+  const { isPartner } = useAuth();
+  if (isPartner) return <PartnerOnboarding />;
+  return <CreatorOnboarding />;
+}
+
 function AppFallback() {
   return (
     <div style={{ padding: 40 }}>
@@ -131,7 +139,7 @@ export default function App() {
               <Route path="/auth" element={<AuthPage />} />
 
               {/* Onboarding */}
-              <Route path="/onboarding" element={<RequireAuth><CreatorOnboarding /></RequireAuth>} />
+              <Route path="/onboarding" element={<RequireAuth><OnboardingRouter /></RequireAuth>} />
 
               {/* Dashboard routes */}
               <Route path="/app" element={<RequireAuth><OnboardingGuard><DashboardShell /></OnboardingGuard></RequireAuth>}>

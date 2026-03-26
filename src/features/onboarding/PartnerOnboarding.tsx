@@ -201,14 +201,14 @@ export default function PartnerOnboarding() {
         }
 
         setIsSubmitting(false);
-        navigate('/app/partner-portal');
+        navigate('/app/partner');
       } catch (err) {
         setError('An unexpected error occurred');
         setIsSubmitting(false);
       }
     } else {
       // Demo mode - just navigate
-      navigate('/app/partner-portal');
+      navigate('/app/partner');
     }
   };
 
