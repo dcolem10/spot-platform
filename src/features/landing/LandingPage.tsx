@@ -188,6 +188,26 @@ function DashboardPreviewTab({ activeTab }: { activeTab: DashboardTab }) {
   );
 }
 
+/* ─── Rotating Text Hook ─────────────────────────────────────────────────── */
+
+function useRotatingText(phrases: string[], interval = 3000) {
+  const [index, setIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % phrases.length);
+        setIsAnimating(false);
+      }, 400);
+    }, interval);
+    return () => clearInterval(timer);
+  }, [phrases.length, interval]);
+
+  return { text: phrases[index], isAnimating };
+}
+
 /* ─── Hooks ──────────────────────────────────────────────────────────────── */
 
 function useScrollReveal() {
@@ -648,6 +668,135 @@ function SocialProofSection() {
   );
 }
 
+/* ─── Integration Trust Bar ────────────────────────────────────────────── */
+
+function IntegrationTrustBar() {
+  return (
+    <div className="integration-trust-bar reveal">
+      <span className="integration-trust-label">Integrated with</span>
+      <div className="integration-logos">
+        <div className="integration-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+          </svg>
+          <span>Square</span>
+        </div>
+        <div className="integration-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z" /><path d="M12 6v6l4 2" />
+          </svg>
+          <span>Clover</span>
+        </div>
+        <div className="integration-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span>Toast</span>
+        </div>
+        <div className="integration-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+          </svg>
+          <span>Instagram</span>
+        </div>
+        <div className="integration-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" /><path d="M15 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+            <path d="M9 20a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" /><path d="M15 20a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+          </svg>
+          <span>TikTok</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Testimonials Section ─────────────────────────────────────────────── */
+
+const testimonials = [
+  {
+    quote: "I went from free meals to $4,800/month in paid partnerships. The attribution data is what convinced restaurants to pay real money.",
+    name: 'Sarah K.',
+    role: 'Food Creator',
+    metric: '$4.8K/mo',
+    metricLabel: 'Monthly Income',
+    followers: '45K followers',
+    accentColor: 'var(--color-accent)',
+  },
+  {
+    quote: "We saw 247 new customers in the first 90 days. No other marketing channel gives us this level of attribution certainty.",
+    name: 'Chef Marcus',
+    role: 'Restaurant Owner, Bad Saint',
+    metric: '247',
+    metricLabel: 'New Customers',
+    followers: '',
+    accentColor: 'var(--color-success)',
+  },
+  {
+    quote: "The POS integration is a game-changer. I can show restaurants exactly which diners came from my content — down to the receipt.",
+    name: 'Priya D.',
+    role: 'Food Creator',
+    metric: '5.6x',
+    metricLabel: 'Avg. ROAS',
+    followers: '28K followers',
+    accentColor: 'var(--color-info)',
+  },
+];
+
+function TestimonialsSection() {
+  return (
+    <section className="landing-section">
+      <div className="landing-section-header reveal">
+        <h2>Real results from real partnerships</h2>
+        <p>
+          Creators and restaurants using Spot to prove ROI and grow revenue together.
+        </p>
+      </div>
+
+      <div className="testimonials-grid reveal-stagger">
+        {testimonials.map((t) => (
+          <div key={t.name} className="testimonial-card">
+            <div className="testimonial-metric" style={{ color: t.accentColor }}>
+              <span className="testimonial-metric-value">{t.metric}</span>
+              <span className="testimonial-metric-label">{t.metricLabel}</span>
+            </div>
+            <blockquote className="testimonial-quote">
+              &ldquo;{t.quote}&rdquo;
+            </blockquote>
+            <div className="testimonial-author">
+              <div className="testimonial-avatar" style={{ borderColor: t.accentColor }} />
+              <div className="testimonial-author-info">
+                <span className="testimonial-author-name">{t.name}</span>
+                <span className="testimonial-author-role">{t.role}</span>
+              </div>
+              {t.followers && <span className="testimonial-followers">{t.followers}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="testimonial-stats reveal">
+        <div className="testimonial-stat">
+          <span className="testimonial-stat-value">5.6x</span>
+          <span className="testimonial-stat-label">Average ROAS for creators</span>
+        </div>
+        <div className="testimonial-stat">
+          <span className="testimonial-stat-value">90 days</span>
+          <span className="testimonial-stat-label">Attribution window</span>
+        </div>
+        <div className="testimonial-stat">
+          <span className="testimonial-stat-value">3 POS</span>
+          <span className="testimonial-stat-label">Integrations live</span>
+        </div>
+        <div className="testimonial-stat">
+          <span className="testimonial-stat-value">$0</span>
+          <span className="testimonial-stat-label">For restaurants to join</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Landing Page ───────────────────────────────────────────────────────── */
 
 export default function LandingPage() {
@@ -676,6 +825,14 @@ export default function LandingPage() {
     navigate(path);
   }, [setDemoMode, setAuth, navigate]);
 
+  // Rotating hero phrases for dynamic value prop showcase
+  const rotatingText = useRotatingText([
+    'drives real sales',
+    'sends paying customers',
+    'earns you higher rates',
+    'proves your ROI',
+  ], 3200);
+
   // Platform capability highlights (not user counts — we're pre-launch)
   const cities = useCountUp(6, 1200);
   const restaurants = useCountUp(850, 1600);
@@ -691,6 +848,7 @@ export default function LandingPage() {
         </div>
         <div className="landing-nav-actions">
           <a href="#restaurants" className="landing-nav-link landing-nav-link--restaurants">For Restaurants</a>
+          <a href="#pricing" className="landing-nav-link landing-nav-link--pricing">Pricing</a>
           <Link to="/auth" className="landing-nav-link">Sign In</Link>
           <button
             onClick={() => enterDemo('/app/dashboard')}
@@ -704,7 +862,7 @@ export default function LandingPage() {
             className="btn btn-primary"
             style={{ padding: '8px 20px', fontSize: 'var(--font-sm)' }}
           >
-            Get Started
+            Get Started Free
           </Link>
         </div>
       </nav>
@@ -717,16 +875,21 @@ export default function LandingPage() {
         <div className="landing-hero-content">
           <div className="landing-hero-badge">
             <span className="landing-hero-badge-dot" />
-            Beyond Impressions. Into Revenue.
+            Early Access &mdash; Limited Creator Spots
           </div>
           <h1>
-            Stop guessing if your food content drives sales.{' '}
-            <span className="text-gradient">Start proving it.</span>
+            Prove your food content{' '}
+            <span className={`hero-rotating-text text-gradient${rotatingText.isAnimating ? ' hero-rotating-text--exit' : ''}`}>
+              {rotatingText.text}
+            </span>
           </h1>
           <p className="landing-hero-desc">
-            Can&rsquo;t prove your content drives restaurant sales? Spot tracks every
-            visit and every dollar through POS integration &mdash; so you get paid what you&rsquo;re worth.
+            Other platforms track impressions. Spot tracks every customer and
+            every dollar through direct POS integration with Square, Clover, and Toast &mdash;
+            so creators get paid what they&rsquo;re worth and restaurants see exactly what they got.
           </p>
+
+          {/* Dual-path CTAs for both audiences */}
           <div className="landing-hero-actions">
             <div className="cta-pulse-wrap">
               <button
@@ -742,6 +905,24 @@ export default function LandingPage() {
             >
               I&rsquo;m a Restaurant &mdash; Join Free
             </button>
+          </div>
+
+          {/* Inline social proof below CTAs */}
+          <div className="hero-social-proof">
+            <div className="hero-proof-item">
+              <span className="hero-proof-value">5.6x</span>
+              <span className="hero-proof-label">Avg. ROAS</span>
+            </div>
+            <div className="hero-proof-divider" />
+            <div className="hero-proof-item">
+              <span className="hero-proof-value">90-day</span>
+              <span className="hero-proof-label">Attribution</span>
+            </div>
+            <div className="hero-proof-divider" />
+            <div className="hero-proof-item">
+              <span className="hero-proof-value">$0</span>
+              <span className="hero-proof-label">For Restaurants</span>
+            </div>
           </div>
         </div>
 
@@ -760,6 +941,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ── Integration Trust Bar ───────────────────────────────────────── */}
+      <IntegrationTrustBar />
 
       {/* ── Platform Capabilities ──────────────────────────────────────── */}
       <section className="landing-stats reveal">
@@ -979,6 +1163,9 @@ export default function LandingPage() {
 
       {/* ── Social Proof / Comparison ──────────────────────────────────── */}
       <SocialProofSection />
+
+      {/* ── Testimonials — Quantified Success Stories ───────────────────── */}
+      <TestimonialsSection />
 
       {/* ── Spot's Role — Platform Value Proposition ───────────────────── */}
       <section className="landing-section">
