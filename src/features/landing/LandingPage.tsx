@@ -534,7 +534,7 @@ const pricingTiers = [
     name: 'Scale',
     price: '$149',
     description: 'For creator teams running a full content business with multiple revenue streams.',
-    features: ['Everything in Pro', 'Team member access', 'White-label reports for restaurants', 'API access', 'Priority support'],
+    features: ['Everything in Pro', 'Add team members or a manager', 'Branded reports to share with restaurants', 'Export data to your own tools', 'Priority support'],
   },
 ];
 
@@ -591,37 +591,37 @@ function SocialProofSection() {
   return (
     <section className="landing-section">
       <div className="landing-section-header reveal">
-        <h2>What sets Spot apart</h2>
-        <p>Other platforms track clicks and impressions. Spot tracks actual revenue through direct POS integration.</p>
+        <h2>Why food creators switch to Spot</h2>
+        <p>You already know your content brings in customers. Now you can prove it with real sales data &mdash; not just clicks and impressions.</p>
       </div>
 
       <div className="comparison-grid reveal-stagger">
         <div className="comparison-card comparison-card--others">
           <div className="comparison-card-header">
-            <span className="comparison-card-label">Other Platforms</span>
+            <span className="comparison-card-label">Sound familiar?</span>
           </div>
           <ul className="comparison-list comparison-list--negative">
-            <li>Link-click attribution only</li>
-            <li>7-day attribution windows</li>
-            <li>Discount code dependent</li>
-            <li>No POS integration</li>
-            <li>Agencies manage campaigns</li>
-            <li>Revenue estimates, not actuals</li>
+            <li>I can show clicks, but restaurants want to see actual sales</li>
+            <li>Attribution expires after a week &mdash; but people visit weeks later</li>
+            <li>I have to beg restaurants to use my promo code</li>
+            <li>An agency takes a cut and I never talk to the restaurant</li>
+            <li>My reports show estimates, not real revenue numbers</li>
+            <li>I have no idea if the restaurant is actually tracking my customers</li>
           </ul>
         </div>
 
         <div className="comparison-card comparison-card--spot">
           <div className="comparison-card-header">
             <div className="comparison-card-logo-mark">S</div>
-            <span className="comparison-card-label">Spot Platform</span>
+            <span className="comparison-card-label">How Spot fixes it</span>
           </div>
           <ul className="comparison-list comparison-list--positive">
-            <li>POS-verified transaction attribution</li>
-            <li>90-day attribution windows</li>
-            <li>QR codes + POS &mdash; no codes needed</li>
-            <li>Square, Clover, Toast integration</li>
-            <li>Direct creator-restaurant partnerships</li>
-            <li>Real revenue from real receipts</li>
+            <li>Every sale tracked back to your content through the restaurant&rsquo;s POS</li>
+            <li>Credit for sales up to 90 days after your post</li>
+            <li>QR codes or automatic POS tracking &mdash; no promo codes needed</li>
+            <li>You work directly with the restaurant &mdash; no agency middleman</li>
+            <li>Real revenue from real receipts, not estimates</li>
+            <li>Square, Clover, and Toast integration you can verify yourself</li>
           </ul>
         </div>
       </div>
@@ -629,19 +629,19 @@ function SocialProofSection() {
       <div className="trust-signals reveal">
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x1F4B3;</span>
-          <span>POS-Verified Attribution</span>
+          <span>Every Sale Tracked</span>
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x1F512;</span>
-          <span>First-Party Tracking</span>
+          <span>Your Data, Your Control</span>
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x26A1;</span>
-          <span>Real-Time Tracking</span>
+          <span>Real-Time Results</span>
         </div>
         <div className="trust-signal">
           <span className="trust-signal-icon">&#x1F4CA;</span>
-          <span>90-Day Windows</span>
+          <span>90-Day Attribution</span>
         </div>
       </div>
     </section>
@@ -664,13 +664,14 @@ export default function LandingPage() {
       await signOut();
     } catch { /* no session to clear */ }
 
+    const isPartnerDemo = path.includes('/partner');
     setDemoMode(true);
     setAuth({
       userId: 'demo-user',
       email: 'demo@spot.app',
-      name: 'Demo Creator',
-      role: 'creator',
-      groups: ['creator'],
+      name: isPartnerDemo ? 'Demo Restaurant' : 'Demo Creator',
+      role: isPartnerDemo ? 'partner' : 'creator',
+      groups: isPartnerDemo ? ['partner'] : ['creator'],
       orgId: 'org-demo',
     });
     navigate(path);
@@ -679,7 +680,7 @@ export default function LandingPage() {
   // Platform capability highlights (not user counts — we're pre-launch)
   const cities = useCountUp(6, 1200);
   const restaurants = useCountUp(850, 1600);
-  const features = useCountUp(19, 1000);
+  const posIntegrations = useCountUp(3, 1000);
 
   return (
     <div ref={rootRef} style={{ minHeight: '100vh', background: 'var(--color-bgPrimary)' }}>
@@ -717,32 +718,36 @@ export default function LandingPage() {
         <div className="landing-hero-content">
           <div className="landing-hero-badge">
             <span className="landing-hero-badge-dot" />
-            Beyond Impressions. Into Revenue.
+            The restaurant partnership platform for food creators
           </div>
           <h1>
-            Stop guessing if your food content drives sales.{' '}
-            <span className="text-gradient">Start proving it.</span>
+            Food creators prove ROI. Restaurants pay for results.{' '}
+            <span className="text-gradient">Everyone wins.</span>
           </h1>
           <p className="landing-hero-desc">
-            Can&rsquo;t prove your content drives restaurant sales? Spot tracks every
-            visit and every dollar through POS integration &mdash; so you get paid what you&rsquo;re worth.
+            Spot connects food creators with restaurants and tracks every customer visit
+            through POS integration &mdash; so creators prove their worth and restaurants
+            see exactly what they&rsquo;re paying for.
           </p>
           <div className="landing-hero-actions">
             <div className="cta-pulse-wrap">
-              <button
-                onClick={() => enterDemo('/app/dashboard')}
+              <Link
+                to="/auth?mode=signUp"
                 className="btn btn-gradient btn-lg"
               >
-                Start Landing Paid Deals
-              </button>
+                Create Your Free Account
+              </Link>
             </div>
             <button
-              onClick={() => enterDemo('/app/partner')}
+              onClick={() => enterDemo('/app/dashboard')}
               className="btn btn-secondary btn-lg"
             >
-              I&rsquo;m a Restaurant &mdash; Join Free
+              Explore the Platform
             </button>
           </div>
+          <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-2)' }}>
+            No credit card required &middot; Restaurants always join free
+          </p>
         </div>
 
         {/* Right: Floating dashboard mockup */}
@@ -772,8 +777,8 @@ export default function LandingPage() {
           <div className="landing-stat-label">Restaurants Open to Partnerships</div>
         </div>
         <div className="landing-stat">
-          <div className="landing-stat-value"><span ref={features.ref}>{features.value}</span></div>
-          <div className="landing-stat-label">Built-In Tools</div>
+          <div className="landing-stat-value"><span ref={posIntegrations.ref}>{posIntegrations.value}</span></div>
+          <div className="landing-stat-label">POS Integrations (Square, Clover, Toast)</div>
         </div>
       </section>
 
@@ -848,8 +853,8 @@ export default function LandingPage() {
         <div className="landing-section-header reveal">
           <h2>Creators: turn your food content into a real income</h2>
           <p>
-            Stop guessing whether your posts drive customers. Spot gives you the
-            attribution data to command higher rates and the pipeline to keep deals flowing.
+            Find restaurants that pay, prove your content drives real customers, and keep a
+            steady pipeline of deals &mdash; without chasing invoices or negotiating in DMs.
           </p>
         </div>
 
@@ -909,10 +914,10 @@ export default function LandingPage() {
       {/* ── Restaurant Value: Measurable New Customers ─────────────────── */}
       <section id="restaurants" className="landing-section landing-section--alt">
         <div className="landing-section-header reveal">
-          <h2>Restaurants: free to join, built to prove ROI</h2>
+          <h2>Restaurants join Spot for free. Period.</h2>
           <p>
-            Spot is free for restaurants. You only invest in creator partnerships
-            that deliver measurable results &mdash; and you see the data before you spend a dime.
+            No subscription. No setup fee. You only pay for creator partnerships that deliver
+            measurable new customers &mdash; and you see the full ROI data before you spend again.
           </p>
         </div>
 
@@ -921,8 +926,9 @@ export default function LandingPage() {
           <BentoCard className="bento-card--large bento-card--hero bento-card--glow-green">
             <h3>Attribution Dashboard</h3>
             <p>
-              See exactly how many new customers each creator sent you and how much they spent.
-              Tracked through QR codes, promo codes, and POS integration with Square and Clover.
+              See exactly how many new customers each creator sent you, what they spent,
+              and your cost per new customer. Tracked automatically through your existing
+              Square, Clover, or Toast POS &mdash; no new hardware, no staff training.
             </p>
             <MiniROIDashboard />
           </BentoCard>
@@ -936,9 +942,9 @@ export default function LandingPage() {
             </p>
             <div className="mini-restaurant-list">
               {[
-                { emoji: '\u{1F4F8}', name: 'Sarah K.', area: '45K followers', bg: 'var(--color-accentMuted)' },
-                { emoji: '\u{1F3AC}', name: 'Marcus T.', area: '120K followers', bg: 'var(--color-successMuted)' },
-                { emoji: '\u{2B50}', name: 'Priya D.', area: '28K followers', bg: 'var(--color-warningMuted)' },
+                { emoji: '\u{1F4F8}', name: 'Sarah K.', area: '45K followers \u00B7 89 avg. visits \u00B7 4.2x ROAS', bg: 'var(--color-accentMuted)' },
+                { emoji: '\u{1F3AC}', name: 'Marcus T.', area: '120K followers \u00B7 156 avg. visits \u00B7 5.1x ROAS', bg: 'var(--color-successMuted)' },
+                { emoji: '\u{2B50}', name: 'Priya D.', area: '28K followers \u00B7 62 avg. visits \u00B7 3.8x ROAS', bg: 'var(--color-warningMuted)' },
               ].map((r) => (
                 <div key={r.name} className="mini-restaurant-row">
                   <div className="mini-restaurant-avatar" style={{ background: r.bg }}>
@@ -956,7 +962,21 @@ export default function LandingPage() {
             <div className="pay-for-results-inner">
               <div>
                 <h3>Pay for Results, Not Promises</h3>
-                <p>You set the partnership terms upfront. Review and approve all content before it publishes. After it goes live, Spot tracks every customer via QR codes, promo codes, and POS integration. You see the full attribution report before deciding to continue.</p>
+                <p style={{ marginBottom: 'var(--space-3)' }}>You set the terms. You approve the content. You see the results.</p>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                    <span style={{ color: 'var(--color-success)' }}>&#x2713;</span> Review content before it goes live
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                    <span style={{ color: 'var(--color-success)' }}>&#x2713;</span> Track every customer via POS &mdash; no new hardware
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                    <span style={{ color: 'var(--color-success)' }}>&#x2713;</span> See full ROI reports before spending again
+                  </li>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                    <span style={{ color: 'var(--color-success)' }}>&#x2713;</span> No commitment &mdash; pause anytime
+                  </li>
+                </ul>
               </div>
               <div className="save-tags">
                 {['Content Approval', 'QR Tracking', 'POS Integration', 'ROI Reports'].map((tag) => (
@@ -968,11 +988,18 @@ export default function LandingPage() {
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
-          <button
-            onClick={() => enterDemo('/app/partner')}
+          <Link
+            to="/auth?mode=signUp&role=partner"
             className="btn btn-primary btn-lg"
           >
-            Explore the Restaurant View
+            Join Free as a Restaurant
+          </Link>
+          <button
+            onClick={() => enterDemo('/app/partner')}
+            className="btn btn-secondary btn-lg"
+            style={{ marginLeft: 'var(--space-3)' }}
+          >
+            See Restaurant Demo
           </button>
         </div>
       </section>
@@ -1022,7 +1049,7 @@ export default function LandingPage() {
             </div>
             <ul className="value-prop-list">
               <li>Get measurable new customers, not just impressions</li>
-              <li>POS integration (Square, Clover) tracks actual transactions</li>
+              <li>POS integration (Square, Clover, Toast) tracks actual transactions</li>
               <li>Approve content before it goes live</li>
               <li>Always free to join &mdash; pay only for results</li>
             </ul>
@@ -1056,6 +1083,9 @@ export default function LandingPage() {
           <p>
             The tools to land restaurant deals, prove your impact, and grow your income.
             Try the full demo free &mdash; subscribe when you land your first partnership.
+          </p>
+          <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-success)', marginTop: 'var(--space-2)', fontWeight: 600 }}>
+            Restaurant owner? Spot is always free for you &mdash; <a href="#restaurants" style={{ color: 'var(--color-success)', textDecoration: 'underline' }}>see details</a>
           </p>
         </div>
 
@@ -1092,13 +1122,23 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <button
-                onClick={() => enterDemo('/app/dashboard')}
-                className={`btn ${tier.highlighted ? 'btn-gradient' : 'btn-secondary'}`}
-                style={{ width: '100%', textAlign: 'center', display: 'block', padding: 'var(--space-3) var(--space-5)' }}
-              >
-                {tier.highlighted ? 'Get Started' : 'Try Creator Demo'}
-              </button>
+              {tier.highlighted ? (
+                <Link
+                  to="/auth?mode=signUp"
+                  className="btn btn-gradient"
+                  style={{ width: '100%', textAlign: 'center', display: 'block', padding: 'var(--space-3) var(--space-5)' }}
+                >
+                  Get Started Free
+                </Link>
+              ) : (
+                <button
+                  onClick={() => enterDemo('/app/dashboard')}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', textAlign: 'center', display: 'block', padding: 'var(--space-3) var(--space-5)' }}
+                >
+                  Try Creator Demo
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -1112,13 +1152,46 @@ export default function LandingPage() {
               No subscription. No upfront cost. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.
             </p>
           </div>
-          <button
-            onClick={() => enterDemo('/app/partner')}
+          <Link
+            to="/auth?mode=signUp&role=partner"
             className="btn btn-primary"
             style={{ padding: 'var(--space-3) var(--space-6)', whiteSpace: 'nowrap' }}
           >
-            Get Started Free
-          </button>
+            Join Free as a Restaurant
+          </Link>
+        </div>
+      </section>
+
+      {/* ── FAQ ───────────────────────────────────────────────────────── */}
+      <section className="landing-section">
+        <div className="landing-section-header reveal">
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div className="faq-grid reveal-stagger">
+          <div className="faq-item">
+            <h3 className="faq-question">Do I need a minimum follower count?</h3>
+            <p className="faq-answer">No minimum. Spot values engagement and attribution over raw follower counts. If your content drives customers to restaurants, Spot will help you prove it regardless of audience size.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">How do I get my first restaurant deal?</h3>
+            <p className="faq-answer">Browse the restaurant directory, find places you genuinely love, and send a partnership proposal directly through Spot. You set your rate, deliverables, and timeline.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">Is Spot really free for restaurants?</h3>
+            <p className="faq-answer">Yes. Restaurants never pay a subscription or setup fee. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">What if I don&rsquo;t like the content a creator makes?</h3>
+            <p className="faq-answer">Restaurants review and approve all content before it goes live. You always have final say over what gets published about your business.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">How does POS integration work?</h3>
+            <p className="faq-answer">Connect your Square, Clover, or Toast account in under 2 minutes. Spot uses read-only access to match customer visits to creator content &mdash; no new hardware, no staff training, no disruption to service.</p>
+          </div>
+          <div className="faq-item">
+            <h3 className="faq-question">Can I use Spot alongside my existing brand deals?</h3>
+            <p className="faq-answer">Absolutely. Spot is specifically for restaurant partnerships. Your existing brand deals, sponsorships, and agency relationships stay exactly as they are.</p>
+          </div>
         </div>
       </section>
 
@@ -1128,6 +1201,7 @@ export default function LandingPage() {
           <span>&copy; {new Date().getFullYear()} Spot Platform. All rights reserved.</span>
           <div className="landing-footer-links">
             <a href="#pricing" className="landing-footer-link">Pricing</a>
+            <a href="#restaurants" className="landing-footer-link">For Restaurants</a>
             <button
               onClick={() => enterDemo('/app/dashboard')}
               className="landing-footer-link"
