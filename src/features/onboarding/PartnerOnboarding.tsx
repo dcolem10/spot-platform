@@ -1,25 +1,59 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
 
-const DC_NEIGHBORHOODS = [
-  'Adams Morgan',
-  'Capitol Hill',
-  'Chinatown/Penn Quarter',
-  'Columbia Heights',
-  'Dupont Circle',
-  'Foggy Bottom',
-  'Georgetown',
-  'H Street NE',
-  'Logan Circle',
-  'Navy Yard',
-  'NoMa',
-  'Petworth',
-  'Shaw',
-  'U Street',
-  'Brookland',
+const CITY_OPTIONS = [
+  'Washington, DC',
+  'Baltimore, MD',
+  'Arlington, VA',
+  'Alexandria, VA',
+  'New York, NY',
+  'Atlanta, GA',
+  'Chicago, IL',
+  'Los Angeles, CA',
+  'Miami, FL',
 ];
+
+const NEIGHBORHOODS_BY_CITY: Record<string, string[]> = {
+  'Washington, DC': [
+    'Adams Morgan', 'Capitol Hill', 'Chinatown/Penn Quarter', 'Columbia Heights',
+    'Dupont Circle', 'Foggy Bottom', 'Georgetown', 'H Street NE', 'Logan Circle',
+    'Navy Yard', 'NoMa', 'Petworth', 'Shaw', 'U Street', 'Brookland'
+  ],
+  'Baltimore, MD': [
+    'Fells Point', 'Federal Hill', 'Inner Harbor', 'Canton', 'Mount Vernon',
+    'Hampden', 'Station North', 'Locust Point'
+  ],
+  'Arlington, VA': [
+    'Clarendon', 'Ballston', 'Rosslyn', 'Crystal City', 'Pentagon City',
+    'Shirlington', 'Columbia Pike', 'Courthouse'
+  ],
+  'Alexandria, VA': [
+    'Old Town', 'Del Ray', 'Carlyle', 'Eisenhower', 'Potomac Yard',
+    'Seminary Hill', 'Rosemont'
+  ],
+  'New York, NY': [
+    'Manhattan', 'Brooklyn', 'Queens', 'Williamsburg', 'SoHo',
+    'East Village', 'West Village', 'Harlem', 'Chelsea', 'Lower East Side'
+  ],
+  'Atlanta, GA': [
+    'Midtown', 'Buckhead', 'Old Fourth Ward', 'Inman Park', 'Decatur',
+    'West Midtown', 'Poncey-Highland', 'Virginia-Highland'
+  ],
+  'Chicago, IL': [
+    'River North', 'Wicker Park', 'Logan Square', 'West Loop', 'Lincoln Park',
+    'Pilsen', 'Chinatown', 'Andersonville'
+  ],
+  'Los Angeles, CA': [
+    'Silver Lake', 'West Hollywood', 'Santa Monica', 'Downtown', 'Koreatown',
+    'Echo Park', 'Venice', 'Highland Park'
+  ],
+  'Miami, FL': [
+    'Wynwood', 'Brickell', 'Little Havana', 'Coconut Grove', 'Design District',
+    'South Beach', 'Coral Gables'
+  ],
+};
 
 const CUISINES = [
   'American', 'Italian', 'Ethiopian', 'Mexican', 'Japanese', 'Chinese',
@@ -35,6 +69,7 @@ const OFFER_TYPES = [
 
 interface FormData {
   restaurantName: string;
+  city: string;
   cuisines: string[];
   neighborhood: string;
   phone: string;
@@ -69,6 +104,7 @@ export default function PartnerOnboarding() {
 
   const [formData, setFormData] = useState<FormData>({
     restaurantName: '',
+    city: 'Washington, DC',
     cuisines: [],
     neighborhood: '',
     phone: '',
@@ -78,6 +114,40 @@ export default function PartnerOnboarding() {
     offerType: 'percentage',
     expiryDate: getDefaultExpiryDate(),
   });
+
+  const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+  const cityInputRef = useRef<HTMLDivElement>(null);
+
+  const handleCityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, city: value, neighborhood: '' }));
+    if (value.length > 0) {
+      const filtered = CITY_OPTIONS.filter(c =>
+        c.toLowerCase().includes(value.toLowerCase())
+      );
+      setCitySuggestions(filtered);
+      setShowCitySuggestions(filtered.length > 0);
+    } else {
+      setCitySuggestions(CITY_OPTIONS);
+      setShowCitySuggestions(true);
+    }
+  };
+
+  const selectCity = (city: string) => {
+    setFormData(prev => ({ ...prev, city, neighborhood: '' }));
+    setShowCitySuggestions(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cityInputRef.current && !cityInputRef.current.contains(e.target as Node)) {
+        setShowCitySuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleRestaurantNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, restaurantName: e.target.value }));
@@ -596,19 +666,72 @@ export default function PartnerOnboarding() {
               </div>
 
               <div style={formGroupStyle}>
+                <label style={labelStyle}>City *</label>
+                <div ref={cityInputRef} style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    style={inputStyle}
+                    placeholder="Start typing a city..."
+                    value={formData.city}
+                    onChange={handleCityInputChange}
+                    onFocus={() => {
+                      const filtered = formData.city
+                        ? CITY_OPTIONS.filter(c => c.toLowerCase().includes(formData.city.toLowerCase()))
+                        : CITY_OPTIONS;
+                      setCitySuggestions(filtered);
+                      setShowCitySuggestions(true);
+                    }}
+                    autoComplete="off"
+                  />
+                  {showCitySuggestions && citySuggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                      background: 'rgba(17, 17, 25, 0.95)', backdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
+                      overflow: 'hidden', zIndex: 20, boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                    }}>
+                      {citySuggestions.map((city) => (
+                        <button
+                          key={city}
+                          type="button"
+                          onClick={() => selectCity(city)}
+                          style={{
+                            display: 'block', width: '100%', padding: '12px 16px',
+                            background: city === formData.city ? 'rgba(249,115,22,0.15)' : 'none',
+                            border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            color: city === formData.city ? '#fb923c' : '#c8cdd8',
+                            fontWeight: city === formData.city ? 600 : 400,
+                            fontSize: 15, fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer'
+                          }}
+                        >
+                          {city}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={formGroupStyle}>
                 <label style={labelStyle}>Neighborhood *</label>
-                <select
-                  style={selectStyle}
-                  value={formData.neighborhood}
-                  onChange={handleNeighborhoodChange}
-                >
-                  <option value="">Select a neighborhood</option>
-                  {DC_NEIGHBORHOODS.map((neighborhood) => (
-                    <option key={neighborhood} value={neighborhood}>
-                      {neighborhood}
-                    </option>
-                  ))}
-                </select>
+                {(NEIGHBORHOODS_BY_CITY[formData.city] || []).length > 0 ? (
+                  <select
+                    style={selectStyle}
+                    value={formData.neighborhood}
+                    onChange={handleNeighborhoodChange}
+                  >
+                    <option value="">Select a neighborhood</option>
+                    {(NEIGHBORHOODS_BY_CITY[formData.city] || []).map((neighborhood) => (
+                      <option key={neighborhood} value={neighborhood}>
+                        {neighborhood}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p style={{ fontSize: 14, color: '#5e6480' }}>
+                    Select a supported city above to see neighborhoods
+                  </p>
+                )}
               </div>
 
               <div style={formGroupStyle}>
