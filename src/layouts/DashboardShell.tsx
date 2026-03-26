@@ -88,6 +88,13 @@ const creatorMobileNavItems: NavItem[] = [
   { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
 ];
 
+const partnerMobileNavItems: NavItem[] = [
+  { to: '/app/partner', label: 'Home', icon: '\u2302' },
+  { to: '/app/partner/proposals', label: 'Proposals', icon: '📩' },
+  { to: '/app/partner/campaigns', label: 'Campaigns', icon: '\uD83D\uDCC8' },
+  { to: '/app/partner/offers', label: 'Offers', icon: '\uD83C\uDF9F' },
+];
+
 const audienceMobileNavItems: NavItem[] = [
   { to: '/app/restaurants', label: 'Discover', icon: '\uD83D\uDD0D' },
   { to: '/app/deals', label: 'Deals', icon: '\u2B50' },
@@ -257,7 +264,7 @@ export default function DashboardShell() {
 
       <nav className="mobile-nav">
         <div className="mobile-nav-items">
-          {(viewMode === 'audience' ? audienceMobileNavItems : creatorMobileNavItems).map((item) => (
+          {(viewMode === 'audience' ? audienceMobileNavItems : effectiveRole === 'partner' ? partnerMobileNavItems : creatorMobileNavItems).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

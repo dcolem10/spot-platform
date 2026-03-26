@@ -655,6 +655,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setDemoMode = useAuthStore((s) => s.setDemoMode);
+  const setDemoOnboarded = useAuthStore((s) => s.setDemoOnboarded);
   const navScrolled = useScrolledNav();
 
   const enterDemo = useCallback(async (path: string) => {
@@ -666,6 +667,7 @@ export default function LandingPage() {
 
     const isPartnerDemo = path.includes('/partner');
     setDemoMode(true);
+    setDemoOnboarded(false); // Reset so new demo session goes through onboarding
     setAuth({
       userId: 'demo-user',
       email: 'demo@spot.app',
@@ -675,7 +677,7 @@ export default function LandingPage() {
       orgId: 'org-demo',
     });
     navigate(path);
-  }, [setDemoMode, setAuth, navigate]);
+  }, [setDemoMode, setDemoOnboarded, setAuth, navigate]);
 
   // Platform capability highlights (not user counts — we're pre-launch)
   const cities = useCountUp(6, 1200);

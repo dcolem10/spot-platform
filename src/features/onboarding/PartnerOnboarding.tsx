@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
+import { useAuthStore } from '../../store/authStore';
 
 const CITY_OPTIONS = [
   'Washington, DC',
@@ -271,14 +272,25 @@ export default function PartnerOnboarding() {
         }
 
         setIsSubmitting(false);
-        navigate('/app/partner-portal');
+        navigate('/app/partner');
       } catch (err) {
         setError('An unexpected error occurred');
         setIsSubmitting(false);
       }
     } else {
-      // Demo mode - just navigate
-      navigate('/app/partner-portal');
+      // Demo mode — save profile and mark onboarding complete
+      const store = useAuthStore.getState();
+      store.setDemoProfile({
+        displayName: formData.restaurantName,
+        city: formData.city,
+        neighborhoods: [formData.neighborhood],
+        cuisinePreferences: formData.cuisines,
+        creatorType: 'food',
+        followerCount: 0,
+        socialLinks: { instagram: '', tiktok: '', youtube: '', website: formData.website },
+      });
+      store.setDemoOnboarded(true);
+      navigate('/app/partner');
     }
   };
 

@@ -26,6 +26,7 @@ const TermsOfService = lazy(() => import('./features/legal/TermsOfService'));
 
 // Onboarding
 const CreatorOnboarding = lazy(() => import('./features/onboarding/CreatorOnboarding'));
+const PartnerOnboarding = lazy(() => import('./features/onboarding/PartnerOnboarding'));
 
 // Partnerships & Restaurants
 const RestaurantDirectory = lazy(() => import('./features/concept1-platform/RestaurantDirectory'));
@@ -82,8 +83,11 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   const demoOnboarded = useAuthStore((s) => s.demoOnboarded);
 
   useEffect(() => {
+    // Reset state at start of each evaluation to prevent stale redirects
+    setNeedsOnboarding(false);
+    setChecking(true);
+
     if (storeIsDemoMode) {
-      // Demo users still need to go through onboarding once
       if (!demoOnboarded) {
         setNeedsOnboarding(true);
       }
@@ -102,6 +106,11 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   if (checking) return <AppFallback />;
   if (needsOnboarding) return <Navigate to="/onboarding" replace />;
   return <>{children}</>;
+}
+
+function OnboardingRouter() {
+  const role = useAuthStore((s) => s.role);
+  return role === 'partner' ? <PartnerOnboarding /> : <CreatorOnboarding />;
 }
 
 function AppFallback() {
@@ -130,8 +139,8 @@ export default function App() {
               {/* Auth */}
               <Route path="/auth" element={<AuthPage />} />
 
-              {/* Onboarding */}
-              <Route path="/onboarding" element={<RequireAuth><CreatorOnboarding /></RequireAuth>} />
+              {/* Onboarding — renders PartnerOnboarding or CreatorOnboarding based on role */}
+              <Route path="/onboarding" element={<RequireAuth><OnboardingRouter /></RequireAuth>} />
 
               {/* Dashboard routes */}
               <Route path="/app" element={<RequireAuth><OnboardingGuard><DashboardShell /></OnboardingGuard></RequireAuth>}>

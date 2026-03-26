@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { EmptyState } from '../../components/EmptyState';
@@ -761,10 +761,10 @@ const OfferRow = memo(function OfferRow({
   linkedCampaign?: Campaign;
   expandedQR: string | null;
   onToggleQR: (id: string | null) => void;
-  onToggleActive: any;
-  onSubmitForApproval: any;
-  onPause: any;
-  onResume: any;
+  onToggleActive: UseMutationResult<unknown, Error, { offerId: string; isActive: boolean }>;
+  onSubmitForApproval: UseMutationResult<unknown, Error, { offerId: string; creatorTerms: Record<string, unknown> }>;
+  onPause: UseMutationResult<unknown, Error, { offerId: string; role: string; reason?: string }>;
+  onResume: UseMutationResult<unknown, Error, { offerId: string }>;
   onDownload: (offer: Offer) => void;
   onPrint: (offer: Offer) => void;
   onConfirm: (message: string, action: () => void) => void;
