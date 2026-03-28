@@ -1993,8 +1993,27 @@
 
 /* ─── Rotating Hero Text ─────────────────────────────────────────────────── */
 
+/* The wrapper is inline-block and uses a grid to stack all sizer phrases
+   on top of each other — the tallest one determines the reserved height.
+   The visible rotating text is absolutely positioned over them. */
+.hero-rotating-wrap {
+  display: inline-grid;
+  vertical-align: bottom;
+}
+
+.hero-rotating-wrap > * {
+  grid-area: 1 / 1;
+}
+
+/* Hidden sizer phrases — visible to layout but invisible to the eye */
+.hero-rotating-sizer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+  /* Show the tallest sizer — all overlap in the same grid cell */
+}
+
 .hero-rotating-text {
-  display: inline-block;
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
