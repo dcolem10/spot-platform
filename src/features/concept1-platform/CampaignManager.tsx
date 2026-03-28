@@ -45,7 +45,10 @@ export default function CampaignManager() {
       });
       setShowWizard(true);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally run once on mount:
+  // reads URL search params set by RestaurantDetail navigation. Adding searchParams
+  // would re-trigger on every URL change, which is not desired.
+  }, []);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['campaigns'],

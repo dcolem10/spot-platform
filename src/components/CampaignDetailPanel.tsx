@@ -140,7 +140,9 @@ export default function CampaignDetailPanel({
     setIsEditing(false);
     setActiveTab('details');
     setPendingActivity([]);
-  }, [campaign.campaignId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Reset form only when switching
+  // to a different campaign (by ID), not when individual fields update mid-edit.
+  }, [campaign.campaignId]);
 
   const hasPendingChanges = isEditing || pendingActivity.length > 0;
 

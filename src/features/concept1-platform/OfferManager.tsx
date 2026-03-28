@@ -743,7 +743,6 @@ const inputStyle: React.CSSProperties = {
 
 /* ─── Sub-components ───────────────────────────────────────────────────────── */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const OfferRow = memo(function OfferRow({
   offer,
   linkedCampaign,

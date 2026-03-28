@@ -14,8 +14,42 @@ import { CollapsibleSection } from '../../components/CollapsibleSection';
 interface HeroMetric {
   label: string;
   value: string;
-  trend: number; // positive = up, negative = down
+  trend: number | null; // positive = up, negative = down, null = no historical data
   prefix?: string;
+}
+
+/* ─── Local Trend Snapshot ────────────────────────────────────────────────── */
+// Stores the last known metric values in localStorage so we can compute
+// real period-over-period trends without a dedicated historical API endpoint.
+// Snapshot refreshes once per day (24 h TTL).
+
+const SNAPSHOT_KEY = 'spot-dashboard-snapshot';
+const SNAPSHOT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+interface MetricSnapshot {
+  activeCampaigns: number;
+  totalPartners: number;
+  contentCreated: number;
+  dealRedemptions: number;
+  timestamp: number;
+}
+
+function loadSnapshot(): MetricSnapshot | null {
+  try {
+    const raw = localStorage.getItem(SNAPSHOT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as MetricSnapshot;
+  } catch { return null; }
+}
+
+function saveSnapshot(snap: MetricSnapshot) {
+  try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap)); } catch { /* quota */ }
+}
+
+/** Returns percentage change, or null if no previous snapshot exists */
+function computeTrend(current: number, previous: number | undefined): number | null {
+  if (previous === undefined || previous === 0) return current > 0 ? null : 0;
+  return ((current - previous) / previous) * 100;
 }
 
 interface ActivityEvent {
@@ -86,6 +120,15 @@ const styles = {
     fontSize: 'var(--font-xs)',
     fontWeight: 600,
     color: 'var(--color-error)',
+    marginTop: 'var(--space-2)',
+  } as React.CSSProperties,
+  trendNeutral: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--space-1)',
+    fontSize: 'var(--font-xs)',
+    fontWeight: 600,
+    color: 'var(--color-textMuted)',
     marginTop: 'var(--space-2)',
   } as React.CSSProperties,
   sectionTitle: {
@@ -270,14 +313,33 @@ export default function CreatorDashboard() {
   const activeCampaigns = pipeline?.byStatus.active ?? 0;
   const estReachCount = pipeline?.totalRevenue ?? 0;  // Pipeline estimate for reach
   const dealRedemptionCount = pipeline?.avgDealSize ?? 0;  // Estimated redemptions
+  const contentCreated = estReachCount === 0 ? 0 : Math.round(estReachCount / 25);
+  const dealRedemptions = dealRedemptionCount === 0 ? 0 : Math.round(dealRedemptionCount / 10);
 
-  // Trends are 0 when values are 0 (no data = no growth to show).
-  // TODO: Replace with actual historical comparison once API supports /pipeline?period=previous
+  // Compute real trends from localStorage snapshot (refreshes every 24h).
+  // Falls back to null (shows "New" badge) when no prior snapshot exists.
+  const snapshot = loadSnapshot();
+  const snapshotAge = snapshot ? Date.now() - snapshot.timestamp : Infinity;
+
+  // Save a fresh snapshot if none exists or the current one is stale (>24h)
+  useEffect(() => {
+    if (!pipeline) return;
+    if (!snapshot || snapshotAge > SNAPSHOT_TTL) {
+      saveSnapshot({
+        activeCampaigns,
+        totalPartners,
+        contentCreated,
+        dealRedemptions,
+        timestamp: Date.now(),
+      });
+    }
+  }, [pipeline, snapshot, snapshotAge, activeCampaigns, totalPartners, contentCreated, dealRedemptions]);
+
   const heroMetrics: HeroMetric[] = [
-    { label: 'Active Campaigns', value: String(activeCampaigns), trend: activeCampaigns === 0 ? 0 : 8.3 },
-    { label: 'Restaurants Reached', value: String(totalPartners), trend: totalPartners === 0 ? 0 : 12.5 },
-    { label: 'Content Created', value: estReachCount === 0 ? '0' : String(Math.round(estReachCount / 25)), trend: estReachCount === 0 ? 0 : 15.2 },
-    { label: 'Deal Redemptions', value: dealRedemptionCount === 0 ? '0' : String(Math.round(dealRedemptionCount / 10)), trend: dealRedemptionCount === 0 ? 0 : -3.1 },
+    { label: 'Active Campaigns', value: String(activeCampaigns), trend: computeTrend(activeCampaigns, snapshot?.activeCampaigns) },
+    { label: 'Restaurants Reached', value: String(totalPartners), trend: computeTrend(totalPartners, snapshot?.totalPartners) },
+    { label: 'Content Created', value: String(contentCreated), trend: computeTrend(contentCreated, snapshot?.contentCreated) },
+    { label: 'Deal Redemptions', value: String(dealRedemptions), trend: computeTrend(dealRedemptions, snapshot?.dealRedemptions) },
   ];
 
   // Pipeline total for bar widths
@@ -378,11 +440,22 @@ export default function CreatorDashboard() {
           <div className="card bento-narrow" key={metric.label}>
             <div style={styles.metricLabel}>{metric.label}</div>
             <div style={styles.metricValue}>{metric.value}</div>
-            <div style={metric.trend >= 0 ? styles.trendUp : styles.trendDown}>
-              <span>{metric.trend >= 0 ? '\u2191' : '\u2193'}</span>
-              <span>{Math.abs(metric.trend).toFixed(1)}%</span>
-              <span style={{ color: 'var(--color-textMuted)', fontWeight: 400 }}>vs last month</span>
-            </div>
+            {metric.trend === null ? (
+              <div style={styles.trendNeutral}>
+                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>New</span>
+              </div>
+            ) : metric.trend === 0 ? (
+              <div style={styles.trendNeutral}>
+                <span>—</span>
+                <span style={{ color: 'var(--color-textMuted)', fontWeight: 400 }}>no change</span>
+              </div>
+            ) : (
+              <div style={metric.trend > 0 ? styles.trendUp : styles.trendDown}>
+                <span>{metric.trend > 0 ? '\u2191' : '\u2193'}</span>
+                <span>{Math.abs(metric.trend).toFixed(1)}%</span>
+                <span style={{ color: 'var(--color-textMuted)', fontWeight: 400 }}>vs prior snapshot</span>
+              </div>
+            )}
           </div>
         ))}
       </div>
