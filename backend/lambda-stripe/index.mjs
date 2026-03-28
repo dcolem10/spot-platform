@@ -13,8 +13,18 @@ const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const smClient = new SecretsManagerClient({});
 const TABLE = process.env.TABLE_NAME;
-const ORIGIN = process.env.ALLOWED_ORIGIN || '';
-if (!ORIGIN) console.warn('ALLOWED_ORIGIN not set — CORS will block all cross-origin requests');
+// ─── Dynamic CORS — supports multiple origins (dev + prod simultaneously) ────
+const ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean)
+);
+if (!ALLOWED_ORIGINS.size) console.warn('No allowed origins configured — CORS will block all cross-origin requests');
+
+function setRequestOrigin(event) {
+  const reqOrigin = event?.headers?.origin || event?.headers?.Origin || '';
+  headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGINS.has(reqOrigin)
+    ? reqOrigin
+    : ([...ALLOWED_ORIGINS][0] || '');
+}
 
 // ─── Secrets (cached with TTL for key rotation support) ──────────────────────
 let _secrets = null;
@@ -75,7 +85,7 @@ const ALLOWED_PRICES = new Set([
 
 const headers = {
   'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': ORIGIN,
+  'Access-Control-Allow-Origin': [...ALLOWED_ORIGINS][0] || '',
   'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   'X-Content-Type-Options': 'nosniff',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -548,6 +558,7 @@ async function createPortalSession(event) {
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
+  setRequestOrigin(event); // Dynamic CORS — match request origin against allowed list
   const path = event.path || event.rawPath || '';
   const method = event.httpMethod || event.requestContext?.http?.method || 'GET';
 

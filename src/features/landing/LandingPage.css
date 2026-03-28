@@ -1993,6 +1993,23 @@
 
 /* ─── Rotating Hero Text ─────────────────────────────────────────────────── */
 
+/* Grid wrapper stacks all phrases in the same cell — tallest one sets the height,
+   preventing layout shifts when rotating between phrases of different lengths. */
+.hero-rotating-wrapper {
+  display: inline-grid;
+  vertical-align: baseline;
+}
+
+.hero-rotating-wrapper > span {
+  grid-area: 1 / 1;
+}
+
+.hero-rotating-sizer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
 .hero-rotating-text {
   display: inline-block;
   transition: opacity 0.4s ease, transform 0.4s ease;

@@ -829,12 +829,13 @@ export default function LandingPage() {
   }, [setDemoMode, setDemoOnboarded, setAuth, navigate]);
 
   // Rotating hero phrases for dynamic value prop showcase
-  const rotatingText = useRotatingText([
+  const heroPhrases = [
     'drives real sales',
     'sends paying customers',
     'earns you higher rates',
     'proves your ROI',
-  ], 3200);
+  ];
+  const rotatingText = useRotatingText(heroPhrases, 3200);
 
   // Platform capability highlights (not user counts — we're pre-launch)
   const cities = useCountUp(6, 1200);
@@ -882,8 +883,14 @@ export default function LandingPage() {
           </div>
           <h1>
             Prove your food content{' '}
-            <span className={`hero-rotating-text text-gradient${rotatingText.isAnimating ? ' hero-rotating-text--exit' : ''}`}>
-              {rotatingText.text}
+            <span className="hero-rotating-wrapper">
+              {/* Hidden sizers — tallest phrase sets the container height, preventing layout shifts */}
+              {heroPhrases.map((phrase) => (
+                <span key={phrase} className="hero-rotating-sizer text-gradient" aria-hidden="true">{phrase}</span>
+              ))}
+              <span className={`hero-rotating-text text-gradient${rotatingText.isAnimating ? ' hero-rotating-text--exit' : ''}`}>
+                {rotatingText.text}
+              </span>
             </span>
           </h1>
           <p className="landing-hero-desc">

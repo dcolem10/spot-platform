@@ -11,6 +11,7 @@ Globals:
       Variables:
         TABLE_NAME: !Ref DataTable
         ALLOWED_ORIGIN: !Ref AllowedOrigin
+        ALLOWED_ORIGINS: !Sub "${AllowedOrigin},http://localhost:5173,https://spot-platform.com"
         LOG_LEVEL: info
 
 Parameters:
@@ -114,7 +115,7 @@ Resources:
         RestrictPublicBuckets: false
       CorsConfiguration:
         CorsRules:
-          - AllowedOrigins: [!Ref AllowedOrigin, 'https://spot-platform.com']
+          - AllowedOrigins: [!Ref AllowedOrigin, 'https://spot-platform.com', 'http://localhost:5173']
             AllowedMethods: [GET]
             AllowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control']
             MaxAge: 86400
@@ -321,6 +322,7 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           ALLOWED_ORIGIN: !Ref AllowedOrigin
+          ALLOWED_ORIGINS: !Sub "${AllowedOrigin},http://localhost:5173,https://spot-platform.com"
           SECRETS_ARN: !Ref SecretsArn
       Policies:
         - DynamoDBCrudPolicy:
@@ -392,6 +394,7 @@ Resources:
         Variables:
           TABLE_NAME: !Ref DataTable
           ALLOWED_ORIGIN: !Ref AllowedOrigin
+          ALLOWED_ORIGINS: !Sub "${AllowedOrigin},http://localhost:5173,https://spot-platform.com"
           SECRETS_ARN: !Ref SecretsArn
       Policies:
         - DynamoDBCrudPolicy:
