@@ -4108,6 +4108,39 @@ async function upsertProfile(event) {
   return respond(200, stripDdbKeys(item));
 }
 
+// ─── User Subscription ───────────────────────────────────────────────────────
+
+/**
+ * GET /api/user/subscription
+ * Returns the authenticated creator's subscription tier and status.
+ * Returns { tier: 'starter'|'pro'|'scale', status: 'active'|'canceled'|..., ... }
+ * or 404 if no subscription record exists (free/unsubscribed user).
+ */
+async function getUserSubscription(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  try {
+    const result = await ddb.send(
+      new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: 'SUBSCRIPTION' },
+      })
+    );
+
+    if (!result.Item) {
+      return respond(404, { tier: 'free', status: 'none' });
+    }
+
+    // Only return safe fields — no stripe IDs
+    const { tier, status, priceId, currentPeriodStart, currentPeriodEnd, updatedAt } = result.Item;
+    return respond(200, { tier: tier || 'starter', status, priceId, currentPeriodStart, currentPeriodEnd, updatedAt });
+  } catch (err) {
+    console.error('getUserSubscription error:', err.message);
+    return respond(500, { error: 'Failed to load subscription' });
+  }
+}
+
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
 
 async function calculateROI(event) {
@@ -6602,6 +6635,9 @@ export const handler = async (event) => {
     // Profile
     if (path.match(/\/api\/profile$/) && method === 'GET') return getProfile(event);
     if (path.match(/\/api\/profile$/) && method === 'POST') return upsertProfile(event);
+
+    // User subscription tier
+    if (path.match(/\/api\/user\/subscription$/) && method === 'GET') return getUserSubscription(event);
 
     // ROI & Benchmarks
     if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);

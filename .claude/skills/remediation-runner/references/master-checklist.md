@@ -8,7 +8,7 @@
 
 ## CRITICAL (Items 1–9)
 
-- [ ] **1. Subscription tier enforcement**
+- [x] **1. Subscription tier enforcement**
   - Source: Business Plan, Value Proposition
   - Problem: Stripe checkout creates sessions but nothing connects subscription tier (Starter/Pro/Scale) to feature access. All users get all features regardless of plan.
   - Scope: Backend (add tier lookup from Stripe subscription status) + Frontend (gate features by tier)
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #1 Subscription tier enforcement | Done | lambda-stripe writes CREATOR#{userId} SUBSCRIPTION on checkout; lambda-api GET /api/user/subscription; useSubscriptionTier hook + TierGate component; Pro gates: calendar, AI insights, ROI reporter; Scale gates: ambassador |

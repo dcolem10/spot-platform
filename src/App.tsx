@@ -7,6 +7,7 @@ import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { useAuth } from './hooks/useAuth';
 import { useAuthStore } from './store/authStore';
 import { FeatureGate } from './components/FeatureGate';
+import { TierGate } from './components/TierGate';
 import { useAuthInit } from './hooks/useAuthInit';
 import { api } from './services/ApiService';
 import './styles/print.css';
@@ -155,7 +156,8 @@ export default function App() {
                 <Route path="restaurants/:id" element={<FeatureGate flag="restaurantPortal"><RestaurantDetail /></FeatureGate>} />
                 <Route path="campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
                 <Route path="offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
-                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><ROIReporter /></FeatureGate>} />
+                {/* ROI Reporter — Pro+ */}
+                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><TierGate minTier="pro" featureName="ROI Reporter"><ROIReporter /></TierGate></FeatureGate>} />
                 <Route path="reports/:campaignId" element={<FeatureGate flag="restaurantPortal"><CampaignReport /></FeatureGate>} />
                 <Route path="crm" element={<FeatureGate flag="restaurantPortal"><PartnershipCRM /></FeatureGate>} />
 
@@ -180,15 +182,16 @@ export default function App() {
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />
 
-                {/* AI */}
-                <Route path="insights" element={<AIInsights />} />
+                {/* AI — Pro+ */}
+                <Route path="insights" element={<TierGate minTier="pro" featureName="AI Insights"><AIInsights /></TierGate>} />
 
                 {/* Content */}
                 <Route path="archive" element={<ContentArchive />} />
-                <Route path="calendar" element={<EditorialCalendar />} />
+                {/* Calendar — Pro+ */}
+                <Route path="calendar" element={<TierGate minTier="pro" featureName="Editorial Calendar"><EditorialCalendar /></TierGate>} />
 
-                {/* Ambassador Program */}
-                <Route path="ambassador" element={<FeatureGate flag="ambassador"><AmbassadorDashboard /></FeatureGate>} />
+                {/* Ambassador Program — Scale+ */}
+                <Route path="ambassador" element={<FeatureGate flag="ambassador"><TierGate minTier="scale" featureName="Ambassador Program"><AmbassadorDashboard /></TierGate></FeatureGate>} />
 
                 {/* Audience & Discovery */}
                 <Route path="discover" element={<DiscoverApp />} />

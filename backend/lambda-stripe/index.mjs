@@ -81,6 +81,13 @@ const ALLOWED_PRICES = new Set([
   'price_1T7lKHJob49CLLyGajlRXAsr', // Spot Scale — $149/mo
 ]);
 
+// Maps Stripe price ID to subscription tier name
+const PRICE_TO_TIER = {
+  'price_1T7lCIJob49CLLyGuvtIIKgP': 'starter',
+  'price_1T7lCiJob49CLLyG7vfdi7kq': 'pro',
+  'price_1T7lKHJob49CLLyGajlRXAsr': 'scale',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const headers = {
@@ -275,6 +282,7 @@ async function handleWebhook(event) {
  */
 async function handleCheckoutSessionCompleted(session) {
   const restaurantId = session.metadata?.restaurantId;
+  const userId = session.metadata?.userId;
   if (!restaurantId) {
     console.warn('Checkout session missing restaurantId metadata');
     return;
@@ -286,37 +294,65 @@ async function handleCheckoutSessionCompleted(session) {
     const subscription = await stripeClient.subscriptions.retrieve(session.subscription);
 
     const now = new Date().toISOString();
+    const priceId = subscription.items.data[0].price.id;
+    const tier = PRICE_TO_TIER[priceId] || 'starter';
 
-    // Write subscription to DynamoDB with conditional write to prevent duplicates
-    await ddb.send(
-      new PutCommand({
-        TableName: TABLE,
-        Item: {
-          PK: `RESTAURANT#${restaurantId}`,
-          SK: 'SUBSCRIPTION',
-          GSI1PK: 'SUBSCRIPTIONS',
-          GSI1SK: `SUBSCRIPTION#${subscription.id}`,
-          stripeCustomerId: session.customer,
-          stripeSubscriptionId: subscription.id,
-          priceId: subscription.items.data[0].price.id,
-          status: subscription.status,
-          currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-          createdAt: now,
-          updatedAt: now,
-        },
-        ConditionExpression: 'attribute_not_exists(PK)',
-      })
-    );
+    // Write restaurant subscription record (idempotent — conditional to prevent duplicates)
+    try {
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE,
+          Item: {
+            PK: `RESTAURANT#${restaurantId}`,
+            SK: 'SUBSCRIPTION',
+            GSI1PK: 'SUBSCRIPTIONS',
+            GSI1SK: `SUBSCRIPTION#${subscription.id}`,
+            stripeCustomerId: session.customer,
+            stripeSubscriptionId: subscription.id,
+            priceId,
+            tier,
+            status: subscription.status,
+            userId: userId || null,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+            createdAt: now,
+            updatedAt: now,
+          },
+          ConditionExpression: 'attribute_not_exists(PK)',
+        })
+      );
+    } catch (err) {
+      if (err.name !== 'ConditionalCheckFailedException') throw err;
+      console.log(`Restaurant subscription already exists for ${restaurantId}`);
+    }
+
+    // Write creator-level subscription record so the frontend can gate features by tier
+    if (userId) {
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE,
+          Item: {
+            PK: `CREATOR#${userId}`,
+            SK: 'SUBSCRIPTION',
+            stripeSubscriptionId: subscription.id,
+            restaurantId,
+            priceId,
+            tier,
+            status: subscription.status,
+            currentPeriodStart: new Date(subscription.current_period_start * 1000).toISOString(),
+            currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+            createdAt: now,
+            updatedAt: now,
+          },
+        })
+      );
+      console.log(`Creator subscription record written for user ${userId} — tier: ${tier}`);
+    }
 
     console.log(`Subscription created for restaurant ${restaurantId}`);
   } catch (err) {
-    if (err.name === 'ConditionalCheckFailedException') {
-      console.log(`Subscription already exists for restaurant ${restaurantId}`);
-    } else {
-      console.error('Error handling checkout completion:', err.message);
-      throw err;
-    }
+    console.error('Error handling checkout completion:', err.message);
+    throw err;
   }
 }
 
@@ -347,13 +383,17 @@ async function handleSubscriptionUpdated(subscription) {
 
     const item = queryRes.Items[0];
 
-    // Update subscription status
+    const newPriceId = subscription.items.data[0]?.price?.id;
+    const newTier = PRICE_TO_TIER[newPriceId] || 'starter';
+    const now = new Date().toISOString();
+
+    // Update restaurant subscription record
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: item.PK, SK: item.SK },
         UpdateExpression:
-          'SET #status = :status, currentPeriodStart = :start, currentPeriodEnd = :end, updatedAt = :now',
+          'SET #status = :status, currentPeriodStart = :start, currentPeriodEnd = :end, updatedAt = :now, tier = :tier, priceId = :priceId',
         ExpressionAttributeNames: {
           '#status': 'status',
         },
@@ -361,12 +401,35 @@ async function handleSubscriptionUpdated(subscription) {
           ':status': subscription.status,
           ':start': new Date(subscription.current_period_start * 1000).toISOString(),
           ':end': new Date(subscription.current_period_end * 1000).toISOString(),
-          ':now': new Date().toISOString(),
+          ':now': now,
+          ':tier': newTier,
+          ':priceId': newPriceId || item.priceId,
         },
       })
     );
 
-    console.log(`Subscription ${subscription.id} updated`);
+    // Sync creator subscription record if userId is stored on the restaurant record
+    if (item.userId) {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `CREATOR#${item.userId}`, SK: 'SUBSCRIPTION' },
+          UpdateExpression:
+            'SET #status = :status, currentPeriodStart = :start, currentPeriodEnd = :end, updatedAt = :now, tier = :tier, priceId = :priceId',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':status': subscription.status,
+            ':start': new Date(subscription.current_period_start * 1000).toISOString(),
+            ':end': new Date(subscription.current_period_end * 1000).toISOString(),
+            ':now': now,
+            ':tier': newTier,
+            ':priceId': newPriceId || item.priceId,
+          },
+        })
+      );
+    }
+
+    console.log(`Subscription ${subscription.id} updated — tier: ${newTier}`);
   } catch (err) {
     console.error('Error handling subscription update:', err.message);
     throw err;
@@ -400,7 +463,9 @@ async function handleSubscriptionDeleted(subscription) {
 
     const item = queryRes.Items[0];
 
-    // Mark subscription as canceled
+    const now = new Date().toISOString();
+
+    // Mark restaurant subscription as canceled
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
@@ -411,10 +476,23 @@ async function handleSubscriptionDeleted(subscription) {
         },
         ExpressionAttributeValues: {
           ':status': 'canceled',
-          ':now': new Date().toISOString(),
+          ':now': now,
         },
       })
     );
+
+    // Cancel creator subscription record if userId is stored
+    if (item.userId) {
+      await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: `CREATOR#${item.userId}`, SK: 'SUBSCRIPTION' },
+          UpdateExpression: 'SET #status = :status, canceledAt = :now, updatedAt = :now',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: { ':status': 'canceled', ':now': now },
+        })
+      );
+    }
 
     console.log(`Subscription ${subscription.id} canceled`);
   } catch (err) {
