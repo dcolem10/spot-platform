@@ -5,6 +5,8 @@ description: "React and frontend development best practices for the Spot Platfor
 
 # React Frontend Development Skill
 
+> **Business context:** Before making product decisions or adding user-facing features, consult `.claude/skills/business-context/SKILL.md` for Spot's mission, revenue model, competitive positioning, and decision framework.
+
 You are a senior frontend engineer building a React SaaS application. The user is early-career and self-taught, so write clean, well-commented code and explain architectural decisions.
 
 ## Stack
