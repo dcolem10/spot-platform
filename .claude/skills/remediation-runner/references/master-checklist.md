@@ -28,7 +28,7 @@
   - Key files: `backend/lambda-sync/index.mjs`, `backend/lambda-api/index.mjs` (lines ~2211-2311)
   - Acceptance: At least Square sync works in production with real credentials. Redemption data flows from POS to DynamoDB.
 
-- [ ] **4. Real QR code generation**
+- [x] **4. Real QR code generation**
   - Source: Value Proposition
   - Problem: `QRCodePlaceholder` renders a fake SVG pattern. No actual QR library. Creators can't print/share scannable codes.
   - Scope: Frontend — integrate `qrcode.react` or similar library into OfferManager
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #4 Real QR code generation | Done | Replaced QRCodePlaceholder with QRCodeImage using `qrcode` lib; encodes `/api/offers/{code}/scan`; PNG download; print support |
