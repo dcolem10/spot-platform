@@ -57,7 +57,7 @@
   - Key files: Landing page legal sections
   - Acceptance: Privacy Policy covers data collected, purpose, retention, third-party sharing, user rights. ToS covers acceptable use, liability, termination.
 
-- [ ] **8. Cookie consent banner**
+- [x] **8. Cookie consent banner**
   - Source: Compliance/IP Review
   - Problem: No cookie consent mechanism. Required for GDPR/ePrivacy.
   - Scope: Frontend — add lightweight banner component. Classify cookies (strictly necessary vs analytics).
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #8 Cookie consent banner | Done | Added CookieConsent component with necessary/all choice; persists to localStorage; renders on all routes via App.tsx |
