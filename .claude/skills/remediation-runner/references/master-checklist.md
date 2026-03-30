@@ -21,7 +21,7 @@
   - Scope: Decision required from founder (Darren). Then update whichever document is wrong.
   - Acceptance: All documents agree on one restaurant revenue model. Code matches.
 
-- [ ] **3. POS production sync — remove 501 stub**
+- [x] **3. POS production sync — remove 501 stub**
   - Source: Business Plan, Value Proposition, Interconnectivity Plan
   - Problem: `syncRedemptionData()` returns 501 in production. The attribution loop breaks at the most critical step: connecting QR scans to actual POS transactions.
   - Scope: Backend (`backend/lambda-sync/`), POS credential setup, Square/Clover SDK integration
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #3 POS production sync | Done | Replaced 501 stub with real Square + Clover REST API integration in lambda-api. matchAndAggregate helper matches redemptions to POS transactions by time window. Toast remains 400 (pending partner approval). |
