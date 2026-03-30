@@ -42,7 +42,7 @@
   - Key files: `backend/lambda-api/index.mjs` (partner analytics ~line 1298), `src/features/concept1-platform/PartnerPortal.tsx`
   - Acceptance: Restaurant sees a table/chart of each creator's scans, redemptions, and estimated revenue.
 
-- [ ] **6. Campaign limit enforcement for Starter tier**
+- [x] **6. Campaign limit enforcement for Starter tier**
   - Source: Business Plan
   - Problem: Starter ($49) should be limited to 2 active campaigns. No enforcement exists.
   - Scope: Backend — check subscription tier on campaign creation. Depends on item #1.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #6 Campaign limit enforcement | Done | Added `getCreatorPlanTier()` + `countActiveCampaigns()` helpers in lambda-api. `createCampaign` now blocks Starter/free users at 2 active campaigns with 402 + `CAMPAIGN_LIMIT_REACHED`. Frontend CampaignManager surfaces clear upgrade message on 402. |
