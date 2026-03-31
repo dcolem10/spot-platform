@@ -65,6 +65,7 @@ const ContentReviewManager = lazy(() => import('./features/concept1-platform/Con
 
 // Social Connections
 const SocialConnectionsPanel = lazy(() => import('./features/concept1-platform/SocialConnectionsPanel'));
+const SocialOAuthCallback = lazy(() => import('./features/concept1-platform/SocialOAuthCallback'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -176,6 +177,7 @@ export default function App() {
 
                 {/* Social Connections */}
                 <Route path="social" element={<SocialConnectionsPanel />} />
+                <Route path="social/callback/:platform" element={<SocialOAuthCallback />} />
 
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />

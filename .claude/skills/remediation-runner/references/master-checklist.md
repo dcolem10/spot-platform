@@ -121,7 +121,7 @@
   - Key files: `src/features/concept3-spotops/ROIReporter.tsx`
   - Acceptance: Creator can generate a link or PDF that a restaurant partner can view without logging in.
 
-- [ ] **17. Social OAuth credentials — production setup**
+- [x] **17. Social OAuth credentials — production setup**
   - Source: Launch Checklist
   - Problem: Instagram, TikTok, YouTube OAuth all use dev/mock mode. Need real app approvals.
   - Scope: External — apply for Meta Developer, TikTok Developer, Google API credentials. Update Lambda env vars.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #17 | Done | Frontend callback route + fixed callback URL + template.yaml env var docs |

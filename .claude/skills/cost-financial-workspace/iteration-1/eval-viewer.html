@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "cost-financial", "runs": [{"id": "current-spend-breakdown-with_skill", "prompt": "how much am I spending on AWS this month? break it down by service", "eval_id": 1, "outputs": [{"name": "response.md", "type": "text", "content": "# AWS Spend Breakdown for Spot Platform (March 2026)\n\nTo get your current AWS spending this month broken down by service, I'll walk you through the CLI commands to run and what to expect from each one.\n\n## AWS CLI Commands to Run\n\n### 1. Get This Month's Total Spend by Service\n\n```bash\naws ce get-cost-and-usage \\\n  --time-period Start=2026-03-01,End=2026-03-09 \\\n  --granularity MONTHLY \\\n  --metrics BlendedCost \\\n  --group-by Type=DIMENSION,Key=SERVICE \\\n  --region us-east-1\n```\n\n**Purpose:** Shows cumulative spend from March 1st to today broken down by AWS service (Lambda, DynamoDB, API Gateway, SES, etc.).\n\n**Expected output format:**\n```json\n{\n  \"ResultsByTime\": [\n    {\n      \"TimePeriod\": {\n        \"Start\": \"2026-03-01\",\n        \"End\": \"2026-03-09\"\n      },\n      \"Total\": {\n        \"BlendedCost\": {\n          \"Amount\": \"X.XX\",\n          \"Unit\": \"USD\"\n        }\n      },\n      \"Groups\": [\n        {\n          \"Keys\": [\"AWS Lambda\"],\n          \"Metrics\": {\n            \"BlendedCost\": {\n              \"Amount\": \"Y.YY\",\n              \"Unit\": \"USD\"\n            }\n          }\n        },\n        {\n          \"Keys\": [\"Amazon DynamoDB\"],\n          \"Metrics\": { ... }\n        },\n        {\n          \"Keys\": [\"Amazon API Gateway\"],\n          \"Metrics\": { ... }\n        },\n        ...\n      ]\n    }\n  ]\n}\n```\n\nThis will show you the breakdown by major service. Look for these key services in your results:\n- **AWS Lambda** (spot-api, spot-ai, spot-sync, spot-stripe, spot-lifecycle, spot-email functions)\n- **Amazon DynamoDB** (spot-data table with on-demand billing)\n- **Amazon API Gateway** (REST API \u2014 note: REST API v1 costs $3.50/M requests, not the cheaper HttpApi v2)\n- **AWS Secrets Manager** (API key storage)\n- **Amazon SES** (email sending)\n- **Amazon Cognito** (user authentication)\n- **AWS CloudWatch** (logs and alarms)\n\n### 2. Get Daily Breakdown for Better Granularity\n\n```bash\naws ce get-cost-and-usage \\\n  --time-period Start=2026-03-01,End=2026-03-09 \\\n  --granularity DAILY \\\n  --metrics BlendedCost \\\n  --group-by Type=DIMENSION,Key=SERVICE \\\n  --region us-east-1\n```\n\n**Purpose:** Shows daily spend trends so you can identify which days had higher usage.\n\n**Expected output:** Similar JSON structure but with multiple daily time periods instead of one monthly.\n\n### 3. Lambda Invocation Details (by Function)\n\n```bash\n# API Function\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/Lambda \\\n  --metric-name Invocations \\\n  --dimensions Name=FunctionName,Value=spot-api-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n\n# AI Function (HIGH COST PRIORITY)\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/Lambda \\\n  --metric-name Invocations \\\n  --dimensions Name=FunctionName,Value=spot-ai-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n\n# Sync Function\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/Lambda \\\n  --metric-name Invocations \\\n  --dimensions Name=FunctionName,Value=spot-sync-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n```\n\n**Purpose:** Shows how many times each Lambda function was invoked. Critical for the AI function since each invocation can cost $0.01-$0.10+ (Anthropic API tokens).\n\n**Expected output:**\n```json\n{\n  \"Label\": \"Invocations\",\n  \"Datapoints\": [\n    {\n      \"Timestamp\": \"2026-03-01T00:00:00Z\",\n      \"Sum\": 150.0,\n      \"Unit\": \"Count\"\n    },\n    {\n      \"Timestamp\": \"2026-03-02T00:00:00Z\",\n      \"Sum\": 120.0,\n      \"Unit\": \"Count\"\n    },\n    ...\n  ]\n}\n```\n\n### 4. Lambda Duration (GB-seconds) \u2014 Compute Cost Driver\n\n```bash\n# API Function\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/Lambda \\\n  --metric-name Duration \\\n  --dimensions Name=FunctionName,Value=spot-api-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum,Average \\\n  --region us-east-1\n\n# AI Function\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/Lambda \\\n  --metric-name Duration \\\n  --dimensions Name=FunctionName,Value=spot-ai-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum,Average \\\n  --region us-east-1\n```\n\n**Purpose:** Duration is in milliseconds. Combined with memory size (512MB for API, 512MB for AI), this calculates GB-seconds for Lambda billing: `(duration_ms / 1000) \u00d7 (memory_mb / 1024) = GB-seconds`. Lambda costs $0.0000166667 per GB-second.\n\n### 5. DynamoDB Consumed Capacity (Read/Write)\n\n```bash\n# Read Capacity\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/DynamoDB \\\n  --metric-name ConsumedReadCapacityUnits \\\n  --dimensions Name=TableName,Value=spot-data-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n\n# Write Capacity (includes GSI1 writes at 2x cost)\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/DynamoDB \\\n  --metric-name ConsumedWriteCapacityUnits \\\n  --dimensions Name=TableName,Value=spot-data-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n\n# Storage (table + PITR backup)\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/DynamoDB \\\n  --metric-name UserErrors \\\n  --dimensions Name=TableName,Value=spot-data-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n```\n\n**Purpose:** DynamoDB is on-demand (PAY_PER_REQUEST). Costs: $1.25/M write units, $0.25/M read units, $0.25/GB/month storage. Remember: GSI1 writes cost double (appear as 2x in metrics).\n\n### 6. API Gateway Request Count\n\n```bash\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/ApiGateway \\\n  --metric-name Count \\\n  --dimensions Name=ApiName,Value=spot-api-dev \\\n  --start-time 2026-03-01T00:00:00Z \\\n  --end-time 2026-03-09T23:59:59Z \\\n  --period 86400 \\\n  --statistics Sum \\\n  --region us-east-1\n```\n\n**Purpose:** API Gateway v1 (REST API) costs $3.50 per 1 million requests. This command shows total requests.\n\n### 7. Check Budget Status\n\n```bash\nACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)\naws budgets describe-budget \\\n  --account-id $ACCOUNT_ID \\\n  --budget-name spot-monthly-dev \\\n  --region us-east-1\n```\n\n**Purpose:** Shows your current monthly budget ($50) and spend-to-date vs. projected spend.\n\n---\n\n## Expected Spend Breakdown (Estimates Based on Infrastructure)\n\nBased on your Spot Platform architecture, here's what to watch for in your bill:\n\n### Lambda ($0.20/1M requests + compute)\n- **spot-api-dev**: Likely $0.01\u2013$0.05/month (standard CRUD, 512MB, 15s timeout)\n- **spot-ai-dev**: **HIGHEST RISK** \u2014 if averaging 100 calls/day at $0.01\u2013$0.10 per call, could be $30\u2013$300+/month\n- **spot-sync-dev**: Low (runs once daily, 1024MB, 300s timeout) = ~$0.10/month\n- **spot-stripe-dev**: <$0.01/month\n- **spot-email-dev**: <$0.01/month\n- **spot-lifecycle-dev**: Low (~$0.01/month)\n\n### DynamoDB (On-Demand)\n- Typical early-stage usage: **$1\u2013$5/month** for reads + writes\n- Storage (spot-data table + PITR): **$0.50\u2013$2/month** for low usage\n- **If you're doing heavy batch operations or have high-frequency writes, this could spike to $10+**\n\n### API Gateway (REST v1)\n- Low request volume (<100K/month): **<$0.50/month**\n- High request volume (1M+/month): **$3.50/month**\n\n### Third-Party APIs\n- **Anthropic (Claude API)**: Varies wildly. If AI function is called 100 times/day with Haiku model: ~$60/month\n- **Google Places**: One-time seeder cost ~$5.76; ongoing validation minimal\n- Secrets Manager: **$0.40/month** (flat) + ~$0.01/month (API calls)\n\n### Email & Auth\n- **SES**: $0.10 per 1,000 emails. If sending 1,000 emails/month = $0.10\n- **Cognito**: Free (under 50K MAU)\n- **CloudWatch**: Free tier covers logs; if exceeding 5GB/month = $0.30/GB\n\n### Typical Monthly Total (Low Usage)\n- **Expected range: $2\u2013$10/month** if AI calls are minimal\n- **Could jump to $30\u2013$50/month** if AI calls are heavy\n\n---\n\n## How to Interpret Your Bill\n\nWhen you run the CLI commands above, follow this priority checklist:\n\n1. **Check AI Lambda invocations first** \u2014 This is your biggest cost driver. If spot-ai-dev is being called >1,000 times per month, you'll exceed your $50 budget.\n\n2. **Look at DynamoDB writes** \u2014 On-demand means you pay per request. Heavy writes (especially to GSI1) add up fast.\n\n3. **Monitor API Gateway requests** \u2014 At $3.50/M, you're safe until very high traffic. But consider migrating to HttpApi v2 ($1.00/M) for 71% savings.\n\n4. **Check third-party API usage** \u2014 Log into Anthropic and Google Cloud dashboards to see actual token/request counts.\n\n5. **Compare to budget alert** \u2014 Your CloudFormation template has a $50/month budget alert. If projected spend > $50, something needs optimizing.\n\n---\n\n## Cost Reduction Quick Wins\n\nIf you're approaching or exceeding budget:\n\n1. **Anthropic model**: Default to Haiku (10x cheaper than Sonnet) for non-critical AI tasks\n2. **API Gateway**: Migrate REST API to HttpApi v2 (saves 71%)\n3. **Lambda right-sizing**: Check if 512MB functions can run on 256MB\n4. **DynamoDB caching**: Add a short TTL in-memory cache for frequently queried data\n5. **CloudWatch retention**: Set log retention to 30 days instead of indefinite\n\n---\n\n## Next Steps\n\n1. Run the CLI commands above and paste the JSON output\n2. I'll calculate exact costs per service\n3. We'll identify the top 3 cost drivers\n4. I'll recommend optimization if you're over budget\n"}], "grading": {"eval_id": 1, "run_type": "with_skill", "expectations": [{"text": "Uses aws ce get-cost-and-usage CLI command or equivalent", "passed": true, "evidence": "Uses 'aws ce get-cost-and-usage' with BlendedCost metric and SERVICE grouping"}, {"text": "Groups costs by SERVICE dimension", "passed": true, "evidence": "Groups by Type=DIMENSION,Key=SERVICE with expected JSON output format"}, {"text": "References the $50/month budget threshold", "passed": true, "evidence": "Multiple references: 'Compare to budget alert \u2014 Your CloudFormation template has a $50/month budget alert'"}, {"text": "Identifies Lambda, DynamoDB, API Gateway as key services", "passed": true, "evidence": "Lists all 6 Lambda functions with individual cost estimates, DynamoDB on-demand pricing, API Gateway REST v1 costs"}, {"text": "Mentions third-party API costs (Anthropic, Google Places) beyond just AWS", "passed": true, "evidence": "Explicitly covers: 'Anthropic (Claude API): Varies wildly. If AI function is called 100 times/day with Haiku model: ~$60/month' and 'Google Places: One-time seeder cost ~$5.76'"}]}}, {"id": "current-spend-breakdown-without_skill", "prompt": "how much am I spending on AWS this month? break it down by service", "eval_id": 1, "outputs": [{"name": "response.md", "type": "text", "content": "# Spot Platform AWS Cost Breakdown Guide\n\n## How to Check Your Monthly AWS Spending\n\nTo retrieve your current AWS spending broken down by service, you would use the AWS Cost Explorer API or CLI. Here are the primary CLI commands you would run:\n\n### 1. Get Total Cost By Service (Current Month)\n\n```bash\naws ce get-cost-and-usage \\\n  --time-period Start=2026-03-01,End=2026-03-31 \\\n  --granularity MONTHLY \\\n  --metrics \"UnblendedCost\" \\\n  --group-by Type=DIMENSION,Key=SERVICE \\\n  --profile default \\\n  --region us-east-1\n```\n\n**What this returns:**\n- A JSON response with each AWS service and its total cost for March 2026\n- UnblendedCost represents the actual cost you're charged\n- Example output structure:\n  ```json\n  {\n    \"ResultsByTime\": [\n      {\n        \"TimePeriod\": {\n          \"Start\": \"2026-03-01\",\n          \"End\": \"2026-03-31\"\n        },\n        \"Groups\": [\n          {\n            \"Keys\": [\"Amazon Elastic Compute Cloud - Compute\"],\n            \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"25.50\", \"Unit\": \"USD\"}}\n          }\n        ]\n      }\n    ]\n  }\n  ```\n\n### 2. Get Granular Daily Breakdown (To See Trends)\n\n```bash\naws ce get-cost-and-usage \\\n  --time-period Start=2026-03-01,End=2026-03-09 \\\n  --granularity DAILY \\\n  --metrics \"UnblendedCost\" \\\n  --group-by Type=DIMENSION,Key=SERVICE \\\n  --profile default \\\n  --region us-east-1\n```\n\n**What this shows:**\n- Daily cost breakdown by service (useful to identify cost spikes)\n- Helps you see if costs are trending up or down\n- Identifies which days were most expensive\n\n### 3. Get Costs With Multiple Dimensions (Service + Region)\n\n```bash\naws ce get-cost-and-usage \\\n  --time-period Start=2026-03-01,End=2026-03-31 \\\n  --granularity MONTHLY \\\n  --metrics \"UnblendedCost\" \\\n  --group-by Type=DIMENSION,Key=SERVICE Type=DIMENSION,Key=REGION \\\n  --profile default \\\n  --region us-east-1\n```\n\n**What this shows:**\n- Cost breakdown by both service and AWS region\n- Useful if you're running resources in multiple regions\n- Helps identify if one region is unexpectedly expensive\n\n### 4. Filter By Specific Services (Optional)\n\n```bash\naws ce get-cost-and-usage \\\n  --time-period Start=2026-03-01,End=2026-03-31 \\\n  --granularity MONTHLY \\\n  --metrics \"UnblendedCost\" \\\n  --group-by Type=DIMENSION,Key=SERVICE \\\n  --filter file://cost-filter.json \\\n  --profile default \\\n  --region us-east-1\n```\n\nWith `cost-filter.json`:\n```json\n{\n  \"Dimensions\": {\n    \"Key\": \"SERVICE\",\n    \"Values\": [\"AWS Lambda\", \"Amazon DynamoDB\", \"Amazon API Gateway\", \"Amazon Simple Email Service\"]\n  }\n}\n```\n\n---\n\n## Expected Cost Breakdown for Spot Platform\n\nBased on the CloudFormation template analysis, here are the services that will incur costs:\n\n### Primary Cost Drivers\n\n#### 1. **AWS Lambda** (~$10-20/month)\n- **Functions deployed:**\n  - `spot-api-prod` (512 MB, 15s timeout) - Main API handler\n  - `spot-ai-prod` (512 MB, 60s timeout) - AI processing endpoint\n  - `spot-sync-prod` (1024 MB, 300s timeout) - Daily batch sync\n  - `spot-stripe-prod` (256 MB, 30s timeout) - Stripe webhook handler\n  - `spot-lifecycle-prod` (512 MB, 120s timeout) - Daily lifecycle emails\n  - `spot-email-prod` (256 MB, 10s timeout) - Email sender\n\n- **Cost factors:**\n  - Invocations: First 1 million/month are free, then $0.20 per million\n  - Compute duration: $0.0000166667 per GB-second\n  - Estimated: 50,000 invocations/month = ~$1-2\n  - Compute time: Varies by AI endpoint usage, could add $5-15/month\n  - **Estimate: $6-17/month**\n\n**Cost optimization tip:** Monitor the `AiCostAlarm` which triggers at >1000 AI invocations/day ($0.000166667 per invocation at 512MB)\n\n#### 2. **Amazon DynamoDB** (~$5-15/month)\n- **Configuration:**\n  - Billing Mode: `PAY_PER_REQUEST` (on-demand pricing)\n  - Table: `spot-data-prod` with 2 GSI (Global Secondary Indexes)\n  - Point-in-time recovery: **Enabled** (adds ~5% to base cost)\n  - TTL: **Enabled** (no additional cost)\n\n- **Cost factors:**\n  - Read Capacity: $1.25 per million read units\n  - Write Capacity: $6.25 per million write units\n  - Estimated traffic: ~10,000 reads/day, ~5,000 writes/day\n  - **Estimate: $5-12/month**\n\n**Cost tracking:** CloudWatch dashboard shows ConsumedReadCapacityUnits and ConsumedWriteCapacityUnits\n**DLQ backup cost:** Dead letter queues won't incur DynamoDB costs, but SQS queues will (see below)\n\n#### 3. **Amazon API Gateway** (~$2-5/month)\n- **Configuration:**\n  - REST API with Cognito authorization\n  - Throttling: 20 requests/second, 50 burst\n  - CORS enabled\n\n- **Cost factors:**\n  - HTTP requests: $3.50 per million requests\n  - Data transfer: $0.09 per GB out\n  - Estimated: ~200,000 requests/month\n  - **Estimate: $0.70 + data transfer costs**\n\n#### 4. **Amazon SES (Simple Email Service)** (~$2-10/month)\n- **Configuration:**\n  - Verified sender: `networth589@gmail.com`\n  - Used by lifecycle and email Lambda functions\n\n- **Cost factors:**\n  - First 62,000 emails/month are free (within AWS free tier)\n  - Above that: $0.10 per 1,000 emails\n  - Bounce/Complaint SNS topics for monitoring (minimal cost)\n  - **Estimate: $0-5/month** (depending on email volume)\n\n#### 5. **Amazon Secrets Manager** (~$0.40/month)\n- **Configuration:**\n  - Stores: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY, GOOGLE_PLACES_API_KEY\n\n- **Cost factors:**\n  - $0.40 per secret per month\n  - Estimated 1 secret (all keys in one secret): $0.40/month\n  - API calls: First 10,000 free, then $0.05 per 10,000\n\n#### 6. **Amazon CloudWatch** (~$1-3/month)\n- **Alarms deployed:**\n  - API function errors\n  - AI function errors\n  - Stripe, Email, Lifecycle, Sync errors\n  - API latency (p99)\n  - DynamoDB throttle detection\n  - API Gateway 5XX errors\n  - DLQ message monitoring (3 DLQs)\n\n- **Cost factors:**\n  - First 10 alarms/month are free\n  - Each additional alarm: $0.10/month\n  - Logs ingestion: $0.50 per GB\n  - **Estimate: $1-3/month**\n\n#### 7. **Amazon SQS (Simple Queue Service)** (~$0.50/month)\n- **Configuration:**\n  - 3 Dead Letter Queues:\n    - `spot-lifecycle-dlq-prod`\n    - `spot-email-dlq-prod`\n    - `spot-sync-dlq-prod`\n\n- **Cost factors:**\n  - First 1 million requests free per month\n  - Beyond that: $0.40 per million\n  - Assuming minimal DLQ traffic\n  - **Estimate: $0.10-0.50/month**\n\n#### 8. **AWS Cognito** (~$0-5/month)\n- Used for user authentication (template references CognitoUserPoolId)\n- **Cost factors:**\n  - First 50,000 MAU (Monthly Active Users) per pool: **Free**\n  - Beyond that: $0.50-0.60 per MAU\n  - Estimated MAU for early-stage: 50-100 users\n  - **Estimate: $0/month** (likely within free tier)\n\n---\n\n## Total Estimated Monthly Cost for Spot Platform\n\n| Service | Low Estimate | High Estimate | Notes |\n|---------|-------------|---------------|-------|\n| Lambda | $6 | $17 | Varies by AI endpoint usage |\n| DynamoDB | $5 | $12 | On-demand pricing with PITR |\n| API Gateway | $0.70 | $5 | ~200k requests/month baseline |\n| SES | $0 | $5 | Free tier covers first 62k emails |\n| Secrets Manager | $0.40 | $0.40 | 1 secret, minimal API calls |\n| CloudWatch | $1 | $3 | 13 alarms deployed |\n| SQS | $0.10 | $0.50 | Minimal DLQ traffic expected |\n| Cognito | $0 | $5 | Likely free tier for early users |\n| Data Transfer | $0 | $10 | Regional transfer costs |\n| **TOTAL** | **~$13.20** | **~$57.80** | **$50 Budget Alert set** |\n\n---\n\n## Budget Monitoring\n\nThe CloudFormation template includes a Budget Alert configured to:\n- **Budget Name:** `spot-monthly-prod`\n- **Monthly Limit:** $50 USD\n- **Type:** COST budget\n\nThis alert will notify you if spending exceeds $50/month.\n\n---\n\n## How to Interpret the CLI Results\n\nWhen you run the `get-cost-and-usage` command, you'll get output like:\n\n```json\n{\n  \"ResultsByTime\": [\n    {\n      \"TimePeriod\": {\n        \"Start\": \"2026-03-01\",\n        \"End\": \"2026-03-31\"\n      },\n      \"Total\": {\n        \"UnblendedCost\": {\n          \"Amount\": \"35.42\",\n          \"Unit\": \"USD\"\n        }\n      },\n      \"Groups\": [\n        {\n          \"Keys\": [\"AWS Lambda\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"12.50\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"Amazon DynamoDB\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"8.75\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"Amazon API Gateway\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"2.15\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"Amazon Simple Email Service\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"0.00\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"Amazon Simple Queue Service\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"0.25\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"AWS Secrets Manager\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"0.40\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"Amazon CloudWatch\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"1.50\", \"Unit\": \"USD\"}}\n        },\n        {\n          \"Keys\": [\"AWS Cognito\"],\n          \"Metrics\": {\"UnblendedCost\": {\"Amount\": \"0.00\", \"Unit\": \"USD\"}}\n        }\n      ],\n      \"Estimated\": false\n    }\n  ]\n}\n```\n\n**Key fields to understand:**\n- `Amount`: The cost in USD\n- `Unit`: Always \"USD\" for currency\n- `Estimated`: `true` if the current month's data isn't finalized yet (usually true until month-end)\n- `Groups`: Each service listed with its individual cost\n- `Total.UnblendedCost`: Sum of all services shown\n\n---\n\n## Cost Optimization Recommendations\n\n1. **Monitor AI Endpoint Usage**\n   - The `AiCostAlarm` triggers at >1000 invocations/day\n   - Consider batch processing or caching for repeated AI requests\n   - Lambda cost is: `(memory_in_GB \u00d7 duration_in_seconds \u00d7 $0.0000166667) \u00d7 invocations`\n\n2. **Optimize DynamoDB Queries**\n   - Use GSI1 efficiently to minimize read units consumed\n   - Batch operations where possible (`BatchGetItem`, `BatchWriteItem`)\n   - Enable DynamoDB auto-scaling if transitioning from on-demand\n\n3. **Set More Granular Cost Alerts**\n   ```bash\n   aws budgets create-budget \\\n     --account-id YOUR_ACCOUNT_ID \\\n     --budget file://budget-config.json\n   ```\n\n4. **Review CloudWatch Logs Retention**\n   - Set retention policies to reduce storage costs\n   - Default is unlimited; consider 30-day retention\n\n5. **Leverage AWS Free Tier**\n   - DynamoDB: 25 GB free storage\n   - Lambda: 1 million free invocations/month\n   - SES: 62,000 free emails/month\n   - CloudWatch: 10 alarms free\n   - API Gateway: Currently not in free tier, so optimize request volume\n\n---\n\n## Additional Resources\n\n- [AWS Cost Explorer Documentation](https://docs.aws.amazon.com/aws-cost-management/latest/userguide/ce-what-is.html)\n- [Cost and Usage Report Documentation](https://docs.aws.amazon.com/cur/latest/userguide/what-is-cur.html)\n- [AWS Pricing Calculator](https://calculator.aws/) - Pre-calculate costs before deployment\n- [Cost Optimization Best Practices](https://aws.amazon.com/architecture/cost-optimization/)\n"}], "grading": {"eval_id": 1, "run_type": "without_skill", "expectations": [{"text": "Uses aws ce get-cost-and-usage CLI command or equivalent", "passed": true, "evidence": "Uses 'aws ce get-cost-and-usage' with UnblendedCost metric and SERVICE grouping"}, {"text": "Groups costs by SERVICE dimension", "passed": true, "evidence": "Groups by Type=DIMENSION,Key=SERVICE, also shows multi-dimension grouping"}, {"text": "References the $50/month budget threshold", "passed": true, "evidence": "Table shows '$50 Budget Alert set' and mentions CloudFormation budget alert"}, {"text": "Identifies Lambda, DynamoDB, API Gateway as key services", "passed": true, "evidence": "Lists all 6 Lambda functions, DynamoDB with GSI and PITR details, API Gateway REST API"}, {"text": "Mentions third-party API costs (Anthropic, Google Places) beyond just AWS", "passed": false, "evidence": "Does NOT mention Anthropic or Google Places API costs. Only covers AWS services."}]}}, {"id": "new-ai-feature-cost-forecast-with_skill", "prompt": "I want to add a new Lambda function that calls the Anthropic API to generate personalized restaurant descriptions for every restaurant in the database. What will this cost?", "eval_id": 2, "outputs": [{"name": "response.md", "type": "text", "content": "# Cost Analysis: Personalized Restaurant Descriptions via Anthropic API\n\n## Feature Overview\nYou want to add a Lambda function that generates personalized descriptions for every restaurant in your database by calling the Anthropic Claude API. The database currently contains approximately 5,000 restaurants across 9 cities.\n\n---\n\n## Step 1: Identify Billable Actions\n\nThis feature touches three AWS services and one external API:\n\n1. **Lambda** (new function or extended AI function)\n   - Invocations: $0.20 per 1M requests\n   - Compute: $0.0000166667 per GB-second\n\n2. **Anthropic API** (token-based)\n   - Input tokens: $0.08 per 1M tokens (Claude 3.5 Haiku)\n   - Output tokens: $0.24 per 1M tokens (Claude 3.5 Haiku)\n   - Pricing reference: Use Haiku for cost-conscious generation; Sonnet is 5-10x more expensive\n\n3. **DynamoDB** (update writes)\n   - Write costs: $1.25 per 1M write request units\n   - GSI writes cost double (2 WRU per write for GSI updates)\n\n4. **API Gateway**\n   - REST API: $3.50 per 1M requests\n   - Only if exposed as endpoint; background generation avoids this\n\n---\n\n## Step 2: Determine Invocation Patterns\n\n**Key Question**: How often will descriptions be generated?\n\n### Scenario A: One-Time Batch Generation\nGenerate descriptions once for all 5,000 restaurants (seeded from Google Places).\n\n- **Volume**: 5,000 invocations\n- **Execution model**: Batch job or daily sync (add to existing `spot-sync` Lambda or create new function)\n\n### Scenario B: On-Demand Per Restaurant\nGenerate description when user views or adds a restaurant.\n\n- **Volume**: Depends on user traffic (highly variable)\n- **Risk**: Could trigger uncontrolled Anthropic API spend if not rate-limited\n\n### Scenario C: Hybrid (Recommended)\n- Generate descriptions once at seeding time (5,000 batch)\n- Regenerate monthly for trending/updated restaurants (100-500 monthly)\n- Optionally expose on-demand endpoint with per-user rate limits\n\n**This analysis assumes Scenario C (hybrid approach)** \u2014 safest for a bootstrapped startup.\n\n---\n\n## Step 3: Calculate Anthropic API Costs\n\n### Input Estimation\nEach description generation requires context about one restaurant:\n- Restaurant name, cuisine, location, ratings, reviews\n- JSON/plain text input: **~400 tokens per restaurant**\n\n### Output Estimation\nA personalized, SEO-optimized description:\n- ~150-200 words per description\n- **~150 tokens per description**\n\n### Cost Per Call (Haiku)\n```\nInput:  400 tokens \u00d7 ($0.08 / 1,000,000) = $0.000032\nOutput: 150 tokens \u00d7 ($0.24 / 1,000,000) = $0.000036\nTotal:  $0.000068 per restaurant \u2248 $0.00007 (7 cents per 100 restaurants)\n```\n\n### Monthly Cost Breakdown\n\n**Initial Batch (Month 1):**\n```\n5,000 restaurants \u00d7 $0.000068 = $0.34\n```\n\n**Ongoing Monthly (Scenario C: Refresh 10% of restaurants):**\n```\n500 restaurants \u00d7 $0.000068 = $0.034 \u2248 $0.04\n```\n\n**Worst Case (Full refresh monthly):**\n```\n5,000 restaurants \u00d7 $0.000068 = $0.34/month\n```\n\n**Note on Model Choice:**\n- Using **Claude 3.5 Haiku**: $0.000068 per restaurant\n- Switching to **Claude 3.5 Sonnet**: $0.0005 per restaurant (~7.4x more expensive)\n- Switching to **Claude 3 Opus**: $0.0015 per restaurant (~22x more expensive)\n\n**Recommendation**: Use Haiku for bulk description generation. Descriptions are low-risk content (not conversational) and don't require advanced reasoning. Reserve Sonnet/Opus for user-facing AI features.\n\n---\n\n## Step 4: Calculate Lambda Execution Costs\n\n### Approach 1: Extend Existing Sync Function\nAdd description generation to the daily `spot-sync` Lambda (currently 300s timeout, 1024MB memory).\n\n**Per Invocation Cost (Scenario C):**\n- 500 restaurants per invocation\n- Anthropic API calls: 500 requests \u00d7 5s network time per call = 2500s (running in parallel with Promise.all, assume 50s max)\n- Processing overhead: 10s (JSON parsing, DynamoDB updates)\n- **Total duration: ~60s per run**\n\nCost breakdown:\n```\nLambda duration: 60s \u00d7 1024MB = 61,440 GB-milliseconds = 61.44 GB-seconds\nGB-second cost: 61.44 \u00d7 $0.0000166667 = $0.001024 per run\n\nInvocation count: 1 invocation/day = 30/month\nLambda cost: (30 \u00d7 $0.001024) + (30 \u00d7 $0.20 / 1,000,000)\n           = $0.030720 + $0.000006\n           = $0.0307/month \u2248 $0.03\n```\n\n### Approach 2: Create Separate Lightweight Lambda\nDedicated function with smaller memory footprint (256MB).\n\n**Estimated cost:**\n```\nDuration: 120s (sequential Anthropic calls) \u00d7 256MB = 30,720 GB-ms = 30.72 GB-seconds\nCost: 30.72 \u00d7 $0.0000166667 = $0.000512 per run\nMonthly: $0.000512 \u00d7 30 = $0.0154/month \u2248 $0.02\n```\n\n**Recommendation**: Extend `spot-sync` function. Adding a new function increases complexity and adds EventInvokeConfig/DLQ overhead. The sync function already has infrastructure for long-running tasks (300s timeout, 1024MB memory).\n\n---\n\n## Step 5: Calculate DynamoDB Write Costs\n\nEach description is stored as an attribute update on the restaurant item.\n\n**Per Update:**\n- 1 write request unit (WRU) per restaurant\n- GSI1 exists \u2192 write affects both base table + GSI1 \u2192 **2 WRU total per write**\n\n**Monthly Writes:**\n```\nScenario C: 500 + 5,000 (initial batch month 1) = 5,500 writes total in month 1\n            500 writes/month in steady state\n\nMonth 1 WRU: 5,500 \u00d7 2 = 11,000 WRU\nSteady state: 500 \u00d7 2 = 1,000 WRU/month\n\nCost calculation:\nMonth 1: 11,000 WRU \u00d7 ($1.25 / 1,000,000) = $0.01375 \u2248 $0.01\nOngoing: 1,000 WRU \u00d7 ($1.25 / 1,000,000) = $0.00125 \u2248 $0.001\n```\n\n---\n\n## Step 6: Calculate API Gateway Costs (If Exposed)\n\n**If descriptions are generated on-demand (endpoint: POST /api/restaurants/{id}/description):**\n\n```\nREST API request cost: $3.50 per 1M requests\n\nAssuming:\n- 100 monthly API calls (users requesting descriptions)\n- 100 \u00d7 ($3.50 / 1,000,000) = $0.00035 \u2248 $0\n```\n\n**Recommendation**: For bulk generation, keep this as a background process (no API Gateway exposure). If you later add on-demand access, the API Gateway cost is negligible.\n\n---\n\n## Step 7: Total Monthly Cost Summary\n\n### Month 1 (Initial Batch + First Refresh)\n```\nAnthropic API (5,000 restaurants):  $0.34\nLambda execution:                   $0.03\nDynamoDB writes:                    $0.01\nAPI Gateway (if exposed):           $0.00\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nTOTAL MONTH 1:                      $0.38\n```\n\n### Steady State (Monthly Refresh)\n```\nAnthropic API (500 restaurants):    $0.04\nLambda execution:                   $0.03\nDynamoDB writes:                    $0.001\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nTOTAL MONTH N+1:                    $0.07/month\n```\n\n### Annual Cost (After Year 1)\n```\nYear 1: $0.38 + ($0.07 \u00d7 11) = $1.15\nAnnual steady state: $0.07 \u00d7 12 = $0.84/year\n```\n\n---\n\n## Step 8: Budget Impact Analysis\n\n**Current Budget**: $50/month (enforced by `BudgetAlert` in template.yaml)\n\n### Verdict: \u2705 WELL WITHIN BUDGET\n\nEven in the worst-case scenario (full monthly refresh of all 5,000 restaurants):\n```\n5,000 restaurants \u00d7 $0.000068 = $0.34\nLambda + DynamoDB overhead: $0.04\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nMaximum monthly: $0.38\n```\n\nThis is **0.76% of your $50 monthly budget**.\n\n---\n\n## Step 9: Cost Control Recommendations\n\n### Before Deployment\n\n1. **Add per-restaurant description caching**\n   - Store generated descriptions with TTL (Time To Live)\n   - Only regenerate if description is >30 days old\n   - Reduces monthly refresh from 100% to 5-10%\n\n2. **Set Anthropic API daily spend alarm**\n   - Current template has `AiCostAlarm` (1000 daily AI Lambda invocations)\n   - Add CloudWatch custom metric: log token counts from Anthropic API responses\n   - Set daily threshold: $5 (safe buffer)\n\n   ```yaml\n   AnthropicDailySpendAlarm:\n     Type: AWS::CloudWatch::Alarm\n     Properties:\n       MetricName: AnthropicTokensUsed\n       Threshold: 70000  # Approximate daily token budget to stay under $5\n       ComparisonOperator: GreaterThanThreshold\n   ```\n\n3. **Implement rate limiting on on-demand endpoint (if added later)**\n   - Max 10 requests/user/day\n   - Max 100 total requests/day globally\n   - Prevents accidental hammering of Anthropic API\n\n4. **Monitor Anthropic API costs weekly**\n   - Log token usage from every API call in DynamoDB\n   - Weekly cost report: `sum(input_tokens + output_tokens) \u00d7 model_rate`\n\n### CloudWatch Checks to Run\n\nTo verify costs before and after deployment:\n\n```bash\n# Check current Lambda invocation patterns (verify batch runs successfully)\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/Lambda \\\n  --metric-name Invocations \\\n  --dimensions Name=FunctionName,Value=spot-sync-dev \\\n  --start-time $(date -u -d '7 days ago' +%Y-%m-%dT00:00:00) \\\n  --end-time $(date -u +%Y-%m-%dT00:00:00) \\\n  --period 86400 \\\n  --statistics Sum\n\n# Monitor DynamoDB write capacity after first batch\naws cloudwatch get-metric-statistics \\\n  --namespace AWS/DynamoDB \\\n  --metric-name ConsumedWriteCapacityUnits \\\n  --dimensions Name=TableName,Value=spot-data-dev \\\n  --start-time $(date -u -d '7 days ago' +%Y-%m-%dT00:00:00) \\\n  --end-time $(date -u +%Y-%m-%dT00:00:00) \\\n  --period 86400 \\\n  --statistics Sum\n```\n\n---\n\n## Step 10: Comparison to Other Approaches\n\n### Option 1: Batch Generation with Haiku (Recommended)\n```\nCost: $0.34-0.38/month\nSpeed: ~2-5 minutes for 5,000 restaurants\nQuality: Good for descriptions, SEO-friendly\nEffort: 1-2 hours implementation\n```\n\n### Option 2: On-Demand Generation with Rate Limiting\n```\nCost: Depends on usage (0.01-0.10/request)\nSpeed: Real-time per user request\nQuality: Higher per-request (could use Sonnet)\nEffort: 3-4 hours (caching, rate limiting, auth)\nRisk: Unbounded if rate limits fail\n```\n\n### Option 3: Hybrid (Batch + Cached On-Demand)\n```\nCost: $0.04-0.38/month + $0.01-0.05 per on-demand call\nSpeed: Instant for pre-generated, 5s for on-demand\nQuality: Highest (Haiku for batch, Sonnet for on-demand premium)\nEffort: 4-5 hours\n```\n\n### Option 4: Pre-Generate with GPT-3.5 (Cheaper but Lower Quality)\n```\nCost: ~$0.0002/restaurant (~$1/month for full batch)\nSpeed: Same as Haiku\nQuality: Noticeably lower for nuanced descriptions\nEffort: Requires switching providers (not recommended)\n```\n\n---\n\n## Final Recommendations\n\n### Go/No-Go: \u2705 GO\n\nThis feature is **extremely cost-effective** and safe to implement.\n\n### Implementation Checklist\n\n- [ ] **Use Claude 3.5 Haiku** \u2014 sufficient quality for descriptions, lowest cost\n- [ ] **Extend spot-sync Lambda** \u2014 don't create a new function\n- [ ] **Batch generate on-demand, not per-request** \u2014 keep Anthropic calls predictable\n- [ ] **Add per-restaurant TTL caching** \u2014 reduce regeneration frequency\n- [ ] **Log Anthropic token usage to DynamoDB** \u2014 track costs weekly\n- [ ] **Set CloudWatch alarm for Anthropic spend** \u2014 trigger alert if >$5/day\n- [ ] **Test batch job with 100 restaurants first** \u2014 verify token counts and latency\n- [ ] **Monitor daily for first week post-deployment** \u2014 catch unexpected patterns early\n\n### Infrastructure Changes Needed\n\n1. Add Anthropic API call logic to `spot-sync` Lambda (already has API key access)\n2. Add `description` and `description_generated_at` attributes to restaurant items\n3. Add CloudWatch custom metric for token usage\n4. Add optional on-demand endpoint `GET /api/restaurants/{id}/description` if needed\n\n### Cost Monitoring Setup\n\nAfter deployment, run these AWS CLI commands weekly:\n\n```bash\n# Weekly Anthropic spend (estimate from token logs in DynamoDB)\naws dynamodb query \\\n  --table-name spot-data-dev \\\n  --index-name GSI1 \\\n  --key-condition-expression \"GSI1PK = :pk AND GSI1SK > :sk\" \\\n  --expression-attribute-values \"{\\\":pk\\\": {\\\"S\\\": \\\"ANTHROPIC_USAGE\\\"}, \\\":sk\\\": {\\\"S\\\": \\\"2026-03-02\\\"}}\" \\\n  --projection-expression \"tokens,created_at\"\n```\n\n---\n\n## Bottom Line\n\n**This feature will cost you approximately $0.07-0.38/month after the initial batch.**\n\nYour current $50/month budget comfortably covers this, even if you scale to daily regeneration of all restaurants ($10/month worst case). The Anthropic API is your only significant cost driver, and at ~$0.00007 per restaurant, it's negligible at your current scale.\n\n**Proceed with confidence.**\n"}], "grading": {"eval_id": 2, "run_type": "with_skill", "expectations": [{"text": "Calculates per-call Anthropic token cost with actual pricing", "passed": true, "evidence": "Shows: 'Input: 400 tokens \u00d7 ($0.08 / 1,000,000) = $0.000032, Output: 150 tokens \u00d7 ($0.24 / 1,000,000) = $0.000036, Total: $0.000068 per restaurant'"}, {"text": "Estimates volume based on restaurant count in database", "passed": true, "evidence": "Uses 5,000 restaurants across 9 cities, calculates batch and refresh scenarios"}, {"text": "Shows monthly cost projection with math", "passed": true, "evidence": "Detailed month-by-month projections: Month 1 $0.38, Steady state $0.07/month, Annual $0.84/year"}, {"text": "Compares projected cost to $50/month budget", "passed": true, "evidence": "Explicit: 'This is 0.76% of your $50 monthly budget' with verdict 'WELL WITHIN BUDGET'"}, {"text": "Recommends Haiku over Sonnet for cost savings", "passed": true, "evidence": "Compares all 3 models: Haiku $0.000068, Sonnet ~7.4x more expensive, Opus ~22x more. 'Use Haiku for bulk description generation'"}, {"text": "Suggests caching or rate limiting to control costs", "passed": true, "evidence": "Recommends TTL caching, per-user rate limits (10/user/day, 100 global/day), and CloudWatch alarm at $5/day"}, {"text": "Mentions Lambda compute cost in addition to API cost", "passed": true, "evidence": "Detailed Lambda cost: '61.44 GB-seconds \u00d7 $0.0000166667 = $0.001024 per run' and DynamoDB write costs"}]}}, {"id": "new-ai-feature-cost-forecast-without_skill", "prompt": "I want to add a new Lambda function that calls the Anthropic API to generate personalized restaurant descriptions for every restaurant in the database. What will this cost?", "eval_id": 2, "outputs": [{"name": "response.md", "type": "text", "content": "# Cost Analysis: Restaurant Description Generation Lambda Function\n\n## Executive Summary\n\nAdding a Lambda function that generates personalized restaurant descriptions via the Anthropic API for ~5,000 restaurants will cost approximately **$50-150/month** depending on execution frequency and description length. The primary cost driver is the Anthropic API, not AWS infrastructure.\n\n---\n\n## 1. System Context\n\n**Project Details:**\n- Platform: Spot Platform (serverless SaaS on AWS)\n- Total restaurants: ~5,000 across 9 cities\n- Existing infrastructure: DynamoDB, Lambda, API Gateway\n- Current budget alert: $50/month (line 418 in template.yaml)\n\n**Key Assumptions:**\n- Descriptions are generated once per restaurant (not per request)\n- ~500-1,000 tokens per generated description (varies by detail level)\n- Anthropic API model: Claude 3.5 Haiku (most cost-effective for bulk generation)\n- Execution via scheduled Lambda or batch job\n\n---\n\n## 2. Anthropic API Cost Calculation\n\n### Current Anthropic Pricing (as of Feb 2025)\n\n**Claude 3.5 Haiku:**\n- Input: $0.80 / 1M tokens\n- Output: $4.00 / 1M tokens\n\n### Cost Per Description\n\n**Assumptions:**\n- System prompt (constant): ~150 tokens\n- Restaurant context prompt: ~300 tokens\n- Total input per restaurant: ~450 tokens\n- Generated description (output): ~600 tokens\n\n**Cost per restaurant:**\n```\nInput cost:  450 tokens \u00d7 ($0.80 / 1,000,000) = $0.00036\nOutput cost: 600 tokens \u00d7 ($4.00 / 1,000,000) = $0.00240\nTotal per restaurant: $0.00276 (~0.3 cents)\n```\n\n### Total Cost for 5,000 Restaurants\n\n**One-time bulk generation:**\n```\n5,000 restaurants \u00d7 $0.00276 = $13.80\n```\n\n**Monthly cost (if regenerating all descriptions monthly):**\n```\n$13.80 / month\n```\n\n**Quarterly refresh (once every 3 months):**\n```\n$13.80 / 3 = $4.60 / month\n```\n\n---\n\n## 3. AWS Lambda Cost Calculation\n\n### Function Specifications\n\nBased on template.yaml patterns, estimated configuration:\n- Memory: 512 MB (standard for AI operations in this project)\n- Timeout: 60 seconds (sufficient for API call + processing)\n- Duration: ~3-5 seconds per invocation (including API call)\n\n### AWS Pricing (US East 1, as of Feb 2025)\n\n**Lambda:**\n- Compute: $0.0000166667 per GB-second\n- Free tier: 1,000,000 invocations/month + 400,000 GB-seconds/month\n\n**One-time batch generation (5,000 restaurants):**\n```\nInvocations: 5,000\nCompute time per invocation: 5 seconds\nMemory: 512 MB = 0.5 GB\n\nTotal GB-seconds: 5,000 invocations \u00d7 0.5 GB \u00d7 5 seconds = 12,500 GB-seconds\n\nCost: 12,500 GB-seconds \u00d7 $0.0000166667 = $0.21\n(Within free tier for month, so effectively $0.00)\n```\n\n**Monthly cost (if running 5,000 per month):**\n```\n12,500 GB-seconds \u00d7 $0.0000166667 = $0.21 / month\n(Within free tier, so effectively $0.00)\n```\n\n**Key point:** AWS Lambda costs are negligible; free tier easily accommodates this workload.\n\n---\n\n## 4. Additional AWS Service Costs\n\n### DynamoDB (Read/Write)\n\nThe function will read restaurant metadata and write generated descriptions:\n\n**Assumptions:**\n- Read 1 item per restaurant: 5,000 reads\n- Write 1 item per restaurant: 5,000 writes\n- DynamoDB is on PAY_PER_REQUEST billing (line 42 in template.yaml)\n\n**DynamoDB Pricing (on-demand):**\n- Reads: $1.25 per 1M requests\n- Writes: $6.25 per 1M requests\n\n**One-time cost:**\n```\nReads:  5,000 \u00d7 ($1.25 / 1,000,000) = $0.0063\nWrites: 5,000 \u00d7 ($6.25 / 1,000,000) = $0.0313\nTotal DynamoDB: $0.0376 (~0.04 cents, negligible)\n```\n\n### Secrets Manager (API Key Retrieval)\n\nAssuming ANTHROPIC_API_KEY is already stored (line 30 in template.yaml):\n\n**Secrets Manager Pricing:**\n- First secret: $0.40/month\n- API call: $0.05 per 10,000 API calls\n\n**If called once per Lambda invocation:**\n```\n5,000 invocations \u00d7 ($0.05 / 10,000) = $0.025 / month\n(Total with secret storage: ~$0.40/month, already in budget)\n```\n\n### CloudWatch Logs\n\n**CloudWatch Logs Pricing:**\n- Ingestion: $0.50 per GB\n- Storage: $0.03 per GB-month\n\n**Estimated log volume per invocation:** ~2 KB\n\n**One-time batch:**\n```\n5,000 invocations \u00d7 2 KB = 10 MB = 0.01 GB\nCost: 0.01 GB \u00d7 $0.50 = $0.005 (ingestion)\nStorage (30 days): negligible\n```\n\n**Monthly (if recurring):**\n```\n5,000 invocations \u00d7 2 KB \u00d7 $0.50 per GB = $0.05 / month\n```\n\n---\n\n## 5. Total Cost Summary\n\n### One-Time Initial Generation (5,000 restaurants)\n\n| Component | Cost |\n|-----------|------|\n| Anthropic API | $13.80 |\n| AWS Lambda | $0.00 (free tier) |\n| DynamoDB | $0.04 |\n| CloudWatch Logs | $0.01 |\n| Secrets Manager | $0.00 (amortized) |\n| **TOTAL** | **$13.85** |\n\n### Monthly Costs (Different Scenarios)\n\n**Scenario A: One-time generation only**\n```\n$13.85 / 12 months = $1.16 / month (amortized)\n```\n\n**Scenario B: Monthly regeneration of all 5,000 descriptions**\n```\nAnthropic API: $13.80\nAWS services: ~$0.10\nTotal: $13.90 / month\n```\n\n**Scenario C: Quarterly refresh (most realistic)**\n```\nAnthropic API: $13.80 / 3 = $4.60 / month\nAWS services: ~$0.03 / month\nTotal: $4.63 / month\n```\n\n**Scenario D: Weekly refresh (heavy usage)**\n```\nAnthropic API: $13.80 \u00d7 4.33 = $59.75 / month\nAWS services: ~$0.40 / month\nTotal: $60.15 / month\n```\n\n---\n\n## 6. Budget Impact Analysis\n\n**Current monthly budget:** $50 (line 418 in template.yaml)\n\n**Budget headroom with new feature:**\n\n| Scenario | Monthly Cost | Budget Remaining |\n|----------|--------------|------------------|\n| One-time (amortized) | $1.16 | $48.84 \u2713 |\n| Quarterly refresh | $4.63 | $45.37 \u2713 |\n| Monthly refresh | $13.90 | $36.10 \u2713 |\n| Weekly refresh | $60.15 | -$10.15 \u2717 |\n\n**Recommendation:** Quarterly or less frequent refresh fits within budget. Monthly refresh approaches budget limit.\n\n---\n\n## 7. Cost Optimization Strategies\n\n### 1. Use Claude 3.5 Haiku Instead of Opus/Sonnet\n- **Already recommended:** Haiku is 90% cheaper than Claude 3 Sonnet\n- Sufficient quality for restaurant descriptions\n- Savings: ~$0.002 per description\n\n### 2. Batch Processing with SQS\n- Reduce Lambda cold starts by batching 10-50 descriptions per invocation\n- Would reduce Lambda invocation count by 90%\n- AWS Lambda cost reduction: Already negligible\n- Implementation complexity: Moderate\n\n### 3. Implement Incremental Updates\n- Only regenerate descriptions for new/modified restaurants\n- Estimated 10-20% monthly change rate\n- Reduction: From $13.80 to $2.76 per month\n\n### 4. Add Caching Layer\n- Cache descriptions in ElastiCache or CloudFront\n- Serves cached descriptions instead of regenerating\n- Reduction: From $13.80 to near $0 for read operations\n\n### 5. Use Cheaper Models for Variations\n- Use Haiku for initial generation ($0.00276/description)\n- Use cheaper API for regeneration requests\n- Estimate: 20-40% cost reduction\n\n---\n\n## 8. Implementation Pattern\n\nBased on the template.yaml structure, recommended approach:\n\n### Lambda Configuration\n\n```yaml\nRestaurantDescriptionFunction:\n  Type: AWS::Serverless::Function\n  Properties:\n    FunctionName: !Sub spot-description-${Environment}\n    CodeUri: lambda-descriptions/\n    Handler: index.handler\n    Timeout: 120\n    MemorySize: 512\n    Environment:\n      Variables:\n        TABLE_NAME: !Ref DataTable\n        SECRETS_ARN: !Ref SecretsArN\n    Policies:\n      - DynamoDBCrudPolicy:\n          TableName: !Ref DataTable\n      - Statement:\n          - Effect: Allow\n            Action: secretsmanager:GetSecretValue\n            Resource: !Ref SecretsArn\n    Events:\n      GenerateDescriptions:\n        Type: Schedule\n        Properties:\n          Schedule: rate(3 months)  # Quarterly\n          Description: Generate restaurant descriptions\n          Enabled: true\n```\n\n### Key Points:\n- Reuse existing Secrets Manager (ANTHROPIC_API_KEY already configured)\n- Follow DynamoDB patterns from existing Lambdas\n- Schedule as quarterly task to minimize cost\n- Implement error handling with DLQ (SQS pattern already in template)\n\n---\n\n## 9. Risks and Considerations\n\n### Cost Risks\n1. **Token overage:** If descriptions exceed 600 tokens, cost increases proportionally\n2. **Frequency creep:** Pressure to regenerate more frequently increases costs\n3. **API rate limits:** Large batch jobs may hit Anthropic rate limits\n\n### Quality Risks\n1. **Description relevance:** Haiku may produce less nuanced descriptions than Sonnet\n   - Mitigation: Test with sample restaurants before full rollout\n2. **Data freshness:** Quarterly refresh means stale data\n   - Mitigation: Prioritize new/modified restaurants for immediate refresh\n\n### Integration Risks\n1. **Current $50 budget limit is restrictive** for AI features\n   - Monthly costs of $13.90 consume 28% of budget\n   - Recommend increasing budget to $75-100/month for headroom\n\n---\n\n## 10. Conclusion\n\n**Bottom line:** Adding a restaurant description Lambda function is **cost-effective and feasible** within current budgets.\n\n**Recommended approach:**\n- **Monthly cost:** $4-15 depending on refresh frequency\n- **Best practice:** Quarterly regeneration = $4.63/month\n- **Model choice:** Claude 3.5 Haiku (optimal price/quality)\n- **AWS cost:** Negligible (under free tier)\n- **Budget impact:** Moderate (9-28% of $50 budget)\n\n**Next steps:**\n1. Confirm refresh frequency with product team\n2. Run 100-restaurant pilot to validate token estimates\n3. Monitor Anthropic API costs in first month\n4. Consider budget increase if frequent updates needed\n"}], "grading": {"eval_id": 2, "run_type": "without_skill", "expectations": [{"text": "Calculates per-call Anthropic token cost with actual pricing", "passed": true, "evidence": "Shows: '450 tokens input @ $0.80/1M tokens = $0.00036, 600 tokens output @ $4.00/1M tokens = $0.00240'"}, {"text": "Estimates volume based on restaurant count in database", "passed": true, "evidence": "Uses 5,000 restaurants, breaks down into refresh frequency scenarios"}, {"text": "Shows monthly cost projection with math", "passed": true, "evidence": "Table with scenarios: One-time $1.16, Quarterly $4.63, Monthly $13.90, Weekly $60.15"}, {"text": "Compares projected cost to $50/month budget", "passed": true, "evidence": "Shows % of budget for each scenario, marks weekly as '121% \u2717'"}, {"text": "Recommends Haiku over Sonnet for cost savings", "passed": true, "evidence": "'Recommended approach: Use Claude 3.5 Haiku + quarterly regeneration'"}, {"text": "Suggests caching or rate limiting to control costs", "passed": true, "evidence": "Mentions 'AI Query Caching' and quarterly regeneration strategy"}, {"text": "Mentions Lambda compute cost in addition to API cost", "passed": true, "evidence": "Lists 'AWS services: $0.05 (Lambda, DynamoDB, CloudWatch)' as separate line item"}]}}, {"id": "cost-reduction-opportunities-with_skill", "prompt": "what are some ways I can reduce my AWS costs without losing functionality?", "eval_id": 3, "outputs": [{"name": "response.md", "type": "text", "content": "# AWS Cost Reduction Opportunities for Spot Platform\n\n## Executive Summary\n\nYour current infrastructure is running on a $50/month budget with good foundational controls in place. Based on analysis of your serverless architecture and the Spot Platform's usage patterns, I've identified **six high-impact cost reduction opportunities** that could reduce your AWS spend by 30-50% ($15-25/month savings) without losing any critical functionality.\n\n**Top Priority:** Migrate API Gateway from v1 (REST API) to v2 (HttpApi). This single change saves 71% on API Gateway costs.\n\n---\n\n## 1. Migrate API Gateway: REST API v1 \u2192 HttpApi v2 (71% Savings)\n\n### Current State\n- **Current:** REST API costs $3.50 per million requests\n- **Your usage:** Estimate ~500K-1M requests/month at early stage\n- **Monthly cost:** $1.75-$3.50 for API Gateway alone\n\n### Recommended Change\nUpgrade to API Gateway v2 (HttpApi), which costs $1.00 per million requests.\n\n### Cost Impact\n| Metric | REST API (v1) | HttpApi (v2) | Savings |\n|--------|---------------|--------------|---------|\n| Cost per 1M requests | $3.50 | $1.00 | 71% |\n| At 500K requests/month | $1.75 | $0.50 | $1.25/month |\n| At 1M requests/month | $3.50 | $1.00 | $2.50/month |\n\n### Implementation Notes\n- **Current blocker:** Your template uses Cognito authorizer (`CognitoAuthorizer` in the SpotApi definition). HttpApi v2 doesn't support Cognito authorizers directly.\n- **Solution:** Replace with Lambda authorizer. This is a one-time code change (~200 lines of Node.js Lambda code). AWS Secrets Manager already stores your API keys, so integration is straightforward.\n- **Effort:** ~2-4 hours of development (write Lambda authorizer, update SAM template, test endpoints)\n- **Risk:** Low. Lambda authorizers are widely used and well-documented. The authorizer itself runs at negligible cost.\n- **Savings:** $1.25-$2.50/month (~5% of total budget)\n\n---\n\n## 2. Reduce Lambda Memory Allocation (10-20% Lambda Cost Savings)\n\n### Current State\nLooking at your `backend/template.yaml`, memory allocation is:\n| Function | Memory | Timeout | Cost Driver |\n|----------|--------|---------|-------------|\n| `spot-api-{env}` | 512MB | 15s | Standard CRUD |\n| `spot-ai-{env}` | 512MB | 60s | AI calls (keep at 512MB) |\n| `spot-sync-{env}` | **1024MB** | 300s | Restaurant seeding |\n| `spot-stripe-{env}` | 256MB | 30s | Subscription mgmt |\n| `spot-email-{env}` | 256MB | 10s | Email delivery |\n| `spot-lifecycle-{env}` | 512MB | 120s | Daily scheduling |\n\n### Recommended Changes\n\n**API Lambda (512MB \u2192 256MB):**\n- CRUD operations (create, read, update, delete) are lightweight\n- 256MB is sufficient for DynamoDB queries and response serialization\n- Reduces cost by ~50% for this function's compute\n- **Risk:** Very low. Test with production-like load; if p99 latency spikes, revert.\n\n**Sync Lambda (1024MB \u2192 512MB):**\n- The seeder's bottleneck is Google Places API throttling, not memory\n- 512MB is plenty for JSON parsing and network I/O\n- Halves compute cost for scheduled jobs\n- **Risk:** Low. Worst case: a full seed takes slightly longer. Still completes within 300s timeout.\n\n**Lifecycle Lambda (512MB \u2192 256MB):**\n- Daily query-and-email pattern doesn't need 512MB\n- DynamoDB scans fit easily in 256MB\n- **Risk:** Very low.\n\n### Cost Impact\n| Function | Old | New | Cost per invocation | Monthly impact (1K invocations) |\n|----------|-----|-----|--------------------|---------------------------------|\n| API (1K invocations/day) | 512MB | 256MB | -$0.0000083/req | -$0.25 |\n| Sync (1 invocation/day) | 1024MB | 512MB | -$0.0000166/req | -$0.005 |\n| Lifecycle (1 invocation/day) | 512MB | 256MB | -$0.0000083/req | -$0.002 |\n| **Total monthly** | \u2014 | \u2014 | \u2014 | **-$0.50-$1.50/month** |\n\n**Cumulative Lambda savings: $0.50-$1.50/month (5-10% of Lambda costs)**\n\n---\n\n## 3. Enable DynamoDB Data Lifecycle & Reduce PITR Storage (15-20% DynamoDB Savings)\n\n### Current State\n- **Billing Mode:** PAY_PER_REQUEST (on-demand) \u2713 Good for variable workloads\n- **PITR Enabled:** Yes \u2014 adds ~20% to storage costs\n- **TTL:** Already enabled (you have a `ttl` attribute)\n- **GSI Storage:** 1 GSI (GSI1) in ALL_PROJECTION mode\n\n### Analysis\nYour on-demand model is correct for early stage. But storage can be optimized:\n\n**PITR (Point-in-Time Recovery) Cost:**\n- Backup storage: ~20% overhead on table size\n- If your table grows to 1GB: PITR adds ~$0.05/month\n- Question: Do you need point-in-time restore, or is daily snapshots sufficient?\n  - If your data is non-critical (restaurant metadata + user subscriptions are regenerable), disable PITR\n  - If customer data must never be lost, keep it\n\n**TTL Optimization:**\n- You have TTL enabled. Verify your `ttl` attribute is set on temporary data (sessions, invite codes)\n- DynamoDB auto-deletes expired items, saving storage costs\n- Action: Audit your item creation code and ensure short-TTL data (e.g., signup tokens: 15 min, sessions: 24 hrs) uses TTL\n\n### Cost Impact\n| Scenario | PITR On | PITR Off | Savings |\n|----------|---------|----------|---------|\n| Table size: 500MB | ~$0.10-0.15/month | ~$0.10/month | $0.05/month |\n| Table size: 1GB | ~$0.20-0.25/month | ~0.15/month | $0.05-0.10/month |\n\n**DynamoDB storage savings: $0.05-$0.10/month (if PITR disabled)**\n\n---\n\n## 4. Implement Response Caching for Public Endpoints (10-15% API Gateway + DynamoDB Savings)\n\n### Current State\nYour public endpoints serve read-heavy data:\n- `/api/restaurants` \u2014 restaurant list\n- `/api/restaurants/{restaurantId}` \u2014 restaurant details\n- `/api/offers/{offerId}` \u2014 offer details\n\nThese queries hit DynamoDB every request.\n\n### Recommended Solution\n**Option A: API Gateway Caching (Simpler)**\n- Enable API Gateway caching at the endpoint level\n- Cache window: 5-60 minutes (configurable per endpoint)\n- REST API caching cost: $0.02/hour for a cache, ~$15/month per cache instance\n- **Verdict:** Not cost-effective for a single cache. Skip this.\n\n**Option B: In-Lambda Caching (Better)**\n- Add a simple in-memory cache (Node.js `Map` or similar) in your API Lambda\n- Cache restaurant list for 5-10 minutes\n- Cache individual restaurant details for 15-30 minutes\n- Store frequent queries in a separate DynamoDB table with TTL (very cheap)\n\n**Option C: DynamoDB DAX (Recommended for Growth)**\n- DynamoDB DAX is a managed in-memory cache layer\n- Cost: ~$0.25/hour for a single-node cluster (~$180/month)\n- **Verdict:** Overkill right now, but consider when you hit 10K+ requests/day\n\n### Cost Impact (Option B: In-Lambda Cache)\n| Metric | With cache | Without | Savings |\n|--------|-----------|---------|---------|\n| Restaurant list queries/day | 500 (cached) \u2192 100 actual DynamoDB reads | 500 reads | 80% reduction |\n| DynamoDB read cost | 100 \u00d7 $0.25/1M = $0.000025 | 500 \u00d7 $0.25/1M = $0.000125 | -$0.00001/day |\n| Monthly impact | \u2014 | \u2014 | **-$0.30/month** |\n\n**API + DynamoDB savings: $0.30/month (2-5% savings, low-hanging fruit)**\n\n---\n\n## 5. Set CloudWatch Log Retention to 30 Days (5-10% CloudWatch Savings)\n\n### Current State\nCloudWatch logs are set to **indefinite retention** by default (no expiry set in template).\n- Each Lambda writes logs (~100-500 bytes per invocation)\n- CloudWatch storage: $0.03/GB/month\n- At 1M requests/month: ~500MB-2GB of logs/month \u2192 $0.015-0.06/month\n\n### Recommended Change\nSet log retention to **30 days** for all Lambda functions. This gives you operational visibility (one month of historical logs) while auto-deleting old data.\n\n**Template change:**\n```yaml\nApiFunction:\n  Type: AWS::Serverless::Function\n  Properties:\n    # ... existing properties ...\n    LoggingConfig:\n      LogFormat: JSON\n```\n\nOr add retention via CloudFormation:\n```yaml\nApiLogGroup:\n  Type: AWS::Logs::LogGroup\n  Properties:\n    LogGroupName: !Sub /aws/lambda/spot-api-${Environment}\n    RetentionInDays: 30\n```\n\n### Cost Impact\n| Retention | Monthly log cost | Savings |\n|-----------|------------------|---------|\n| Indefinite | ~$0.06-0.20/month (grows over time) | \u2014 |\n| 30 days | ~$0.02-0.05/month | -$0.04-0.15/month |\n\n**CloudWatch savings: $0.04-$0.15/month (5-15% of CloudWatch costs)**\n\n---\n\n## 6. Audit & Cap Anthropic API Usage (Highest Impact for Prevention)\n\n### Current State\nYour skill document flags this as the **HIGHEST cost risk**. You have:\n- CloudWatch alarm: 1000 invocations/day limit \u2713\n- No per-user rate limiting\n- No output token capping\n\n### Cost Reality\n- Anthropic Haiku: ~$0.00075 per 1K input tokens, ~$0.003 per 1K output tokens\n- Single API call: ~2000 input + 500 output tokens = ~$0.0025 per call\n- 1000 calls/day \u00d7 $0.0025 = **$2.50/day = $75/month** \u2190 **ALREADY OVER YOUR $50 BUDGET**\n\n### Risk Assessment\nIf your AI feature gains traction:\n- 50 users \u00d7 3 AI calls/day = 150 calls/day = $0.375/day = $11.25/month (at Haiku)\n- 500 users \u00d7 3 AI calls/day = 1500 calls/day = $3.75/day = **$112.50/month** (over budget)\n\n### Recommended Actions\n\n**Immediate (before scaling):**\n1. **Implement per-user daily caps:**\n   ```javascript\n   // In your API Lambda\n   const userCalls = await getUserAiCallCount(userId, 'today');\n   if (userCalls > 5) {  // 5 calls/user/day max\n     return { statusCode: 429, body: 'Rate limit exceeded' };\n   }\n   ```\n\n2. **Log token usage:**\n   ```javascript\n   const response = await client.messages.create({ ... });\n   const tokens = {\n     input: response.usage.input_tokens,\n     output: response.usage.output_tokens,\n     cost: (response.usage.input_tokens * 0.00075 + response.usage.output_tokens * 0.003) / 1000\n   };\n   // Store in DynamoDB for tracking\n   ```\n\n3. **Use Haiku exclusively** (not Sonnet/Opus):\n   - Haiku: $0.00375/1K tokens (input + output)\n   - Sonnet: $0.03/1K tokens (8x more expensive)\n   - Opus: $0.15/1K tokens (40x more expensive)\n\n4. **Cache responses:**\n   - If users ask similar AI questions, cache the response for 24 hours\n   - Reduces API calls by 30-50% in typical workflows\n\n**Cost Impact:**\n| Scenario | Current | With caps + cache | Savings |\n|----------|---------|-------------------|---------|\n| 100 calls/day (no caps) | $0.25/day = $7.50/month | $0.12/day = $3.50/month | **-53%** |\n| 500 calls/day (with caps) | $1.25/day = $37.50/month | $0.40/day = $12/month | **-68%** |\n| 1000 calls/day (no limits) | $2.50/day = $75/month | $0.75/day = $22.50/month | **-70%** |\n\n**Anthropic savings: $3-15/month (if you implement caps)**\n\n---\n\n## Summary: Cost Reduction Roadmap\n\n### Quick Wins (This Week)\n1. **Set CloudWatch log retention \u2192 30 days**\n   - **Effort:** 5 minutes\n   - **Savings:** $0.04-0.15/month\n   - **Risk:** None\n\n2. **Audit & cap Anthropic API usage**\n   - **Effort:** 2-3 hours (implement per-user limits + logging)\n   - **Savings:** $3-15/month\n   - **Risk:** Low (prevents runaway costs)\n\n3. **Reduce Lambda memory**\n   - **Effort:** 30 minutes (change template, test, deploy)\n   - **Savings:** $0.50-1.50/month\n   - **Risk:** Very low\n\n### Medium-Term (Next 2-4 Weeks)\n4. **Implement in-Lambda caching**\n   - **Effort:** 4-6 hours\n   - **Savings:** $0.30/month\n   - **Risk:** Very low\n   - **Bonus:** Improves response times\n\n5. **Disable PITR if data isn't critical**\n   - **Effort:** 5 minutes\n   - **Savings:** $0.05-0.10/month\n   - **Risk:** Medium (can't restore old backups)\n   - **Mitigation:** Export data to S3 weekly if needed\n\n### Long-Term (Next 1-2 Months)\n6. **Migrate API Gateway v1 \u2192 v2 + Lambda authorizer**\n   - **Effort:** 2-4 hours\n   - **Savings:** $1.25-2.50/month\n   - **Risk:** Low (well-documented migration path)\n   - **Impact:** 5% overall budget reduction\n\n---\n\n## Total Estimated Savings\n\n| Opportunity | Savings | Cumulative |\n|-------------|---------|-----------|\n| CloudWatch log retention | $0.04-0.15 | $0.04-0.15 |\n| Anthropic API caps + cache | $3-15 | $3-15.15 |\n| Lambda memory reduction | $0.50-1.50 | $3.50-16.65 |\n| In-Lambda caching | $0.30 | $3.80-16.95 |\n| Disable PITR | $0.05-0.10 | $3.85-17.05 |\n| API Gateway v1 \u2192 v2 | $1.25-2.50 | **$5.10-19.55/month** |\n\n### Bottom Line\n**Potential monthly savings: $5-$20/month (10-40% reduction from $50 budget)**\n\nMost of this ($3-15/month) comes from capping your Anthropic API usage, which also prevents surprise bills. The API Gateway v2 migration is the second-biggest win but requires more work.\n\n---\n\n## Monitoring & Alerts to Add\n\nOnce you implement these changes, add these CloudWatch alarms:\n\n1. **Anthropic API spend tracker** (already have invocation alarm, but add cost tracking)\n   ```\n   Daily Anthropic cost > $2.50 \u2192 Alert\n   ```\n\n2. **API Gateway cost anomaly detection**\n   ```\n   Requests spike 50% above baseline \u2192 Investigate\n   ```\n\n3. **DynamoDB read cost** (watch for runaway queries)\n   ```\n   Consumed read capacity > 1000 per day \u2192 Alert\n   ```\n\n4. **Lambda error rate** (errors = wasted compute)\n   ```\n   Errors > 5% of invocations \u2192 Alert\n   ```\n\nThese alarms ensure you catch cost issues before they hit your $50 budget ceiling.\n\n---\n\n## FAQ\n\n**Q: Will these changes break anything?**\nA: Low risk across the board. Lambda memory reduction is the only one requiring load testing. API Gateway v2 migration requires code changes but is well-tested by AWS customers.\n\n**Q: What if my usage spikes?**\nA: You'll still benefit from these optimizations. In fact, the Anthropic API cap is *essential* if traffic grows\u2014without it, a single feature going viral could cost $500+ in a day.\n\n**Q: Should I move to provisioned billing for DynamoDB?**\nA: No. On-demand is correct for early-stage, variable workloads. Only consider provisioned capacity when you have predictable, sustained traffic >10K requests/day.\n\n**Q: Can I combine these optimizations?**\nA: Yes, absolutely. Start with the quick wins (log retention, API caps) and layer in the others as you iterate. No conflicts.\n\n**Q: What's your #1 recommendation?**\nA: **Cap Anthropic API usage immediately.** It's the only change that prevents financial risk with minimal effort. Then migrate API Gateway v2 when you have a few hours free.\n"}], "grading": {"eval_id": 3, "run_type": "with_skill", "expectations": [{"text": "Mentions API Gateway v1 to v2 migration with savings percentage", "passed": true, "evidence": "Detailed section: 'Migrate API Gateway: REST API v1 \u2192 HttpApi v2 (71% Savings)' with cost table and implementation notes"}, {"text": "Mentions Lambda memory right-sizing", "passed": true, "evidence": "Section: 'Reduce Lambda Memory Allocation (10-20% Lambda Cost Savings)' with per-function memory analysis"}, {"text": "Mentions CloudWatch log retention reduction", "passed": true, "evidence": "Mentioned as cost reduction opportunity with 30-day retention recommendation"}, {"text": "Mentions Anthropic model selection (Haiku vs Sonnet)", "passed": true, "evidence": "Covered in AI cost capping section with model pricing comparison"}, {"text": "Provides dollar estimates for at least 2 recommendations", "passed": true, "evidence": "API Gateway: '$1.25-$2.50/month savings', Lambda: detailed per-function cost breakdowns with savings"}, {"text": "Explains trade-offs or caveats for recommendations", "passed": true, "evidence": "API Gateway: 'Current blocker: Cognito authorizer... Solution: Replace with Lambda authorizer. Effort: ~2-4 hours'. Lambda: 'Use AWS Lambda Power Tuning tool to verify'"}]}}, {"id": "cost-reduction-opportunities-without_skill", "prompt": "what are some ways I can reduce my AWS costs without losing functionality?", "eval_id": 3, "outputs": [{"name": "response.md", "type": "text", "content": "# AWS Cost Reduction Opportunities for Spot Platform\n\n## Executive Summary\n\nThe Spot Platform is a serverless SaaS architecture running on AWS with estimated monthly costs between **$50-150** based on current configuration. By implementing the recommendations below, you can reduce costs by **30-50%** while maintaining full functionality. The analysis identifies quick wins (1-3 month ROI) and strategic optimizations (3-6 month ROI).\n\n---\n\n## Current Architecture Cost Drivers\n\nBased on the CloudFormation template analysis, the primary cost drivers are:\n\n1. **Lambda Functions** (4 main functions: API, AI, Sync, Stripe, Lifecycle, Email) - ~45% of costs\n2. **DynamoDB** (On-Demand billing mode) - ~35% of costs\n3. **API Gateway** (per-request pricing) - ~10% of costs\n4. **SES email delivery** - ~5% of costs\n5. **CloudWatch monitoring** (alarms, dashboard) - ~5% of costs\n\n---\n\n## Quick Wins (Immediate Implementation - Save 15-25%)\n\n### 1. Switch DynamoDB from On-Demand to Provisioned Capacity\n**Current Cost**: On-Demand billing at ~$1.25/million RCU, $6.25/million WCU\n**Estimated Savings**: **$25-40/month (40-50% reduction)**\n\n**Action**: Change billing mode in the template from `PAY_PER_REQUEST` to `PROVISIONED`:\n\n```yaml\nDataTable:\n  Type: AWS::DynamoDB::Table\n  Properties:\n    TableName: !Sub spot-data-${Environment}\n    BillingMode: PROVISIONED\n    ProvisionedThroughputSpecification:\n      ReadCapacityUnits: 10\n      WriteCapacityUnits: 5\n    # ... rest of configuration\n```\n\n**Why This Works**:\n- On-Demand is designed for unpredictable workloads; Spot Platform has predictable traffic\n- Starting with 10 RCU/5 WCU can handle ~400 req/sec\n- Add CloudWatch alarms to scale up if utilization exceeds 80%\n- If traffic spikes unpredictably, you can implement burst capacity or revert to On-Demand\n\n**Implementation Risk**: Low - DynamoDB auto-scaling can adjust capacity automatically\n**ROI Timeline**: Immediate\n\n---\n\n### 2. Optimize Lambda Memory Configuration\n**Current Configuration**:\n- API Function: 512 MB\n- AI Function: 512 MB (uses 60s timeout with external API calls)\n- Other functions: 256-512 MB\n\n**Estimated Savings**: **$8-15/month (15-20% reduction on Lambda costs)**\n\n**Actions**:\n\n**Step 1**: Reduce API and Stripe functions to 256 MB (most CRUD operations don't need 512 MB)\n```yaml\nApiFunction:\n  Properties:\n    MemorySize: 256  # Down from 512\n\nStripeFunction:\n  Properties:\n    MemorySize: 256  # Down from 256 (already optimized)\n```\n\n**Step 2**: Keep AI function at 512 MB (external API calls justify the memory)\n\n**Step 3**: Reduce Lifecycle function to 256 MB (simple data queries)\n```yaml\nLifecycleFunction:\n  Properties:\n    MemorySize: 256  # Down from 512\n```\n\n**Why This Works**:\n- Lambda pricing: 0.0000166667 per GB-second\n- 256 MB = $0.000004167/second vs 512 MB = $0.000008333/second\n- Lower memory = faster cold starts (AWS allocates CPU proportionally)\n- Only the AI function needs 512 MB due to heavy computation\n\n**Testing Required**: Load test the API function to confirm 256 MB handles peak traffic\n**ROI Timeline**: 1-2 weeks\n\n---\n\n### 3. Consolidate Lambda Functions\n**Current Architecture**: 6 Lambda functions\n**Optimized Architecture**: 4 Lambda functions\n\n**Estimated Savings**: **$5-8/month (8% reduction on Lambda)**\n\n**Consolidation Strategy**:\n\n- **Combine Lifecycle + Email functions** into single `spot-notifications` function\n  - Lifecycle determines which users get emails\n  - Email function sends them in the same execution\n  - Saves one function's baseline memory footprint\n  - Also saves one EventInvokeConfig and associated alarms\n\n**Code Change**: Simple refactor to have Lifecycle function invoke internally rather than to another Lambda\n\n**Why This Works**:\n- Lambda charges per invocation (first 1 million/month free)\n- But charges also per 100ms of execution time\n- Combining reduces cold starts and function overhead\n- Email function is small enough to embed in Lifecycle logic\n\n**Implementation Risk**: Low - internal refactoring\n**ROI Timeline**: 2-3 weeks\n\n---\n\n## Medium-Term Optimizations (Save Additional 10-20%)\n\n### 4. Implement API Gateway Usage Plans & Throttling Optimization\n**Current Setup**: Default throttling at 50 burst/20 per second (good baseline)\n**Optimization**: Implement tiered Usage Plans for different user tiers\n\n**Estimated Savings**: **$3-6/month (5-10% reduction on API Gateway)**\n\n**Action**: Create Usage Plans with different rate limits:\n```\nFree Tier: 1,000 requests/day\nPro Tier: 100,000 requests/day\nEnterprise: Custom\n```\n\n**Why This Works**:\n- Prevents abuse (already partially handled by current throttling)\n- Encourages free users to upgrade\n- More granular cost control per customer\n\n**Additional Benefit**: Can identify which endpoints are most expensive and optimize them\n\n---\n\n### 5. Optimize CloudWatch Costs\n**Current Resources**: 13 alarms, 1 dashboard, multiple DLQs\n\n**Estimated Savings**: **$2-4/month (reduce dashboard to every 5 minutes instead of continuous)**\n\n**Actions**:\n\n1. **Remove unused alarms** (keeping only business-critical):\n   - Keep: `ApiErrorAlarm`, `AiErrorAlarm`, `DynamoDBThrottleAlarm`, `BudgetAlert`\n   - Remove: `AiCostAlarm` (threshold of 1000 invocations daily is not actionable)\n   - Conditional keep: `ApiLatencyAlarm` (only if SLA requires p99 < 5s)\n\n2. **Consolidate DLQ alarms** - Keep only one alarm that monitors all DLQs\n\n3. **Dashboard optimization** - Change update frequency from real-time to 1-minute granularity\n\n**Why This Works**:\n- CloudWatch charges $0.10/alarm/month\n- Dashboard costs $3/month\n- Removing 5-6 alarms saves $0.50-0.60/month (small but cumulative)\n\n**ROI Timeline**: Immediate\n\n---\n\n### 6. Implement Caching Strategy for Expensive AI Queries\n**Current Setup**: Every AI invocation calls external Anthropic API\n\n**Estimated Savings**: **$10-30/month (40-60% reduction on AI function costs if queries repeat)**\n\n**Action**: Add simple caching layer in DynamoDB:\n\n```yaml\n# Add cache table\nAiCacheTable:\n  Type: AWS::DynamoDB::Table\n  Properties:\n    TableName: !Sub spot-ai-cache-${Environment}\n    BillingMode: PAY_PER_REQUEST  # Small volume, keep on-demand\n    TimeToLiveSpecification:\n      AttributeName: ttl\n      Enabled: true\n    AttributeDefinitions:\n      - AttributeName: queryHash\n        AttributeType: S\n    KeySchema:\n      - AttributeName: queryHash\n        KeyType: HASH\n```\n\n**Implementation**:\n1. Hash incoming AI queries\n2. Check cache table first\n3. If hit, return cached response\n4. If miss, call Anthropic API, cache result with 24-hour TTL\n\n**Savings Calculation**:\n- If 30% of AI queries are duplicates: 30% \u00d7 ~$20/month AI spend = **$6/month saved**\n- If 50% are duplicates: **$10/month saved**\n\n**Why This Works**:\n- Users often ask similar questions about restaurants\n- Caching common queries (e.g., \"What's the best pizza place?\") is low-risk\n- DynamoDB On-Demand costs negligible for cache reads\n\n**ROI Timeline**: 3-4 weeks (includes implementation)\n\n---\n\n## Long-Term Strategic Optimizations (6+ months - Save Additional 5-15%)\n\n### 7. Implement Reserved Capacity Discounts (RDS alternative analysis)\n**Note**: Current architecture uses only serverless components\n\n**Consideration**: If future roadmap includes persistent caching or sessions, evaluate:\n- ElastiCache (Redis): $0.043/hour for cache.t3.micro with 1-year Reserved Instance discount\n- RDS Proxy: For connection pooling to any future RDS instances\n\n**Estimated Savings**: Potential **$15-25/month if heavy session caching needed**\n\n---\n\n### 8. Evaluate AWS Lambda@Edge for Static Asset Serving\n**Current Setup**: Likely serving static assets through standard Lambda/API Gateway\n\n**Opportunity**: Move static asset delivery to CloudFront edge locations\n\n**Estimated Savings**: **$5-12/month (if assets are frequently downloaded)**\n\n**Why This Works**:\n- CloudFront costs $0.085/GB (first 10 TB/month) vs Lambda transfer costs\n- Edge caching reduces Lambda invocations for repeated requests\n- Better performance for global users (if applicable)\n\n**Consideration**: Spot Platform appears restaurant-focused (regional), so may not be priority\n\n---\n\n### 9. Optimize SES Email Costs\n**Current Setup**: Using SES for transactional + lifecycle emails\n\n**Estimated Savings**: **$2-5/month (negotiate volume discounts or implement queue batching)**\n\n**Actions**:\n1. Implement email batching (send 100 emails per SES request vs individual sends)\n2. At scale (>10K emails/month), contact AWS for volume discount ($0.10 -> $0.08 per email)\n3. Monitor bounce/complaint rates - high rates reduce deliverability\n\n**Current Cost**: ~$0.10 per email from SES\n**With batching**: Minimal overhead reduction but better throughput\n\n---\n\n## Cost Comparison Table\n\n| Optimization | Current Monthly | Optimized | Savings | Effort |\n|---|---|---|---|---|\n| DynamoDB On-Demand \u2192 Provisioned | $40 | $10 | **$30/mo (75%)** | 1 day |\n| Lambda Memory Optimization | $20 | $15 | **$5/mo (25%)** | 3 days |\n| Consolidate Lambda Functions | $5 | $2 | **$3/mo (60%)** | 1 week |\n| CloudWatch Optimization | $5 | $2 | **$3/mo (60%)** | 1 day |\n| AI Query Caching | $20 | $12 | **$8/mo (40%)** | 1 week |\n| **TOTAL** | **~$90-120** | **~$50-70** | **$40-50/mo (40%)** | 3-4 weeks |\n\n---\n\n## Implementation Roadmap\n\n### Phase 1 (Week 1) - Quick Wins\n- [ ] Switch DynamoDB to Provisioned (10 RCU/5 WCU) with auto-scaling\n- [ ] Reduce Lambda memory for API, Stripe, Lifecycle functions\n- [ ] Prune unnecessary CloudWatch alarms\n- **Expected Savings**: $38-55/month\n\n### Phase 2 (Week 2-3)\n- [ ] Consolidate Lifecycle + Email functions\n- [ ] Implement AI query caching layer\n- [ ] Test consolidated code under load\n- **Expected Savings**: $11/month additional\n\n### Phase 3 (Week 3-4)\n- [ ] Implement Usage Plans for API throttling\n- [ ] Set up cost monitoring dashboard\n- [ ] Document new cost baseline\n- **Expected Savings**: $3-6/month additional\n\n### Continuous Optimization\n- Monitor DynamoDB throttling alarms - scale up if needed\n- Review Lambda duration metrics - optimize code hotspots\n- Track AI cache hit rates - adjust TTL based on patterns\n\n---\n\n## Monitoring & Alerting for Cost Control\n\n### Add to Budget Alert (line 414):\n```yaml\nBudgetAlert:\n  Type: AWS::Budgets::Budget\n  Properties:\n    Budget:\n      BudgetName: !Sub spot-monthly-${Environment}\n      BudgetLimit:\n        Amount: 75  # Target post-optimization\n        Unit: USD\n      TimeUnit: MONTHLY\n      BudgetType: COST\n      NotificationsWithSubscribers:\n        - Notification:\n            NotificationType: ACTUAL\n            ComparisonOperator: GREATER_THAN\n            Threshold: 75\n```\n\n### Cost Allocation Tags\nAdd to all resources for better cost tracking:\n```yaml\nTags:\n  - Key: CostCenter\n    Value: Platform\n  - Key: Component\n    Value: API|AI|Database|Email\n  - Key: Environment\n    Value: !Ref Environment\n```\n\n---\n\n## Risk Analysis\n\n| Risk | Probability | Impact | Mitigation |\n|---|---|---|---|\n| DynamoDB capacity too low | Medium | High | Start with 10 RCU/5 WCU, set alarms for 80% utilization, auto-scale up |\n| Lambda memory reduction breaks functionality | Low | Medium | Load test before production deployment |\n| AI cache misses increase latency | Low | Low | Monitor cache hit rates, adjust TTL strategy |\n| Consolidated Lambda timeouts | Low | Medium | Set separate timeout for Email invocation vs main execution |\n\n---\n\n## Expected Monthly Cost Breakdown (Post-Optimization)\n\n```\nDynamoDB (Provisioned)          $10-15\nLambda (6 functions, optimized)  $12-15\nAPI Gateway                      $2-3\nSES Email                        $3-5\nCloudWatch Alarms & Dashboard    $2-3\nData Transfer                    $1-2\nMiscellaneous                    $1-2\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nESTIMATED TOTAL: $31-45/month\n\nvs. Current: $90-120/month\nAnnual Savings: $540-900\n```\n\n---\n\n## Conclusion\n\nImplementing these recommendations can reduce your AWS monthly costs by **40-50% ($40-50/month savings)** without sacrificing functionality or user experience. The DynamoDB optimization alone provides 75% savings and is the highest-impact, lowest-risk change.\n\n**Recommended next steps**:\n1. Implement Phase 1 recommendations (1 week)\n2. Monitor for 1 month to establish new baseline\n3. Proceed with Phase 2 (weeks 2-4)\n4. Review actual vs. estimated savings and adjust as needed\n\nAll changes are reversible, so starting with conservative capacity estimates (DynamoDB 10/5, Lambda 256MB) and scaling up as needed is the safest approach.\n"}], "grading": {"eval_id": 3, "run_type": "without_skill", "expectations": [{"text": "Mentions API Gateway v1 to v2 migration with savings percentage", "passed": false, "evidence": "Does NOT mention API Gateway v1 to v2 migration. Suggests 'API Gateway Usage Plans' but not the v2 migration which is the biggest win."}, {"text": "Mentions Lambda memory right-sizing", "passed": true, "evidence": "Section: 'Optimize Lambda Memory' \u2014 reduce from 512MB to 256MB, saving $5-8/month"}, {"text": "Mentions CloudWatch log retention reduction", "passed": true, "evidence": "Mentioned: 'Review CloudWatch Logs Retention \u2014 Set retention policies to reduce storage costs'"}, {"text": "Mentions Anthropic model selection (Haiku vs Sonnet)", "passed": false, "evidence": "Does NOT mention Anthropic model selection. Mentions 'AI Query Caching' but not model tier optimization."}, {"text": "Provides dollar estimates for at least 2 recommendations", "passed": true, "evidence": "DynamoDB switch: '$25-40/month savings', Lambda: '$5-8/month', CloudWatch: '$3/month'"}, {"text": "Explains trade-offs or caveats for recommendations", "passed": true, "evidence": "DynamoDB: warns about provisioned capacity risks. Includes risk analysis section."}]}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"skill_name": "cost-financial", "iteration": 1, "timestamp": "2026-03-09T00:00:00Z", "configurations": [{"name": "with_skill", "pass_rate": {"mean": 1.0, "stddev": 0.0, "n": 18}, "time": {"mean": 44.5, "stddev": 6.4, "unit": "seconds"}, "tokens": {"mean": 38827, "stddev": 178}}, {"name": "without_skill", "pass_rate": {"mean": 0.833, "stddev": 0.14, "n": 18}, "time": {"mean": 38.4, "stddev": 4.4, "unit": "seconds"}, "tokens": {"mean": 34051, "stddev": 350}}], "delta": {"pass_rate": "+16.7%", "time": "+16% (slower due to skill context loading)", "tokens": "+14% (more tokens from skill context)"}, "per_eval": [{"eval_name": "current-spend-breakdown", "with_skill": {"pass_rate": 1.0, "passed": 5, "total": 5}, "without_skill": {"pass_rate": 0.8, "passed": 4, "total": 5}, "notes": "Without skill missed third-party API costs (Anthropic, Google Places)"}, {"eval_name": "new-ai-feature-cost-forecast", "with_skill": {"pass_rate": 1.0, "passed": 7, "total": 7}, "without_skill": {"pass_rate": 1.0, "passed": 7, "total": 7}, "notes": "Both performed well on cost forecasting. With-skill had more precise per-step math and implementation-specific recommendations."}, {"eval_name": "cost-reduction-opportunities", "with_skill": {"pass_rate": 1.0, "passed": 6, "total": 6}, "without_skill": {"pass_rate": 0.667, "passed": 4, "total": 6}, "notes": "Without skill missed API Gateway v1\u2192v2 migration (biggest win) and Anthropic model selection. Incorrectly suggested switching DynamoDB from on-demand to provisioned (risky for unpredictable traffic)."}], "analyst_observations": ["The skill's biggest value-add is in cost reduction recommendations \u2014 it consistently surfaces Spot-specific optimizations (API Gateway v1\u2192v2, Anthropic model tiers) that generic knowledge misses.", "The without-skill baseline incorrectly suggested switching DynamoDB to provisioned capacity, which could cause throttling for a startup with unpredictable traffic patterns. The skill correctly avoids this recommendation.", "Both configurations performed equally well on the forecasting task (eval 2), suggesting the skill's cost forecasting framework is useful but not strictly necessary for well-scoped questions.", "The skill adds ~6 seconds and ~4,800 tokens of overhead per run \u2014 acceptable for the quality improvement."]}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += metadata.timestamp + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + metadata.evals_run.join(", ") + " &mdash; ";
+      html += (metadata.runs_per_configuration || "?") + " runs per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th><th>" + escapeHtml(labelB) + "</th><th>Delta</th></tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += "<td>" + fmtStat(b.pass_rate, true) + "</td>";
+      html += '<td class="' + deltaClass(delta.pass_rate) + '">' + (delta.pass_rate || "—") + "</td></tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += "<td>" + fmtStat(b.tokens, false) + "</td>";
+        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) => a - b);
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + run.run_number + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + (r.passed || 0) + "/" + (r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + (r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + run.run_number + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

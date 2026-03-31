@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "run_type": "without_skill",
+  "expectations": [
+    {"text": "Mentions API Gateway v1 to v2 migration with savings percentage", "passed": false, "evidence": "Does NOT mention API Gateway v1 to v2 migration. Suggests 'API Gateway Usage Plans' but not the v2 migration which is the biggest win."},
+    {"text": "Mentions Lambda memory right-sizing", "passed": true, "evidence": "Section: 'Optimize Lambda Memory' — reduce from 512MB to 256MB, saving $5-8/month"},
+    {"text": "Mentions CloudWatch log retention reduction", "passed": true, "evidence": "Mentioned: 'Review CloudWatch Logs Retention — Set retention policies to reduce storage costs'"},
+    {"text": "Mentions Anthropic model selection (Haiku vs Sonnet)", "passed": false, "evidence": "Does NOT mention Anthropic model selection. Mentions 'AI Query Caching' but not model tier optimization."},
+    {"text": "Provides dollar estimates for at least 2 recommendations", "passed": true, "evidence": "DynamoDB switch: '$25-40/month savings', Lambda: '$5-8/month', CloudWatch: '$3/month'"},
+    {"text": "Explains trade-offs or caveats for recommendations", "passed": true, "evidence": "DynamoDB: warns about provisioned capacity risks. Includes risk analysis section."}
+  ]
+}
