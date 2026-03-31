@@ -1,0 +1,13 @@
+{
+  "eval_id": 2,
+  "run_type": "with_skill",
+  "expectations": [
+    {"text": "Calculates per-call Anthropic token cost with actual pricing", "passed": true, "evidence": "Shows: 'Input: 400 tokens × ($0.08 / 1,000,000) = $0.000032, Output: 150 tokens × ($0.24 / 1,000,000) = $0.000036, Total: $0.000068 per restaurant'"},
+    {"text": "Estimates volume based on restaurant count in database", "passed": true, "evidence": "Uses 5,000 restaurants across 9 cities, calculates batch and refresh scenarios"},
+    {"text": "Shows monthly cost projection with math", "passed": true, "evidence": "Detailed month-by-month projections: Month 1 $0.38, Steady state $0.07/month, Annual $0.84/year"},
+    {"text": "Compares projected cost to $50/month budget", "passed": true, "evidence": "Explicit: 'This is 0.76% of your $50 monthly budget' with verdict 'WELL WITHIN BUDGET'"},
+    {"text": "Recommends Haiku over Sonnet for cost savings", "passed": true, "evidence": "Compares all 3 models: Haiku $0.000068, Sonnet ~7.4x more expensive, Opus ~22x more. 'Use Haiku for bulk description generation'"},
+    {"text": "Suggests caching or rate limiting to control costs", "passed": true, "evidence": "Recommends TTL caching, per-user rate limits (10/user/day, 100 global/day), and CloudWatch alarm at $5/day"},
+    {"text": "Mentions Lambda compute cost in addition to API cost", "passed": true, "evidence": "Detailed Lambda cost: '61.44 GB-seconds × $0.0000166667 = $0.001024 per run' and DynamoDB write costs"}
+  ]
+}

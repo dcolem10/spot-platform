@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "current-spend-breakdown",
+  "prompt": "how much am I spending on AWS this month? break it down by service",
+  "assertions": [
+    {"text": "Uses aws ce get-cost-and-usage CLI command or equivalent", "type": "contains"},
+    {"text": "Groups costs by SERVICE dimension", "type": "contains"},
+    {"text": "References the $50/month budget threshold", "type": "contains"},
+    {"text": "Identifies Lambda, DynamoDB, API Gateway as key services", "type": "contains"},
+    {"text": "Mentions third-party API costs (Anthropic, Google Places) beyond just AWS", "type": "contains"}
+  ]
+}

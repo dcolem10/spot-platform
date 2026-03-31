@@ -100,7 +100,7 @@
   - Scope: Frontend — embed Calendly widget or add booking link to landing page/partner portal.
   - Acceptance: Restaurant prospects can schedule a consultation call from the Spot Platform.
 
-- [ ] **14. Brand logo carousel on landing page**
+- [x] **14. Brand logo carousel on landing page**
   - Source: Competitive Analysis
   - Problem: 3 text testimonials exist but no visual brand logos from partner restaurants.
   - Scope: Frontend — add logo carousel/grid to landing page testimonials section.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #14 | Done | Added BrandLogoCarousel component — CSS marquee with 8 DC restaurant partners, fade-edge mask, reduced-motion support |

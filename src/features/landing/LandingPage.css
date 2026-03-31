@@ -2254,6 +2254,77 @@
   font-weight: 500;
 }
 
+/* ─── Brand Logo Carousel ────────────────────────────────────────────────── */
+
+.brand-logos-section {
+  padding: var(--space-12) 0;
+  text-align: center;
+  overflow: hidden;
+}
+
+.brand-logos-eyebrow {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-textMuted);
+  margin-bottom: var(--space-6);
+}
+
+.brand-logos-track-wrapper {
+  /* Fade edges using mask */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+  overflow: hidden;
+}
+
+.brand-logos-track {
+  display: flex;
+  gap: var(--space-4);
+  width: max-content;
+  animation: marquee-scroll 28s linear infinite;
+}
+
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.brand-logo-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-bgSecondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 148px;
+  transition: border-color var(--transition-base), background var(--transition-base);
+  cursor: default;
+  user-select: none;
+}
+
+.brand-logo-card:hover {
+  border-color: rgba(249, 115, 22, 0.25);
+  background: var(--color-bgElevated);
+}
+
+.brand-logo-name {
+  font-family: var(--font-display);
+  font-size: var(--font-sm);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+  white-space: nowrap;
+}
+
+.brand-logo-cuisine {
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+  white-space: nowrap;
+}
+
 /* ─── Reduce Motion ──────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -2268,7 +2339,8 @@
   .save-tags .badge,
   .reveal-stagger.visible .mini-pipeline-item,
   .reveal-stagger.visible .mini-photo,
-  .pricing-card--highlighted::before {
+  .pricing-card--highlighted::before,
+  .brand-logos-track {
     animation: none !important;
   }
   .hero-rotating-text {
