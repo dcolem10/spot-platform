@@ -150,13 +150,13 @@
   - Scope: Frontend — integrate Spline 3D viewer or replace with polished animation/illustration.
   - Key files: `src/features/landing/LandingPage.tsx`
 
-- [x] **21. Server-side restaurant filtering (COST-03)**
+- [ ] **21. Server-side restaurant filtering (COST-03)**
   - Source: Production Readiness Review
   - Problem: Cuisine/neighborhood/search filter client-side after DynamoDB fetch. Wasteful at scale.
   - Scope: Backend — move filtering to FilterExpression or create cuisine/neighborhood GSI.
   - Key files: `backend/lambda-api/index.mjs` (lines 148-218)
 
-- [ ] **22. Pagination on listDeals() and listSaves() (COST-04, COST-05)**
+- [x] **22. Pagination on listDeals() and listSaves() (COST-04, COST-05)**
   - Source: Production Readiness Review
   - Problem: No Limit on public deals or saved restaurants queries. Could exceed payload limits.
   - Scope: Backend — add Limit: 100 and pagination cursor to both endpoints.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #21 | Server-side restaurant filtering |
+| 2026-03-31 | #22 | Pagination on listDeals and listSaves |

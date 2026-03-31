@@ -1165,18 +1165,26 @@ async function listSaves(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
   try {
-    const result = await ddb.send(
-      new QueryCommand({
-        TableName: TABLE,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-        ExpressionAttributeValues: {
-          ':pk': `AUDIENCE#${userId}`,
-          ':sk': 'SAVE#',
-        },
-        Limit: 100, // Cap to prevent unbounded reads
-      })
-    );
-    return respond(200, stripAll(result.Items || []));
+    const params = event.queryStringParameters || {};
+    const limit = Math.min(Math.max(Number(params.limit) || 100, 1), 100);
+    const queryParams = {
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `AUDIENCE#${userId}`,
+        ':sk': 'SAVE#',
+      },
+      Limit: limit,
+    };
+    if (params.lastKey) {
+      const decoded = decodePaginationKey(params.lastKey);
+      if (decoded) queryParams.ExclusiveStartKey = decoded;
+    }
+    const result = await ddb.send(new QueryCommand(queryParams));
+    const nextPage = result.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+      : null;
+    return respond(200, { items: stripAll(result.Items || []), nextPage });
   } catch (err) {
     console.error('listSaves error:', err.message);
     return respond(500, { error: 'Failed to load saves' });
@@ -3686,17 +3694,25 @@ async function listDeals(event) {
     return respond(429, { error: 'Too many requests. Please try again later.' });
   }
 
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'DEALS' },
-      Limit: 50, // Cap to prevent unbounded reads
-    })
-  );
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 50);
+  const queryParams = {
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': 'DEALS' },
+    Limit: limit,
+  };
+  if (params.lastKey) {
+    const decoded = decodePaginationKey(params.lastKey);
+    if (decoded) queryParams.ExclusiveStartKey = decoded;
+  }
 
-  return respond(200, stripAll(result.Items || []));
+  const result = await ddb.send(new QueryCommand(queryParams));
+  const nextPage = result.LastEvaluatedKey
+    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+    : null;
+  return respond(200, { items: stripAll(result.Items || []), nextPage });
 }
 
 async function redeemDeal(dealId, event) {
