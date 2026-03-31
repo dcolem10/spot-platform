@@ -175,6 +175,34 @@ async function listRestaurants(event) {
     if (decoded) queryParams.ExclusiveStartKey = decoded;
   }
 
+  // Server-side FilterExpression for cuisine, neighborhood, and partner.
+  // Reduces data transferred from DynamoDB to Lambda at scale (COST-03).
+  // Note: search remains client-side — DynamoDB contains() is case-sensitive
+  // and case-insensitive matching would require storing lowercase fields.
+  const filterParts = [];
+  if (params.cuisine) {
+    const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);
+    if (cuisines.length > 0) {
+      const cuisineClauses = cuisines.map((c, i) => {
+        queryParams.ExpressionAttributeValues[`:cuisine${i}`] = c;
+        return `contains(cuisine, :cuisine${i})`;
+      });
+      filterParts.push(`(${cuisineClauses.join(' OR ')})`);
+    }
+  }
+  if (params.neighborhood) {
+    const hood = sanitize(params.neighborhood, 100);
+    queryParams.ExpressionAttributeValues[':neighborhood'] = hood;
+    filterParts.push('neighborhood = :neighborhood');
+  }
+  if (params.partner === 'true') {
+    queryParams.ExpressionAttributeValues[':isPartner'] = true;
+    filterParts.push('isPartner = :isPartner');
+  }
+  if (filterParts.length > 0) {
+    queryParams.FilterExpression = filterParts.join(' AND ');
+  }
+
   const result = await ddb.send(new QueryCommand(queryParams));
 
   let items = result.Items || [];
@@ -183,21 +211,6 @@ async function listRestaurants(event) {
   if (params.city) {
     const city = sanitize(params.city, 100);
     items = items.filter((r) => r.city === city || (r.GSI1SK && r.GSI1SK.startsWith(`CITY#${city}`)));
-  }
-  if (params.cuisine) {
-    const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);
-    items = items.filter((r) =>
-      r.cuisine?.some((c) => cuisines.includes(c))
-    );
-  }
-  if (params.neighborhood) {
-    const hood = sanitize(params.neighborhood, 100);
-    items = items.filter(
-      (r) => r.neighborhood === hood
-    );
-  }
-  if (params.partner === 'true') {
-    items = items.filter((r) => r.isPartner);
   }
   if (params.search) {
     const q = sanitize(params.search, 100).toLowerCase();
