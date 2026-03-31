@@ -1,0 +1,13 @@
+{
+  "eval_id": 2,
+  "run_type": "without_skill",
+  "expectations": [
+    {"text": "Calculates per-call Anthropic token cost with actual pricing", "passed": true, "evidence": "Shows: '450 tokens input @ $0.80/1M tokens = $0.00036, 600 tokens output @ $4.00/1M tokens = $0.00240'"},
+    {"text": "Estimates volume based on restaurant count in database", "passed": true, "evidence": "Uses 5,000 restaurants, breaks down into refresh frequency scenarios"},
+    {"text": "Shows monthly cost projection with math", "passed": true, "evidence": "Table with scenarios: One-time $1.16, Quarterly $4.63, Monthly $13.90, Weekly $60.15"},
+    {"text": "Compares projected cost to $50/month budget", "passed": true, "evidence": "Shows % of budget for each scenario, marks weekly as '121% ✗'"},
+    {"text": "Recommends Haiku over Sonnet for cost savings", "passed": true, "evidence": "'Recommended approach: Use Claude 3.5 Haiku + quarterly regeneration'"},
+    {"text": "Suggests caching or rate limiting to control costs", "passed": true, "evidence": "Mentions 'AI Query Caching' and quarterly regeneration strategy"},
+    {"text": "Mentions Lambda compute cost in addition to API cost", "passed": true, "evidence": "Lists 'AWS services: $0.05 (Lambda, DynamoDB, CloudWatch)' as separate line item"}
+  ]
+}
