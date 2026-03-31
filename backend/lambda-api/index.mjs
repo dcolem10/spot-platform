@@ -13,6 +13,7 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp, escapeHtml } from './helpers.mjs';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -6450,6 +6451,10 @@ export const handler = async (event) => {
   const method = event.httpMethod;
   const path = event.path || '';
   const pathParts = path.split('/').filter(Boolean);
+  const requestId = event.requestContext?.requestId || 'unknown';
+
+  initLogger(requestId, `${method} ${path}`);
+  log.info('request', { method, path, sourceIp: event.requestContext?.identity?.sourceIp });
 
   try {
     // CORS preflight — return immediately with proper headers
@@ -6739,14 +6744,11 @@ export const handler = async (event) => {
     return respond(404, { error: 'Not found' });
   } catch (err) {
     const errorId = randomUUID().slice(0, 12);
-    console.error(JSON.stringify({
-      level: 'ERROR',
+    log.error('unhandled_exception', {
       errorId,
       message: err.message,
       stack: err.stack?.split('\n').slice(0, 5).join(' | '),
-      path: event?.rawPath || event?.path,
-      method: event?.requestContext?.http?.method,
-    }));
+    });
     return respond(500, { error: 'Internal server error', errorId });
   }
 };

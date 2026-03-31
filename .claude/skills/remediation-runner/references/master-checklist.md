@@ -197,7 +197,7 @@
   - Scope: Infrastructure — separate IAM policies per Lambda in template.yaml.
   - Key files: `backend/template.yaml`
 
-- [ ] **29. Structured JSON logging (OBS-05)**
+- [x] **29. Structured JSON logging (OBS-05)**
   - Source: Production Readiness Review
   - Problem: Free-text console.log throughout. CloudWatch Insights queries impossible.
   - Scope: All Lambdas — implement JSON structured logging with requestId, timestamp, level, operation.
@@ -229,3 +229,4 @@
 | 2026-03-31 | #26 | Fix CollaborationPanel feature flag default | Done |
 | 2026-03-31 | #27 | Frontend test coverage | Done |
 | 2026-03-31 | #28 | Per-Lambda IAM roles | Done |
+| 2026-03-31 | #29 | Structured JSON logging | Done |
