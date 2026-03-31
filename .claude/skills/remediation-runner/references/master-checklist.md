@@ -144,13 +144,13 @@
   - Scope: Frontend — add toggle between table view and Kanban board view.
   - Key files: `src/features/concept3-spotops/PartnershipCRM.tsx`
 
-- [x] **20. Landing page 3D scene or enhanced hero visual**
+- [ ] **20. Landing page 3D scene or enhanced hero visual**
   - Source: Strategic Review
   - Problem: "3D Spline scene" is a static PNG placeholder.
   - Scope: Frontend — integrate Spline 3D viewer or replace with polished animation/illustration.
   - Key files: `src/features/landing/LandingPage.tsx`
 
-- [ ] **21. Server-side restaurant filtering (COST-03)**
+- [x] **21. Server-side restaurant filtering (COST-03)**
   - Source: Production Readiness Review
   - Problem: Cuisine/neighborhood/search filter client-side after DynamoDB fetch. Wasteful at scale.
   - Scope: Backend — move filtering to FilterExpression or create cuisine/neighborhood GSI.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #20 | Enhanced landing page hero visual |
+| 2026-03-30 | #21 | Server-side restaurant filtering |
