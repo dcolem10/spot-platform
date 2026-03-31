@@ -28,14 +28,14 @@
   - Key files: `backend/lambda-sync/index.mjs`, `backend/lambda-api/index.mjs` (lines ~2211-2311)
   - Acceptance: At least Square sync works in production with real credentials. Redemption data flows from POS to DynamoDB.
 
-- [x] **4. Real QR code generation**
+- [ ] **4. Real QR code generation**
   - Source: Value Proposition
   - Problem: `QRCodePlaceholder` renders a fake SVG pattern. No actual QR library. Creators can't print/share scannable codes.
   - Scope: Frontend — integrate `qrcode.react` or similar library into OfferManager
   - Key files: `src/features/concept1-platform/OfferManager.tsx` (lines 82-136)
   - Acceptance: QR codes encode the offer scan URL (`/api/offers/{code}/scan`), are downloadable as PNG, and scan correctly with phone cameras.
 
-- [ ] **5. Creator-to-restaurant attribution reporting**
+- [x] **5. Creator-to-restaurant attribution reporting**
   - Source: Value Proposition
   - Problem: No dashboard shows restaurants "Creator X drove 47 redemptions worth $2,350." Partner analytics aggregates everything — no per-creator breakdown.
   - Scope: Backend (new endpoint or modify `/api/partner/analytics`) + Frontend (PartnerPortal dashboard)
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #4 Real QR code generation | Done | Replaced QRCodePlaceholder with QRCodeImage using `qrcode` lib; encodes `/api/offers/{code}/scan`; PNG download; print support |
+| 2026-03-30 | #5 Creator attribution | Done | Backend: `getPartnerAnalytics` now groups campaigns/offers by creatorId, batch-fetches display names, returns `creatorBreakdown[]`. Frontend: new "Creator Attribution" table in PartnerPortal shows each creator's campaigns, scans, redemptions, est. revenue. |

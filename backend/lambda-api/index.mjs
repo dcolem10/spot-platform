@@ -1419,6 +1419,61 @@ async function getPartnerAnalytics(event) {
     })
     .sort((a, b) => b.redemptions - a.redemptions);
 
+  // ─── Per-creator attribution breakdown ───────────────────────────────────────
+  // Group campaigns and offers by creatorId so the restaurant can see which
+  // creator drove how many scans, redemptions, and estimated revenue.
+  const creatorStatsMap = new Map();
+
+  for (const campaign of campaigns) {
+    const cId = campaign.creatorId || userId;
+    if (!creatorStatsMap.has(cId)) {
+      creatorStatsMap.set(cId, { creatorId: cId, campaignCount: 0, scans: 0, redemptions: 0 });
+    }
+    creatorStatsMap.get(cId).campaignCount++;
+  }
+  for (const offer of offers) {
+    const cId = offer.creatorId || userId;
+    if (!creatorStatsMap.has(cId)) {
+      creatorStatsMap.set(cId, { creatorId: cId, campaignCount: 0, scans: 0, redemptions: 0 });
+    }
+    const cs = creatorStatsMap.get(cId);
+    cs.scans += (offer.scans || 0);
+    cs.redemptions += (offer.redemptions || 0);
+  }
+
+  // Batch-fetch display names for all unique creators (max 20 to stay within cost)
+  const uniqueCreatorIds = [...creatorStatsMap.keys()].slice(0, 20);
+  const creatorNameMap = new Map();
+  if (uniqueCreatorIds.length > 0) {
+    try {
+      const profileResults = await Promise.all(
+        uniqueCreatorIds.map(cId =>
+          ddb.send(new GetCommand({
+            TableName: TABLE,
+            Key: { PK: `CREATOR#${cId}`, SK: 'PROFILE' },
+            ProjectionExpression: 'displayName, brandName',
+          }))
+        )
+      );
+      for (let i = 0; i < uniqueCreatorIds.length; i++) {
+        const p = profileResults[i].Item;
+        if (p) creatorNameMap.set(uniqueCreatorIds[i], p.displayName || p.brandName || null);
+      }
+    } catch (e) { console.warn('Creator profile batch fetch failed:', e.message); }
+  }
+
+  const creatorBreakdown = [...creatorStatsMap.values()]
+    .map((cs, idx) => ({
+      creatorId: cs.creatorId,
+      creatorName: creatorNameMap.get(cs.creatorId) || `Creator ${idx + 1}`,
+      campaignCount: cs.campaignCount,
+      scans: cs.scans,
+      redemptions: cs.redemptions,
+      estimatedRevenue: Math.round(cs.redemptions * AVG_CHECK_VALUE * (1 + REPEAT_VISIT_RATE)),
+    }))
+    .sort((a, b) => b.redemptions - a.redemptions);
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Pending actions count
   const expiringOffers = offers.filter(o => {
     if (!o.expiresAt || !o.isActive) return false;
@@ -1458,6 +1513,8 @@ async function getPartnerAnalytics(event) {
       campaignId: c.campaignId, restaurantName: c.restaurantName,
       package: c.package, budget: c.budget, redemptions: c.redemptions,
     })),
+    // Per-creator attribution — which creator drove how many redemptions
+    creatorBreakdown,
     // Recent redemptions (today + this week from offers)
     recentRedemptions: {
       today: totalRedemptions, // Phase 4: real daily tracking from POS
