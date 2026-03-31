@@ -3739,6 +3739,41 @@ async function getMembership(event) {
   return respond(200, { tier: result.Item?.tier || 'free' });
 }
 
+/**
+ * POST /api/insider/subscribe
+ * Initiates an Insider membership subscription.
+ * Authenticated endpoint.
+ * Body: { planId: 'insider_monthly' | 'insider_yearly' }
+ *
+ * NOTE: Insider Stripe price IDs are not yet configured (see remediation item #18).
+ * Returns coming_soon status until INSIDER_MONTHLY_PRICE_ID and INSIDER_YEARLY_PRICE_ID
+ * env vars are set and wired to real Stripe checkout (to be done alongside item #18).
+ */
+async function subscribeInsider(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  let body;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    return respond(400, { error: 'Invalid JSON body' });
+  }
+
+  const { planId } = body;
+  const VALID_PLAN_IDS = ['insider_monthly', 'insider_yearly'];
+  if (!planId || !VALID_PLAN_IDS.includes(planId)) {
+    return respond(400, { error: 'planId must be insider_monthly or insider_yearly' });
+  }
+
+  // Insider Stripe price IDs are not yet configured — return coming_soon so the
+  // frontend can show a clear message instead of silently failing.
+  return respond(200, {
+    status: 'coming_soon',
+    message: 'Insider memberships are launching soon! We\'ll notify you when subscriptions open.',
+  });
+}
+
 // ─── Save Management ─────────────────────────────────────────────────────────
 
 async function removeSave(restaurantId, event) {
@@ -6570,6 +6605,8 @@ export const handler = async (event) => {
     // Insider membership
     if (path.match(/\/api\/insider\/membership$/) && method === 'GET')
       return getMembership(event);
+    if (path.match(/\/api\/insider\/subscribe$/) && method === 'POST')
+      return subscribeInsider(event);
 
     // Saves
     if (path.match(/\/api\/saves\/[^/]+$/) && method === 'POST')

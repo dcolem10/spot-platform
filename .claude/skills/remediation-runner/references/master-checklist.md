@@ -74,7 +74,7 @@
 
 ## HIGH (Items 10–18)
 
-- [ ] **10. Insider subscription payment endpoint**
+- [x] **10. Insider subscription payment endpoint**
   - Source: Value Proposition
   - Problem: MembershipGate calls `/api/insider/subscribe` which doesn't exist in the backend. "Subscribe" button has no backend.
   - Scope: Backend — new endpoint wiring to Stripe with Insider price ID. Or defer Insider payments entirely (mark as "coming soon").
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #10 Insider subscribe endpoint | Done | Added POST /api/insider/subscribe to lambda-api; returns coming_soon until Insider Stripe price IDs exist (item #18). Frontend shows clear message instead of silently failing. |
