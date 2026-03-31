@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -671,6 +672,8 @@ export const handler = async (event) => {
   setRequestOrigin(event); // Dynamic CORS — match request origin against allowed list
   const method = event.httpMethod;
   const path = event.path || '';
+  initLogger(event.requestContext?.requestId, `${method} ${path}`);
+  log.info('request', { method, path });
 
   try {
     if (method === 'OPTIONS') return respond(200, {}, { 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS' });

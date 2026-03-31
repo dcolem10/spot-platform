@@ -13,6 +13,7 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp, escapeHtml } from './helpers.mjs';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -6778,6 +6779,10 @@ export const handler = async (event) => {
   const method = event.httpMethod;
   const path = event.path || '';
   const pathParts = path.split('/').filter(Boolean);
+  const requestId = event.requestContext?.requestId || 'unknown';
+
+  initLogger(requestId, `${method} ${path}`);
+  log.info('request', { method, path, sourceIp: event.requestContext?.identity?.sourceIp });
 
   try {
     // CORS preflight — return immediately with proper headers
@@ -6796,8 +6801,44 @@ export const handler = async (event) => {
     if (event.body && event.body.length > 102400) {
       return respond(413, { error: 'Request body too large' });
     }
-    // Health check
-    if (path.endsWith('/health')) return respond(200, { status: 'ok' });
+    // Health check — verify DynamoDB and Secrets Manager are reachable
+    if (path.endsWith('/health')) {
+      const checks = { dynamodb: 'ok', secrets: 'ok' };
+      let degraded = false;
+
+      // DynamoDB: attempt a lightweight DescribeTable equivalent via a benign GetItem
+      try {
+        await ddb.send(new GetCommand({
+          TableName: TABLE,
+          Key: { PK: 'HEALTH_CHECK', SK: 'PING' },
+          ProjectionExpression: 'PK',
+        }));
+      } catch (err) {
+        checks.dynamodb = err.name || 'error';
+        degraded = true;
+        log.error('health_check_dynamodb_fail', { error: err.message });
+      }
+
+      // Secrets Manager: verify the ARN resolves (uses cache when warm)
+      try {
+        const arn = process.env.SECRETS_ARN;
+        if (!arn) throw new Error('SECRETS_ARN not set');
+        await smClient.send(new GetSecretValueCommand({ SecretId: arn }));
+      } catch (err) {
+        checks.secrets = err.name || 'error';
+        degraded = true;
+        log.error('health_check_secrets_fail', { error: err.message });
+      }
+
+      if (degraded) {
+        return {
+          statusCode: 503,
+          headers: { ...headers, 'Cache-Control': 'no-store' },
+          body: JSON.stringify({ status: 'degraded', checks, timestamp: new Date().toISOString() }),
+        };
+      }
+      return respond(200, { status: 'ok', checks, timestamp: new Date().toISOString() });
+    }
 
     // Restaurants
     if (path.match(/\/api\/restaurants$/) && method === 'GET')
@@ -7077,14 +7118,11 @@ export const handler = async (event) => {
     return respond(404, { error: 'Not found' });
   } catch (err) {
     const errorId = randomUUID().slice(0, 12);
-    console.error(JSON.stringify({
-      level: 'ERROR',
+    log.error('unhandled_exception', {
       errorId,
       message: err.message,
       stack: err.stack?.split('\n').slice(0, 5).join(' | '),
-      path: event?.rawPath || event?.path,
-      method: event?.requestContext?.http?.method,
-    }));
+    });
     return respond(500, { error: 'Internal server error', errorId });
   }
 };

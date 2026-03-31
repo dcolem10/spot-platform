@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import Stripe from 'stripe';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -501,6 +502,8 @@ export const handler = async (event) => {
   setRequestOrigin(event); // Dynamic CORS — match request origin against allowed list
   const path = event.path || event.rawPath || '';
   const method = event.httpMethod || event.requestContext?.http?.method || 'GET';
+  initLogger(event.requestContext?.requestId, `${method} ${path}`);
+  log.info('request', { method, path });
 
   // CORS preflight
   if (method === 'OPTIONS') {

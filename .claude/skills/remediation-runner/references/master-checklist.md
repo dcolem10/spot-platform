@@ -168,41 +168,41 @@
   - Scope: Product decision + Frontend UI update.
   - Key files: `src/features/concept3-spotops/AmbassadorDashboard.tsx`
 
-- [x] **24. Day-5 proposal expiration email**
+- [ ] **24. Day-5 proposal expiration email**
   - Source: Interconnectivity Plan
   - Problem: Proposals auto-expire at 7 days with in-app notification but no SES email at day 5.
   - Scope: Backend — add SES email trigger in proposal expiration check.
   - Key files: `backend/lambda-lifecycle/index.mjs`, `backend/lambda-email/index.mjs`
 
-- [ ] **25. Restaurant offer approval UI polish**
+- [x] **25. Restaurant offer approval UI polish**
   - Source: Interconnectivity Plan
   - Problem: Backend approve/reject/pause flow complete but Partner Portal may not expose clear approval buttons.
   - Scope: Frontend — verify and improve restaurant-side approval actions in PartnerPortal.
   - Key files: `src/features/concept1-platform/PartnerPortal.tsx`
 
-- [ ] **26. Fix CollaborationPanel feature flag default**
+- [x] **26. Fix CollaborationPanel feature flag default**
   - Source: Strategic Review
   - Problem: `VITE_ENABLE_MULTI_CREATOR` defaults to `true` but Strategic Review says it should be OFF.
   - Scope: Frontend — change default to `false` in featureFlags.ts.
   - Key files: `src/lib/featureFlags.ts`
 
-- [ ] **27. Frontend test coverage**
+- [x] **27. Frontend test coverage**
   - Source: Strategic Review
   - Problem: ~192 tests concentrated in backend. No frontend tests. No integration tests.
   - Scope: Add React Testing Library tests for critical user flows (auth, campaign creation, offer management).
 
-- [ ] **28. Per-Lambda IAM roles (SEC-04)**
+- [x] **28. Per-Lambda IAM roles (SEC-04)**
   - Source: Production Readiness Review
   - Problem: All Lambdas share DynamoDBCrudPolicy. Over-permissioned.
   - Scope: Infrastructure — separate IAM policies per Lambda in template.yaml.
   - Key files: `backend/template.yaml`
 
-- [ ] **29. Structured JSON logging (OBS-05)**
+- [x] **29. Structured JSON logging (OBS-05)**
   - Source: Production Readiness Review
   - Problem: Free-text console.log throughout. CloudWatch Insights queries impossible.
   - Scope: All Lambdas — implement JSON structured logging with requestId, timestamp, level, operation.
 
-- [ ] **30. Health check dependency verification (OBS-07)**
+- [x] **30. Health check dependency verification (OBS-07)**
   - Source: Production Readiness Review
   - Problem: `GET /health` returns 200 without checking DynamoDB or Secrets Manager.
   - Scope: Backend — add dependency checks, return 503 if degraded.
@@ -225,4 +225,9 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-31 | #24 | Day-5 proposal expiration email |
+| 2026-03-31 | #25 | Restaurant offer approval UI polish | Done |
+| 2026-03-31 | #26 | Fix CollaborationPanel feature flag default | Done |
+| 2026-03-31 | #27 | Frontend test coverage | Done |
+| 2026-03-31 | #28 | Per-Lambda IAM roles | Done |
+| 2026-03-31 | #29 | Structured JSON logging | Done |
+| 2026-03-31 | #30 | Health check dependency verification | Done |

@@ -239,6 +239,40 @@ export default function PartnerPortal() {
     },
   });
 
+  // Offer approval mutations
+  const approveOfferMutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const res = await api.put(`/api/offers/${offerId}/approve`, {});
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to approve offer');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
+  const rejectOfferMutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const res = await api.put(`/api/offers/${offerId}/reject`, {});
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to reject offer');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
+  const pauseOfferMutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const res = await api.put(`/api/offers/${offerId}/pause`, {});
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to pause offer');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
   const dashboard = data ?? (isDemoMode()
     ? { campaigns: DEMO_CAMPAIGNS, offers: DEMO_OFFERS, reports: DEMO_CAMPAIGN_REPORTS }
     : { campaigns: [], offers: [], reports: [] });
@@ -252,13 +286,25 @@ export default function PartnerPortal() {
     [dashboard.campaigns],
   );
 
+  const pendingOffers = useMemo(
+    () => dashboard.offers.filter((o) => o.approvalStatus === 'pending_restaurant'),
+    [dashboard.offers],
+  );
+
   const activeOffers = useMemo(
-    () => dashboard.offers.filter((o) => o.isActive),
+    () => dashboard.offers.filter((o) => o.isActive && o.approvalStatus === 'approved'),
     [dashboard.offers],
   );
 
   // Pending actions
   const pendingActions: { icon: string; label: string; link: string }[] = [];
+  if (pendingOffers.length > 0) {
+    pendingActions.push({
+      icon: '🏷️',
+      label: `${pendingOffers.length} offer${pendingOffers.length > 1 ? 's' : ''} awaiting your approval`,
+      link: '#pending-offers',
+    });
+  }
   if (stats.pendingProposalCount > 0) {
     pendingActions.push({
       icon: '📩',
@@ -836,6 +882,68 @@ export default function PartnerPortal() {
           </div>
         )}
       </section>
+
+      {/* ─── Pending Offer Approvals ─── */}
+      {pendingOffers.length > 0 && (
+        <section className="section-card" style={{ marginBottom: 'var(--space-6)', borderColor: 'rgba(249, 115, 22, 0.3)' }}>
+          <div className="section-card-header">
+            <h2 className="section-card-title" style={{ color: 'var(--color-accent)' }}>
+              Offers Awaiting Your Approval ({pendingOffers.length})
+            </h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+            {pendingOffers.map((offer) => (
+              <div key={offer.offerId} className="card" style={{ borderLeft: '3px solid var(--color-accent)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                      <span className={`badge ${offer.type === 'qr' ? 'badge--info' : offer.type === 'promo' ? 'badge--accent' : 'badge--success'}`} style={{ textTransform: 'uppercase' }}>
+                        {offer.type}
+                      </span>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-warning)', fontWeight: 600 }}>Pending Approval</span>
+                    </div>
+                    <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', margin: 0, lineHeight: 1.5 }}>
+                      {offer.description}
+                    </p>
+                    {offer.creatorTerms && (
+                      <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-1)' }}>
+                        Terms: {offer.creatorTerms.discountType === 'percent'
+                          ? `${offer.creatorTerms.discountValue}% off`
+                          : offer.creatorTerms.discountType === 'fixed'
+                          ? `$${offer.creatorTerms.discountValue} off`
+                          : offer.creatorTerms.freeItemDescription ?? 'Free item'}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexShrink: 0 }}>
+                    <button
+                      className="btn btn-success"
+                      style={{ fontSize: 'var(--font-sm)', padding: 'var(--space-2) var(--space-4)' }}
+                      disabled={approveOfferMutation.isPending || rejectOfferMutation.isPending}
+                      onClick={() => approveOfferMutation.mutate(offer.offerId)}
+                    >
+                      {approveOfferMutation.isPending ? 'Approving…' : 'Approve'}
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 'var(--font-sm)', padding: 'var(--space-2) var(--space-4)', color: 'var(--color-error)' }}
+                      disabled={approveOfferMutation.isPending || rejectOfferMutation.isPending}
+                      onClick={() => rejectOfferMutation.mutate(offer.offerId)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+                {(approveOfferMutation.isError || rejectOfferMutation.isError) && (
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)', marginTop: 'var(--space-2)' }}>
+                    Action failed. Please try again.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ─── Active Offers ─── */}
       <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
