@@ -81,7 +81,7 @@
   - Key files: `src/features/concept2-insider/MembershipGate.tsx`, `backend/lambda-stripe/index.mjs`
   - Acceptance: Either subscription works end-to-end, or UI clearly shows "coming soon" without broken buttons.
 
-- [ ] **11. Separate Cognito pool for restaurants**
+- [x] **11. Separate Cognito pool for restaurants**
   - Source: Interconnectivity Plan
   - Problem: Creators and restaurants share one Cognito pool. Plan calls for separate pools (security isolation, POS OAuth readiness).
   - Scope: Infrastructure — new Cognito pool in template.yaml, update auth flows, mapping table.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #11 Separate Cognito pool for restaurants | Done | Added RestaurantUserPool + RestaurantUserPoolClient to template.yaml; RestaurantCognitoAuthorizer on /api/partner/* routes; bootstrapAmplify(poolType) dual-pool config; poolType field in authStore |
