@@ -307,6 +307,22 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        SharedReport:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/shared-report/{token}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        SharedReportOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SpotApi
+            Path: /api/shared-report/{token}
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
 
   # ─── AI Lambda ────────────────────────────────────────────────────────────
   AiFunction:

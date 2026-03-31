@@ -47,6 +47,7 @@ const PartnershipCRM = lazy(() => import('./features/concept3-spotops/Partnershi
 const ContentArchive = lazy(() => import('./features/concept3-spotops/ContentArchive'));
 const EditorialCalendar = lazy(() => import('./features/concept3-spotops/EditorialCalendar'));
 const ROIReporter = lazy(() => import('./features/concept3-spotops/ROIReporter'));
+const SharedReport = lazy(() => import('./features/concept3-spotops/SharedReport'));
 const AIInsights = lazy(() => import('./features/concept3-spotops/AIInsights'));
 const AmbassadorDashboard = lazy(() => import('./features/concept3-spotops/AmbassadorDashboard'));
 
@@ -198,6 +199,9 @@ export default function App() {
 
               {/* Public Raffle Entry Page */}
               <Route path="/raffle/:id" element={<RaffleEntryPage />} />
+
+              {/* Public Shared Report — no auth required, for restaurant partners */}
+              <Route path="/shared-report/:token" element={<SharedReport />} />
 
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />
