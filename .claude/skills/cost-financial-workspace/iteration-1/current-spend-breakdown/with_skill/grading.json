@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "run_type": "with_skill",
+  "expectations": [
+    {"text": "Uses aws ce get-cost-and-usage CLI command or equivalent", "passed": true, "evidence": "Uses 'aws ce get-cost-and-usage' with BlendedCost metric and SERVICE grouping"},
+    {"text": "Groups costs by SERVICE dimension", "passed": true, "evidence": "Groups by Type=DIMENSION,Key=SERVICE with expected JSON output format"},
+    {"text": "References the $50/month budget threshold", "passed": true, "evidence": "Multiple references: 'Compare to budget alert — Your CloudFormation template has a $50/month budget alert'"},
+    {"text": "Identifies Lambda, DynamoDB, API Gateway as key services", "passed": true, "evidence": "Lists all 6 Lambda functions with individual cost estimates, DynamoDB on-demand pricing, API Gateway REST v1 costs"},
+    {"text": "Mentions third-party API costs (Anthropic, Google Places) beyond just AWS", "passed": true, "evidence": "Explicitly covers: 'Anthropic (Claude API): Varies wildly. If AI function is called 100 times/day with Haiku model: ~$60/month' and 'Google Places: One-time seeder cost ~$5.76'"}
+  ]
+}

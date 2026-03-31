@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { api } from '../../services/ApiService';
 import {
   isDemoMode,
@@ -462,13 +462,12 @@ export default function AIInsights() {
     setIsLoadingAI(true);
     setAiError(null);
     try {
-      const result = await api.post<{ insights: string[] }>('/api/ai/campaign-insights', {
-        campaignData: {
-          campaigns: DEMO_CAMPAIGNS.length,
-          active: DEMO_CAMPAIGNS.filter((c) => c.status === 'active').length,
-          completed: DEMO_CAMPAIGNS.filter((c) => c.status === 'completed').length,
-        },
-      });
+      // Send empty body — lambda-ai fetches real campaign data from DynamoDB by userId
+      const result = await api.post<{ insights: string[] }>(
+        '/api/ai/campaign-insights',
+        {},
+        { timeoutMs: 30000 },
+      );
       if (result.status === 'success' && result.data) {
         setAiInsights(result.data.insights);
       } else {
@@ -489,6 +488,7 @@ export default function AIInsights() {
       const result = await api.post<{ recommendations: Recommendation[] }>(
         '/api/ai/recommendations',
         { query: 'Recommend new DC restaurants for a food creator to partner with' },
+        { timeoutMs: 30000 },
       );
       if (result.status === 'success' && result.data) {
         setAiRecommendations(result.data.recommendations);
@@ -507,9 +507,11 @@ export default function AIInsights() {
     setIsLoadingAI(true);
     setAiError(null);
     try {
-      const result = await api.post<{ ideas: ContentIdea[] }>('/api/ai/content-ideas', {
-        context: { city: 'DC', niche: 'food', platforms: ['instagram', 'tiktok'] },
-      });
+      const result = await api.post<{ ideas: ContentIdea[] }>(
+        '/api/ai/content-ideas',
+        { context: { city: 'DC', niche: 'food', platforms: ['instagram', 'tiktok'] } },
+        { timeoutMs: 30000 },
+      );
       if (result.status === 'success' && result.data) {
         setAiContentIdeas(result.data.ideas);
       } else {
@@ -534,6 +536,13 @@ export default function AIInsights() {
     [aiInsights, aiRecommendations, aiContentIdeas, fetchAIInsights, fetchAIRecommendations, fetchAIContentIdeas],
   );
 
+  // Auto-load the default (insights) tab on mount for authenticated users
+  useEffect(() => {
+    if (!isDemoMode()) {
+      fetchAIInsights();
+    }
+  }, [fetchAIInsights]);
+
   const tabs: { key: 'insights' | 'recommendations' | 'content'; label: string; icon: string }[] = [
     { key: 'insights', label: 'Campaign Insights', icon: '\u{1F4CA}' },
     { key: 'recommendations', label: 'Partner Suggestions', icon: '\u{1F3AF}' },
@@ -543,10 +552,36 @@ export default function AIInsights() {
   return (
     <div className="page-container">
       <header className="page-header">
-        <h1 className="page-title">AI Insights</h1>
-        <p className="page-subtitle">
-          Analytics, patterns, and recommendations powered by your campaign data.
-        </p>
+        <div>
+          <h1 className="page-title">AI Insights</h1>
+          <p className="page-subtitle">
+            Analytics, patterns, and recommendations powered by your campaign data.
+          </p>
+        </div>
+        {!isDemoMode() && !isLoadingAI && (
+          <button
+            onClick={() => {
+              setAiInsights(null);
+              setAiRecommendations(null);
+              setAiContentIdeas(null);
+              if (activeTab === 'insights') fetchAIInsights();
+              if (activeTab === 'recommendations') fetchAIRecommendations();
+              if (activeTab === 'content') fetchAIContentIdeas();
+            }}
+            style={{
+              padding: 'var(--space-2) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bgElevated)',
+              color: 'var(--color-textSecondary)',
+              fontSize: 'var(--font-sm)',
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Refresh
+          </button>
+        )}
       </header>
 
       {/* Tab Bar */}
