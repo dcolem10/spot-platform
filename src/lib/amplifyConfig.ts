@@ -1,4 +1,4 @@
-import { Amplify } from 'aws-amplify';
+import { Amplify } from '@aws-amplify/core';
 
 /**
  * Configure Amplify for a specific user pool.
