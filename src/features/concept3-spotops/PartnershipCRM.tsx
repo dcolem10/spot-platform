@@ -11,6 +11,7 @@ import CampaignDetailPanel, { formatDate } from '../../components/CampaignDetail
 
 type SortField = 'date' | 'value';
 type SortDir = 'asc' | 'desc';
+type ViewMode = 'table' | 'kanban';
 
 interface CRMStats {
   pipelineValue: number;
@@ -172,6 +173,90 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
   } as React.CSSProperties,
+  viewToggle: {
+    display: 'flex',
+    gap: 'var(--space-1)',
+    marginLeft: 'var(--space-3)',
+    background: 'var(--color-bgElevated)',
+    borderRadius: 'var(--radius-md)',
+    padding: '2px',
+    border: '1px solid var(--color-border)',
+  } as React.CSSProperties,
+  viewBtn: (active: boolean) =>
+    ({
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '32px',
+      height: '28px',
+      borderRadius: 'calc(var(--radius-md) - 2px)',
+      cursor: 'pointer',
+      border: 'none',
+      background: active ? 'var(--color-accent)' : 'transparent',
+      color: active ? '#fff' : 'var(--color-textMuted)',
+      transition: 'all var(--transition-fast)',
+      fontSize: '14px',
+    }) as React.CSSProperties,
+  kanbanBoard: {
+    display: 'flex',
+    gap: 'var(--space-4)',
+    overflowX: 'auto' as const,
+    paddingBottom: 'var(--space-4)',
+    alignItems: 'flex-start',
+  } as React.CSSProperties,
+  kanbanColumn: {
+    flexShrink: 0,
+    width: '240px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 'var(--space-3)',
+  } as React.CSSProperties,
+  kanbanColumnHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 'var(--space-3) var(--space-4)',
+    background: 'var(--color-bgElevated)',
+    borderRadius: 'var(--radius-md)',
+    borderBottom: '2px solid var(--color-border)',
+  } as React.CSSProperties,
+  kanbanColumnTitle: {
+    fontSize: 'var(--font-xs)',
+    fontWeight: 700,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+    color: 'var(--color-textSecondary)',
+  } as React.CSSProperties,
+  kanbanCard: {
+    background: 'var(--color-bgElevated)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-4)',
+    cursor: 'pointer',
+    border: '1px solid var(--color-border)',
+    transition: 'all var(--transition-fast)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 'var(--space-2)',
+  } as React.CSSProperties,
+  kanbanCardTitle: {
+    fontSize: 'var(--font-sm)',
+    fontWeight: 600,
+    color: 'var(--color-textPrimary)',
+    lineHeight: 1.3,
+  } as React.CSSProperties,
+  kanbanCardMeta: {
+    fontSize: 'var(--font-xs)',
+    color: 'var(--color-textMuted)',
+  } as React.CSSProperties,
+  kanbanEmpty: {
+    padding: 'var(--space-5) var(--space-4)',
+    textAlign: 'center' as const,
+    color: 'var(--color-textMuted)',
+    fontSize: 'var(--font-xs)',
+    background: 'var(--color-bgElevated)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px dashed var(--color-border)',
+  } as React.CSSProperties,
 } as const;
 
 const STATUS_FILTERS: { key: CampaignStatus | 'all'; label: string }[] = [
@@ -183,6 +268,8 @@ const STATUS_FILTERS: { key: CampaignStatus | 'all'; label: string }[] = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
+const KANBAN_STAGES: CampaignStatus[] = ['inquiry', 'negotiation', 'active', 'completed', 'cancelled'];
+
 /* ─── Component ────────────────────────────────────────────────────────────── */
 
 export default function PartnershipCRM() {
@@ -191,6 +278,7 @@ export default function PartnershipCRM() {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   /* ─── Data fetching (React Query) ──────────────────────────────────── */
 
@@ -241,6 +329,23 @@ export default function PartnershipCRM() {
   }, [campaigns, statusFilter, sortField, sortDir]);
 
   const stats = useMemo(() => computeStats(campaigns), [campaigns]);
+
+  // Kanban: group all campaigns by status, sorted within each column
+  const kanbanGrouped = useMemo(() => {
+    const sorted = [...campaigns].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'date') {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else {
+        cmp = a.budget - b.budget;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return KANBAN_STAGES.reduce<Record<CampaignStatus, Campaign[]>>((acc, stage) => {
+      acc[stage] = sorted.filter((c) => c.status === stage);
+      return acc;
+    }, {} as Record<CampaignStatus, Campaign[]>);
+  }, [campaigns, sortField, sortDir]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -320,7 +425,7 @@ export default function PartnershipCRM() {
 
       {/* Toolbar */}
       <div style={styles.toolbar}>
-        {STATUS_FILTERS.map((f) => (
+        {viewMode === 'table' && STATUS_FILTERS.map((f) => (
           <button
             key={f.key}
             style={styles.filterBtn(statusFilter === f.key)}
@@ -343,71 +448,164 @@ export default function PartnershipCRM() {
         >
           Value {sortField === 'value' ? (sortDir === 'asc' ? '\u2191' : '\u2193') : ''}
         </button>
+        {/* View toggle */}
+        <div style={styles.viewToggle}>
+          <button
+            style={styles.viewBtn(viewMode === 'table')}
+            onClick={() => setViewMode('table')}
+            title="Table view"
+            aria-label="Switch to table view"
+          >
+            ☰
+          </button>
+          <button
+            style={styles.viewBtn(viewMode === 'kanban')}
+            onClick={() => setViewMode('kanban')}
+            title="Kanban view"
+            aria-label="Switch to Kanban view"
+          >
+            ⊞
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={statusFilter !== 'all' ? '\uD83D\uDD0D' : '\uD83E\uDD1D'}
-            title={statusFilter !== 'all' ? 'No matching campaigns' : 'Your CRM is empty'}
-            description={statusFilter !== 'all'
-              ? `No campaigns with status "${statusFilter}". Try a different filter or create a new campaign.`
-              : 'Start by discovering restaurants and creating your first campaign. Your partnerships will appear here.'}
-            ctaLabel={statusFilter === 'all' ? 'Discover Restaurants' : undefined}
-            ctaTo={statusFilter === 'all' ? '/app/restaurants' : undefined}
-            secondaryLabel={statusFilter === 'all' ? 'New Campaign' : undefined}
-            secondaryTo={statusFilter === 'all' ? '/app/campaigns' : undefined}
-          />
+      {/* Table view */}
+      {viewMode === 'table' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={statusFilter !== 'all' ? '\uD83D\uDD0D' : '\uD83E\uDD1D'}
+              title={statusFilter !== 'all' ? 'No matching campaigns' : 'Your CRM is empty'}
+              description={statusFilter !== 'all'
+                ? `No campaigns with status "${statusFilter}". Try a different filter or create a new campaign.`
+                : 'Start by discovering restaurants and creating your first campaign. Your partnerships will appear here.'}
+              ctaLabel={statusFilter === 'all' ? 'Discover Restaurants' : undefined}
+              ctaTo={statusFilter === 'all' ? '/app/restaurants' : undefined}
+              secondaryLabel={statusFilter === 'all' ? 'New Campaign' : undefined}
+              secondaryTo={statusFilter === 'all' ? '/app/campaigns' : undefined}
+            />
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Restaurant</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Package</th>
+                  <th style={styles.th}>Est. Value</th>
+                  <th style={styles.th}>Start Date</th>
+                  <th style={styles.th}>Deliverables</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((campaign) => {
+                  const progress = deliverableProgress(campaign.deliverables);
+                  return (
+                    <tr
+                      key={campaign.campaignId}
+                      style={styles.row}
+                      onClick={() => setSelectedCampaign(campaign)}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLTableRowElement).style.background = 'var(--color-bgHover)';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLTableRowElement).style.background = '';
+                      }}
+                    >
+                      <td style={{ ...styles.td, fontWeight: 600 }}>{campaign.restaurantName}</td>
+                      <td style={styles.td}>
+                        <span className={`badge ${STATUS_BADGE[campaign.status]}`}>{campaign.status}</span>
+                      </td>
+                      <td style={styles.td}>{campaign.package}</td>
+                      <td style={styles.td}>{formatCurrency(campaign.budget)}</td>
+                      <td style={styles.td}>{formatDate(campaign.startDate)}</td>
+                      <td style={styles.td}>
+                        <div style={styles.progressTrack}>
+                          <div style={styles.progressFill(progress)} />
+                        </div>
+                        <div style={styles.progressText}>
+                          {campaign.deliverables.filter((d) => d.completed).length}/{campaign.deliverables.length} ({progress}%)
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Kanban view */}
+      {viewMode === 'kanban' && (
+        campaigns.length === 0 ? (
+          <div className="card">
+            <EmptyState
+              icon="\uD83E\uDD1D"
+              title="Your CRM is empty"
+              description="Start by discovering restaurants and creating your first campaign. Your partnerships will appear here."
+              ctaLabel="Discover Restaurants"
+              ctaTo="/app/restaurants"
+              secondaryLabel="New Campaign"
+              secondaryTo="/app/campaigns"
+            />
+          </div>
         ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Restaurant</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Package</th>
-                <th style={styles.th}>Est. Value</th>
-                <th style={styles.th}>Start Date</th>
-                <th style={styles.th}>Deliverables</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((campaign) => {
-                const progress = deliverableProgress(campaign.deliverables);
-                return (
-                  <tr
-                    key={campaign.campaignId}
-                    style={styles.row}
-                    onClick={() => setSelectedCampaign(campaign)}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLTableRowElement).style.background = 'var(--color-bgHover)';
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLTableRowElement).style.background = '';
-                    }}
-                  >
-                    <td style={{ ...styles.td, fontWeight: 600 }}>{campaign.restaurantName}</td>
-                    <td style={styles.td}>
-                      <span className={`badge ${STATUS_BADGE[campaign.status]}`}>{campaign.status}</span>
-                    </td>
-                    <td style={styles.td}>{campaign.package}</td>
-                    <td style={styles.td}>{formatCurrency(campaign.budget)}</td>
-                    <td style={styles.td}>{formatDate(campaign.startDate)}</td>
-                    <td style={styles.td}>
-                      <div style={styles.progressTrack}>
-                        <div style={styles.progressFill(progress)} />
-                      </div>
-                      <div style={styles.progressText}>
-                        {campaign.deliverables.filter((d) => d.completed).length}/{campaign.deliverables.length} ({progress}%)
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+          <div style={styles.kanbanBoard}>
+            {KANBAN_STAGES.map((stage) => {
+              const cards = kanbanGrouped[stage] ?? [];
+              return (
+                <div key={stage} style={styles.kanbanColumn}>
+                  <div style={styles.kanbanColumnHeader}>
+                    <span style={styles.kanbanColumnTitle}>{stage}</span>
+                    <span className={`badge ${STATUS_BADGE[stage]}`}>{cards.length}</span>
+                  </div>
+                  {cards.length === 0 ? (
+                    <div style={styles.kanbanEmpty}>No deals</div>
+                  ) : (
+                    cards.map((campaign) => {
+                      const progress = deliverableProgress(campaign.deliverables);
+                      return (
+                        <div
+                          key={campaign.campaignId}
+                          style={styles.kanbanCard}
+                          onClick={() => setSelectedCampaign(campaign)}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-accent)';
+                            (e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-md)';
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-border)';
+                            (e.currentTarget as HTMLDivElement).style.boxShadow = '';
+                          }}
+                        >
+                          <div style={styles.kanbanCardTitle}>{campaign.restaurantName}</div>
+                          <div style={styles.kanbanCardMeta}>{campaign.package}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--color-accent)' }}>
+                              {formatCurrency(campaign.budget)}
+                            </span>
+                            <span style={styles.kanbanCardMeta}>{formatDate(campaign.startDate)}</span>
+                          </div>
+                          {campaign.deliverables.length > 0 && (
+                            <>
+                              <div style={styles.progressTrack}>
+                                <div style={styles.progressFill(progress)} />
+                              </div>
+                              <div style={styles.progressText}>
+                                {campaign.deliverables.filter((d) => d.completed).length}/{campaign.deliverables.length} deliverables
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
 
       {/* ─── Rich Detail Panel (shared component) ──────────────────────── */}
       {selectedCampaign && (

@@ -127,7 +127,7 @@
   - Scope: External — apply for Meta Developer, TikTok Developer, Google API credentials. Update Lambda env vars.
   - Acceptance: At least Instagram OAuth works in production (most critical for food creators).
 
-- [x] **18. Stripe production price IDs**
+- [ ] **18. Stripe production price IDs**
   - Source: Launch Checklist
   - Problem: Current Stripe price IDs are development/test mode. Need production price IDs.
   - Scope: Stripe Dashboard — create production prices. Update `ALLOWED_PRICES` in lambda-stripe.
@@ -138,7 +138,7 @@
 
 ## MEDIUM (Items 19–30)
 
-- [ ] **19. PartnershipCRM — Kanban view option**
+- [x] **19. PartnershipCRM — Kanban view option**
   - Source: Strategic Review
   - Problem: Described as "Kanban-style pipeline" but implemented as sortable table.
   - Scope: Frontend — add toggle between table view and Kanban board view.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #18 | Done | ALLOWED_PRICES now reads from STRIPE_PRICE_STARTER/PRO/SCALE env vars; test IDs remain as fallbacks |
+| 2026-03-30 | #19 | Added Kanban view toggle to PartnershipCRM |
