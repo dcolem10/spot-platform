@@ -8,18 +8,19 @@
 
 ## CRITICAL (Items 1–9)
 
-- [x] **1. Subscription tier enforcement**
+- [ ] **1. Subscription tier enforcement**
   - Source: Business Plan, Value Proposition
   - Problem: Stripe checkout creates sessions but nothing connects subscription tier (Starter/Pro/Scale) to feature access. All users get all features regardless of plan.
   - Scope: Backend (add tier lookup from Stripe subscription status) + Frontend (gate features by tier)
   - Key files: `backend/lambda-stripe/index.mjs`, `src/services/ApiService.ts`, `src/lib/featureFlags.ts`
   - Acceptance: Starter users limited to 2 active campaigns. Pro gets unlimited + calendar + AI. Scale gets ambassador + API access.
 
-- [ ] **2. Restaurant pricing model — resolve contradiction**
+- [x] **2. Restaurant pricing model — resolve contradiction**
   - Source: Value Proposition vs Business Plan
   - Problem: Value Proposition claims restaurants pay $299-$499/month ($240K ARR target). Business Plan and landing page say "Restaurants join free." Code has no restaurant pricing. These documents contradict each other.
   - Scope: Decision required from founder (Darren). Then update whichever document is wrong.
   - Acceptance: All documents agree on one restaurant revenue model. Code matches.
+  - Decision (2026-03-30): Restaurants join FREE. The $299–$499/mo figure in the Value Proposition is what restaurants *already spend* on marketing at competitors (e.g. Mustard) — it's a comparison point, not Spot's price. Spot's restaurant model: free signup, free attribution analytics, platform fee on new foot traffic driven by creator content. Fixed: lambda-stripe subscription flow was restaurant-centric (stored under RESTAURANT#/SUBSCRIPTION). Refactored to creator-centric (CREATOR#/SUBSCRIPTION) with no restaurantId dependency. Landing page already correct.
 
 - [ ] **3. POS production sync — remove 501 stub**
   - Source: Business Plan, Value Proposition, Interconnectivity Plan
@@ -225,4 +226,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #1 Subscription tier enforcement | Done | lambda-stripe writes CREATOR#{userId} SUBSCRIPTION on checkout; lambda-api GET /api/user/subscription; useSubscriptionTier hook + TierGate component; Pro gates: calendar, AI insights, ROI reporter; Scale gates: ambassador |
+| 2026-03-30 | #2 Restaurant pricing | Done | Decision: restaurants join free. $299–$499 in Value Prop is competitor comparison, not Spot's price. Refactored lambda-stripe to store creator subscriptions under CREATOR#/SUBSCRIPTION (was incorrectly RESTAURANT#/SUBSCRIPTION). |

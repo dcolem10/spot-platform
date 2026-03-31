@@ -1,0 +1,13 @@
+{
+  "eval_id": 3,
+  "eval_name": "cost-reduction-opportunities",
+  "prompt": "what are some ways I can reduce my AWS costs without losing functionality?",
+  "assertions": [
+    {"text": "Mentions API Gateway v1 to v2 migration with savings percentage", "type": "contains"},
+    {"text": "Mentions Lambda memory right-sizing", "type": "contains"},
+    {"text": "Mentions CloudWatch log retention reduction", "type": "contains"},
+    {"text": "Mentions Anthropic model selection (Haiku vs Sonnet)", "type": "contains"},
+    {"text": "Provides dollar estimates for at least 2 recommendations", "type": "contains"},
+    {"text": "Explains trade-offs or caveats for recommendations", "type": "contains"}
+  ]
+}
