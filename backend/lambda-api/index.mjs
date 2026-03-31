@@ -4108,6 +4108,118 @@ async function upsertProfile(event) {
   return respond(200, stripDdbKeys(item));
 }
 
+// ─── GDPR/CCPA: Data Export & Account Deletion ───────────────────────────────
+
+/**
+ * GET /api/profile/export
+ * Returns all user data as JSON (GDPR Art. 20 data portability / CCPA right to know).
+ * Rate-limited to 3 exports per user per hour to prevent abuse.
+ */
+async function exportUserData(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // 3 exports per hour per user
+  if (!(await checkUserMutationRate(userId, 'DATA_EXPORT', 3))) {
+    return respond(429, { error: 'Too many export requests. Please try again in an hour.' });
+  }
+
+  try {
+    // Collect all records for this creator (profile, campaigns, offers, etc.)
+    const items = [];
+    let lastKey;
+    do {
+      const result = await ddb.send(new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': `CREATOR#${userId}` },
+        ExclusiveStartKey: lastKey,
+        Limit: 500,
+      }));
+      items.push(...(result.Items || []));
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+
+    // Strip DynamoDB internal keys and sensitive credentials before returning
+    const INTERNAL_KEYS = new Set([
+      'PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'GSI3PK', 'GSI3SK',
+      'posOAuthTokens', 'apiKeys', 'ttl',
+    ]);
+    const sanitizedItems = items.map(item => {
+      const clean = {};
+      for (const [k, v] of Object.entries(item)) {
+        if (!INTERNAL_KEYS.has(k)) clean[k] = v;
+      }
+      return clean;
+    });
+
+    return respond(200, {
+      exportedAt: new Date().toISOString(),
+      userId,
+      itemCount: sanitizedItems.length,
+      data: sanitizedItems,
+    });
+  } catch (err) {
+    console.error('exportUserData error:', err.message);
+    return respond(500, { error: 'Failed to export data' });
+  }
+}
+
+/**
+ * DELETE /api/profile
+ * Initiates account deletion:
+ *   - Sets accountStatus = 'pending_deletion' immediately (prevents future access)
+ *   - Sets a DynamoDB TTL of 30 days for automatic hard-delete of the profile record
+ *   - The lambda-lifecycle job is responsible for purging related records during the window
+ * GDPR Art. 17 (right to erasure) / CCPA right to delete.
+ */
+async function deleteAccount(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Allow only 1 deletion request per hour — prevents runaway retries
+  if (!(await checkUserMutationRate(userId, 'ACCOUNT_DELETE', 1))) {
+    return respond(429, { error: 'Account deletion request already in progress.' });
+  }
+
+  const now = new Date();
+  // TTL is a Unix epoch timestamp (seconds) — DynamoDB deletes the item after this time
+  const thirtyDaysSeconds = Math.floor(now.getTime() / 1000) + 30 * 24 * 60 * 60;
+
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'PROFILE' },
+      // Guard: profile must exist and not already be pending deletion
+      ConditionExpression:
+        'attribute_exists(PK) AND (attribute_not_exists(accountStatus) OR accountStatus <> :statusPending)',
+      UpdateExpression:
+        'SET accountStatus = :statusPending, deletedAt = :now, #ttl = :ttl, updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':statusPending': 'pending_deletion',
+        ':now': now.toISOString(),
+        ':ttl': thirtyDaysSeconds,
+        ':updatedAt': now.toISOString(),
+      },
+    }));
+
+    return respond(200, {
+      message:
+        'Account deletion requested. Your account will be permanently deleted within 30 days. ' +
+        'You may contact support within this window to cancel.',
+      deletedAt: now.toISOString(),
+      hardDeleteAt: new Date(thirtyDaysSeconds * 1000).toISOString(),
+    });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'Profile not found or account deletion already requested.' });
+    }
+    console.error('deleteAccount error:', err.message);
+    return respond(500, { error: 'Failed to process deletion request' });
+  }
+}
+
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
 
 async function calculateROI(event) {
@@ -6602,6 +6714,8 @@ export const handler = async (event) => {
     // Profile
     if (path.match(/\/api\/profile$/) && method === 'GET') return getProfile(event);
     if (path.match(/\/api\/profile$/) && method === 'POST') return upsertProfile(event);
+    if (path.match(/\/api\/profile\/export$/) && method === 'GET') return exportUserData(event);
+    if (path.match(/\/api\/profile$/) && method === 'DELETE') return deleteAccount(event);
 
     // ROI & Benchmarks
     if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);

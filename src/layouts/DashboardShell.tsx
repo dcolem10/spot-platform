@@ -41,6 +41,7 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
       { to: '/app/archive', label: 'Archive', icon: '\uD83D\uDCF7' },
       { to: '/app/calendar', label: 'Calendar', icon: '\uD83D\uDCC5' },
       { to: '/app/social', label: 'Social Accounts', icon: '🔗' },
+      { to: '/app/settings', label: 'Account Settings', icon: '⚙' },
     ],
   },
   {
