@@ -162,7 +162,7 @@
   - Scope: Backend — add Limit: 100 and pagination cursor to both endpoints.
   - Key files: `backend/lambda-api/index.mjs`
 
-- [ ] **23. Ambassador program — define tier benefits**
+- [x] **23. Ambassador program — define tier benefits**
   - Source: Value Proposition
   - Problem: Bronze/Silver/Gold tiers exist but benefits are undefined. Commission rates not visible.
   - Scope: Product decision + Frontend UI update.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-31 | #23 | Ambassador program tier benefits defined |
