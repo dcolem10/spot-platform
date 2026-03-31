@@ -47,6 +47,7 @@ const PartnershipCRM = lazy(() => import('./features/concept3-spotops/Partnershi
 const ContentArchive = lazy(() => import('./features/concept3-spotops/ContentArchive'));
 const EditorialCalendar = lazy(() => import('./features/concept3-spotops/EditorialCalendar'));
 const ROIReporter = lazy(() => import('./features/concept3-spotops/ROIReporter'));
+const SharedReport = lazy(() => import('./features/concept3-spotops/SharedReport'));
 const AIInsights = lazy(() => import('./features/concept3-spotops/AIInsights'));
 const AmbassadorDashboard = lazy(() => import('./features/concept3-spotops/AmbassadorDashboard'));
 
@@ -65,10 +66,6 @@ const ContentReviewManager = lazy(() => import('./features/concept1-platform/Con
 
 // Social Connections
 const SocialConnectionsPanel = lazy(() => import('./features/concept1-platform/SocialConnectionsPanel'));
-
-// Blog
-const BlogIndex = lazy(() => import('./features/blog/BlogIndex'));
-const BlogPost = lazy(() => import('./features/blog/BlogPost'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -203,9 +200,8 @@ export default function App() {
               {/* Public Raffle Entry Page */}
               <Route path="/raffle/:id" element={<RaffleEntryPage />} />
 
-              {/* Blog */}
-              <Route path="/blog" element={<BlogIndex />} />
-              <Route path="/blog/:slug" element={<BlogPost />} />
+              {/* Public Shared Report — no auth required, for restaurant partners */}
+              <Route path="/shared-report/:token" element={<SharedReport />} />
 
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />

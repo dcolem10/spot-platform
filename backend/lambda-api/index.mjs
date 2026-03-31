@@ -4338,6 +4338,156 @@ async function calculateROI(event) {
   return respond(200, stripDdbKeys(roiReport));
 }
 
+// ─── Shared Reports ────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/spotops/reports/{campaignId}/share
+ * Auth required. Snapshots the campaign's current metrics into a time-limited
+ * share token so a restaurant partner can view the report without logging in.
+ * Token expires in 30 days.
+ */
+async function createShareToken(campaignId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid campaignId' });
+
+  // Verify the campaign belongs to this creator
+  const campaignResult = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: `CAMPAIGN#${campaignId}` },
+  }));
+  if (!campaignResult.Item) return respond(404, { error: 'Campaign not found' });
+  const campaign = campaignResult.Item;
+
+  // Fetch this creator's offers to compute attribution metrics
+  const offersResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+    Limit: 200,
+  }));
+  const restaurantOffers = (offersResult.Items || []).filter(
+    o => o.restaurantId === campaign.restaurantId
+  );
+
+  const totalScans = restaurantOffers.reduce((s, o) => s + (o.scans || 0), 0);
+  const totalRedemptions = restaurantOffers.reduce((s, o) => s + (o.redemptions || 0), 0);
+  const estimatedVisits = Math.round(totalRedemptions * 1.8);
+
+  // Fetch the most recent ROI report for this campaign (if one exists)
+  const reportResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :prefix)',
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}#REPORTS`,
+      ':prefix': `REPORT#roi-${campaignId}`,
+    },
+    Limit: 1,
+    ScanIndexForward: false, // newest first
+  }));
+  const latestReport = reportResult.Items?.[0];
+
+  const now = new Date().toISOString();
+  const token = crypto.randomUUID().replace(/-/g, '');
+  const expiresAt = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
+  const ttlSeconds = Math.floor(Date.now() / 1000) + (30 * 86400);
+
+  // Build report snapshot from ROI report data if available, else use offer metrics
+  const snapshot = {
+    campaignId,
+    restaurantName: campaign.restaurantName || '',
+    package: campaign.package || campaign.packageType || '',
+    period: {
+      start: campaign.startDate || campaign.createdAt || now,
+      end: campaign.endDate || now,
+    },
+    metrics: latestReport ? {
+      totalScans: latestReport.totalScans || totalScans,
+      totalRedemptions: latestReport.totalRedemptions || totalRedemptions,
+      estimatedVisits: latestReport.estimatedVisits || estimatedVisits,
+      estimatedRevenue: latestReport.estimatedRevenue || 0,
+      roi: latestReport.roi || 0,
+      costPerVisit: latestReport.costPerVisit || 0,
+      costPerRedemption: latestReport.costPerRedemption || 0,
+      scanToRedemptionRate: latestReport.scanToRedemptionRate || 0,
+      budget: latestReport.budget || campaign.budget || 0,
+    } : {
+      totalScans,
+      totalRedemptions,
+      estimatedVisits,
+      estimatedRevenue: 0,
+      roi: 0,
+      costPerVisit: 0,
+      costPerRedemption: 0,
+      scanToRedemptionRate: totalScans > 0 ? totalRedemptions / totalScans : 0,
+      budget: campaign.budget || 0,
+    },
+    generatedAt: now,
+  };
+
+  await ddb.send(new PutCommand({
+    TableName: TABLE,
+    Item: {
+      PK: `SHARED_REPORT#${token}`,
+      SK: 'DATA',
+      token,
+      creatorId: userId,
+      campaignId,
+      snapshot,
+      createdAt: now,
+      expiresAt,
+      ttl: ttlSeconds,
+    },
+  }));
+
+  const frontendUrl = (process.env.ALLOWED_ORIGINS || 'https://main.dc04hhpr1ng78.amplifyapp.com')
+    .split(',')[0].trim();
+
+  return respond(201, {
+    shareUrl: `${frontendUrl}/shared-report/${token}`,
+    token,
+    expiresAt,
+  });
+}
+
+/**
+ * GET /api/shared-report/{token}
+ * Public — no auth required. Returns snapshotted report data for a share token.
+ * Token must not be expired.
+ */
+async function getSharedReport(token) {
+  // Validate token format (32-char hex from UUID without dashes)
+  if (!token || !/^[a-f0-9]{32}$/.test(token)) {
+    return respond(400, { error: 'Invalid token format' });
+  }
+
+  let result;
+  try {
+    result = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `SHARED_REPORT#${token}`, SK: 'DATA' },
+    }));
+  } catch (err) {
+    console.error('getSharedReport error:', err.message);
+    return respond(500, { error: 'Failed to load report' });
+  }
+
+  if (!result.Item) return respond(404, { error: 'Report not found or link has expired' });
+
+  const item = result.Item;
+  // Belt-and-suspenders expiry check (DynamoDB TTL removal can lag up to 48h)
+  if (item.expiresAt && new Date(item.expiresAt) < new Date()) {
+    return respond(404, { error: 'Report link has expired' });
+  }
+
+  return respond(200, {
+    ...item.snapshot,
+    expiresAt: item.expiresAt,
+  });
+}
+
 // ─── Creator Benchmarking ─────────────────────────────────────────────────────
 
 async function getBenchmarks(event) {
@@ -6757,6 +6907,12 @@ export const handler = async (event) => {
     // ROI & Benchmarks
     if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);
     if (path.match(/\/api\/reports\/benchmarks$/) && method === 'GET') return getBenchmarks(event);
+
+    // Shared Reports (auth required to create, public to view)
+    if (path.match(/\/api\/spotops\/reports\/[^/]+\/share$/) && method === 'POST')
+      return createShareToken(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/shared-report\/[^/]+$/) && method === 'GET')
+      return getSharedReport(pathParts[pathParts.length - 1]);
 
     // Ambassador & Referral
     if (path.match(/\/api\/ambassador\/generate-link$/) && method === 'POST')

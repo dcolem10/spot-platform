@@ -38,55 +38,6 @@ Parameters:
     Description: KMS key ARN for encrypting POS OAuth tokens at rest
 
 Resources:
-  # ─── Cognito — Restaurant User Pool ─────────────────────────────────────
-  # Separate pool for restaurant/partner users (security isolation, POS OAuth readiness).
-  # Creator pool is managed externally and passed in via CognitoUserPoolId parameter.
-  RestaurantUserPool:
-    Type: AWS::Cognito::UserPool
-    Properties:
-      UserPoolName: !Sub spot-restaurant-pool-${Environment}
-      AutoVerifiedAttributes: [email]
-      UsernameAttributes: [email]
-      Schema:
-        - Name: email
-          AttributeDataType: String
-          Required: true
-          Mutable: true
-        - Name: restaurantId
-          AttributeDataType: String
-          Required: false
-          Mutable: true
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireUppercase: true
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: false
-      AccountRecoverySetting:
-        RecoveryMechanisms:
-          - Name: verified_email
-            Priority: 1
-
-  RestaurantUserPoolClient:
-    Type: AWS::Cognito::UserPoolClient
-    Properties:
-      ClientName: !Sub spot-restaurant-client-${Environment}
-      UserPoolId: !Ref RestaurantUserPool
-      GenerateSecret: false
-      ExplicitAuthFlows:
-        - ALLOW_USER_SRP_AUTH
-        - ALLOW_REFRESH_TOKEN_AUTH
-      SupportedIdentityProviders:
-        - COGNITO
-      TokenValidityUnits:
-        AccessToken: hours
-        IdToken: hours
-        RefreshToken: days
-      AccessTokenValidity: 1
-      IdTokenValidity: 1
-      RefreshTokenValidity: 30
-
   # ─── DynamoDB ─────────────────────────────────────────────────────────────
   DataTable:
     Type: AWS::DynamoDB::Table
@@ -204,8 +155,6 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}
-          RestaurantCognitoAuthorizer:
-            UserPoolArn: !GetAtt RestaurantUserPool.Arn
       AccessLogSetting:
         DestinationArn: !GetAtt ApiAccessLogGroup.Arn
         Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","method":"$context.httpMethod","path":"$context.resourcePath","status":"$context.status","latency":"$context.responseLatency","error":"$context.error.message"}'
@@ -243,8 +192,6 @@ Resources:
           SECRETS_ARN: !Ref SecretsArn
           EMAIL_FUNCTION_NAME: !Ref EmailFunction
           POS_KMS_KEY_ID: !Ref PosKmsKeyArn
-          RESTAURANT_USER_POOL_ID: !Ref RestaurantUserPool
-          RESTAURANT_USER_POOL_CLIENT_ID: !Ref RestaurantUserPoolClient
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
@@ -360,20 +307,19 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-        # Partner (restaurant) routes use the separate restaurant Cognito pool
-        PartnerProxy:
+        SharedReport:
           Type: Api
           Properties:
             RestApiId: !Ref SpotApi
-            Path: /api/partner/{proxy+}
-            Method: ANY
+            Path: /api/shared-report/{token}
+            Method: GET
             Auth:
-              Authorizer: RestaurantCognitoAuthorizer
-        PartnerOptions:
+              Authorizer: NONE
+        SharedReportOptions:
           Type: Api
           Properties:
             RestApiId: !Ref SpotApi
-            Path: /api/partner/{proxy+}
+            Path: /api/shared-report/{token}
             Method: OPTIONS
             Auth:
               Authorizer: NONE
@@ -1039,9 +985,3 @@ Outputs:
   PhotosBucketUrl:
     Description: Public URL prefix for restaurant photos
     Value: !Sub https://${PhotosBucket}.s3.amazonaws.com
-  RestaurantUserPoolId:
-    Description: Cognito User Pool ID for restaurant/partner users
-    Value: !Ref RestaurantUserPool
-  RestaurantUserPoolClientId:
-    Description: Cognito App Client ID for restaurant/partner users
-    Value: !Ref RestaurantUserPoolClient

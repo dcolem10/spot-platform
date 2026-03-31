@@ -107,14 +107,14 @@
   - Key files: `src/features/landing/LandingPage.tsx` (testimonials section ~line 716)
   - Acceptance: At least 5-6 partner restaurant logos displayed with testimonials.
 
-- [x] **15. Connect AI insights to real Claude API**
+- [ ] **15. Connect AI insights to real Claude API**
   - Source: Value Proposition, Strategic Review
   - Problem: AIInsights component shows hardcoded demo data. lambda-ai backend exists but isn't connected to SpotOps AI tabs.
   - Scope: Backend (lambda-ai endpoints for campaign-insights, recommendations, content-ideas) + Frontend (wire API calls)
   - Key files: `src/features/concept3-spotops/AIInsights.tsx`, `backend/lambda-ai/index.mjs`
   - Acceptance: AI insights derive from actual campaign data via Claude API calls, not hardcoded arrays.
 
-- [ ] **16. ROI report sharing — make functional**
+- [x] **16. ROI report sharing — make functional**
   - Source: Value Proposition
   - Problem: "Generate & Share" button plays animation but doesn't generate a shareable URL or send anything.
   - Scope: Backend (generate shareable report URL or PDF) + Frontend (actual share mechanism)
@@ -225,4 +225,5 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #15 | Done | Wired AIInsights.tsx to lambda-ai real Claude API: auto-load on mount, removed hardcoded demo data payload, 30s timeout, refresh button |
+| 2026-03-30 | #16 | Done | Made ROI report sharing functional: share token API, public viewer page, clipboard copy |
+| 2026-03-30 | #16 | Done | Made ROI report sharing functional: share token API, public viewer page, clipboard copy |
