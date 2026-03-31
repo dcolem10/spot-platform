@@ -31,3 +31,4 @@ samconfig.toml
 # Private / confidential documents
 private/
 *.docx
+.claude/worktrees/
