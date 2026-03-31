@@ -66,6 +66,10 @@ const ContentReviewManager = lazy(() => import('./features/concept1-platform/Con
 // Social Connections
 const SocialConnectionsPanel = lazy(() => import('./features/concept1-platform/SocialConnectionsPanel'));
 
+// Blog
+const BlogIndex = lazy(() => import('./features/blog/BlogIndex'));
+const BlogPost = lazy(() => import('./features/blog/BlogPost'));
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -198,6 +202,10 @@ export default function App() {
 
               {/* Public Raffle Entry Page */}
               <Route path="/raffle/:id" element={<RaffleEntryPage />} />
+
+              {/* Blog */}
+              <Route path="/blog" element={<BlogIndex />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
 
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />

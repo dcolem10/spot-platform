@@ -88,7 +88,7 @@
   - Key files: `backend/template.yaml`, `src/lib/amplifyConfig.ts`, `src/store/authStore.ts`
   - Acceptance: Restaurant users authenticate to separate pool. Creator pool unaffected. Hybrid user mapping works.
 
-- [ ] **12. Blog infrastructure**
+- [x] **12. Blog infrastructure**
   - Source: Competitive Analysis
   - Problem: No blog routes, CMS, or content pipeline. dcspot.com has blog with SEO infrastructure.
   - Scope: Decision — build minimal blog in React, or use external blog (Ghost, WordPress) linked from Spot.
