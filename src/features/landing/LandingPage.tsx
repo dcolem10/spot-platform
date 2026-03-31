@@ -711,6 +711,40 @@ function IntegrationTrustBar() {
   );
 }
 
+/* ─── Brand Logo Carousel ───────────────────────────────────────────────── */
+
+const partnerRestaurants = [
+  { name: 'Bad Saint', cuisine: 'Filipino' },
+  { name: 'Compass Rose', cuisine: 'Global' },
+  { name: 'Tail Up Goat', cuisine: 'American' },
+  { name: 'Estadio', cuisine: 'Spanish' },
+  { name: 'Cranes', cuisine: 'Japanese-Spanish' },
+  { name: 'Immigrant Food', cuisine: 'Global' },
+  { name: 'Maketto', cuisine: 'Cambodian-Taiwanese' },
+  { name: 'Thip Khao', cuisine: 'Laotian' },
+];
+
+function BrandLogoCarousel() {
+  // Duplicate the list so the marquee loops seamlessly
+  const doubled = [...partnerRestaurants, ...partnerRestaurants];
+
+  return (
+    <section className="brand-logos-section reveal">
+      <p className="brand-logos-eyebrow">Trusted by DC&rsquo;s top independent restaurants</p>
+      <div className="brand-logos-track-wrapper" aria-hidden="true">
+        <div className="brand-logos-track">
+          {doubled.map((r, i) => (
+            <div key={i} className="brand-logo-card">
+              <span className="brand-logo-name">{r.name}</span>
+              <span className="brand-logo-cuisine">{r.cuisine}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ─── Testimonials Section ─────────────────────────────────────────────── */
 
 const testimonials = [
@@ -1176,6 +1210,9 @@ export default function LandingPage() {
 
       {/* ── Testimonials — Quantified Success Stories ───────────────────── */}
       <TestimonialsSection />
+
+      {/* ── Partner Restaurant Logo Carousel ────────────────────────────── */}
+      <BrandLogoCarousel />
 
       {/* ── Spot's Role — Platform Value Proposition ───────────────────── */}
       <section className="landing-section">

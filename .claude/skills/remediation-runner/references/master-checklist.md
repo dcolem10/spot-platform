@@ -94,13 +94,13 @@
   - Scope: Decision — build minimal blog in React, or use external blog (Ghost, WordPress) linked from Spot.
   - Acceptance: At minimum, a `/blog` route exists with restaurant-focused content capability.
 
-- [x] **13. Scheduling/booking integration**
+- [ ] **13. Scheduling/booking integration**
   - Source: Competitive Analysis
   - Problem: dcspot.com has Calendly for prospect booking. Spot has no equivalent.
   - Scope: Frontend — embed Calendly widget or add booking link to landing page/partner portal.
   - Acceptance: Restaurant prospects can schedule a consultation call from the Spot Platform.
 
-- [ ] **14. Brand logo carousel on landing page**
+- [x] **14. Brand logo carousel on landing page**
   - Source: Competitive Analysis
   - Problem: 3 text testimonials exist but no visual brand logos from partner restaurants.
   - Scope: Frontend — add logo carousel/grid to landing page testimonials section.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #13 Scheduling/booking integration | Done | Added "Book a Free Demo" section to landing page with Calendly link (VITE_CALENDLY_URL env var). CSS responsive layout. No npm package required. |
+| 2026-03-30 | #14 | Done | Added BrandLogoCarousel component — CSS marquee with 8 DC restaurant partners, fade-edge mask, reduced-motion support |
