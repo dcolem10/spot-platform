@@ -74,12 +74,14 @@ async function getWebhookSecret() {
   return secrets.STRIPE_WEBHOOK_SECRET;
 }
 
-// Allowed price IDs — hardcoded to prevent abuse (max 3)
+// Allowed price IDs — read from env vars so production IDs can be configured
+// without code changes. Set STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_SCALE
+// in Lambda env vars for each environment (test vs live Stripe account).
 const ALLOWED_PRICES = new Set([
-  'price_1T7lCIJob49CLLyGuvtIIKgP', // Spot Starter — $49/mo
-  'price_1T7lCiJob49CLLyG7vfdi7kq', // Spot Pro — $99/mo
-  'price_1T7lKHJob49CLLyGajlRXAsr', // Spot Scale — $149/mo
-]);
+  process.env.STRIPE_PRICE_STARTER || 'price_1T7lCIJob49CLLyGuvtIIKgP', // Spot Starter — $49/mo
+  process.env.STRIPE_PRICE_PRO     || 'price_1T7lCiJob49CLLyG7vfdi7kq', // Spot Pro — $99/mo
+  process.env.STRIPE_PRICE_SCALE   || 'price_1T7lKHJob49CLLyGajlRXAsr', // Spot Scale — $149/mo
+].filter(Boolean));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

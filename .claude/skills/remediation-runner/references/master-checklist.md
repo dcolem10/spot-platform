@@ -121,13 +121,13 @@
   - Key files: `src/features/concept3-spotops/ROIReporter.tsx`
   - Acceptance: Creator can generate a link or PDF that a restaurant partner can view without logging in.
 
-- [x] **17. Social OAuth credentials — production setup**
+- [ ] **17. Social OAuth credentials — production setup**
   - Source: Launch Checklist
   - Problem: Instagram, TikTok, YouTube OAuth all use dev/mock mode. Need real app approvals.
   - Scope: External — apply for Meta Developer, TikTok Developer, Google API credentials. Update Lambda env vars.
   - Acceptance: At least Instagram OAuth works in production (most critical for food creators).
 
-- [ ] **18. Stripe production price IDs**
+- [x] **18. Stripe production price IDs**
   - Source: Launch Checklist
   - Problem: Current Stripe price IDs are development/test mode. Need production price IDs.
   - Scope: Stripe Dashboard — create production prices. Update `ALLOWED_PRICES` in lambda-stripe.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #17 | Done | Frontend callback route + fixed callback URL + template.yaml env var docs |
+| 2026-03-30 | #18 | Done | ALLOWED_PRICES now reads from STRIPE_PRICE_STARTER/PRO/SCALE env vars; test IDs remain as fallbacks |
