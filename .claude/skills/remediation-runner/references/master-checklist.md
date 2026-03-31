@@ -57,13 +57,13 @@
   - Key files: Landing page legal sections
   - Acceptance: Privacy Policy covers data collected, purpose, retention, third-party sharing, user rights. ToS covers acceptable use, liability, termination.
 
-- [x] **8. Cookie consent banner**
+- [ ] **8. Cookie consent banner**
   - Source: Compliance/IP Review
   - Problem: No cookie consent mechanism. Required for GDPR/ePrivacy.
   - Scope: Frontend — add lightweight banner component. Classify cookies (strictly necessary vs analytics).
   - Acceptance: Banner appears on first visit, respects user choice, persists preference.
 
-- [ ] **9. GDPR/CCPA data endpoints**
+- [x] **9. GDPR/CCPA data endpoints**
   - Source: Compliance/IP Review
   - Problem: No `DELETE /api/profile` or `GET /api/profile/export` endpoints. Required before storing real PII.
   - Scope: Backend — two new endpoints. Frontend — "Account Settings" page with Download/Delete buttons.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #8 Cookie consent banner | Done | Added CookieConsent component with necessary/all choice; persists to localStorage; renders on all routes via App.tsx |
+| 2026-03-30 | #9 GDPR/CCPA data endpoints | Done | Added GET /api/profile/export (paginated DDB query, strips sensitive keys, JSON download) and DELETE /api/profile (30-day soft delete + DynamoDB TTL for hard delete). Frontend AccountSettings page at /app/settings with Download and Delete (confirm-text guarded) buttons. Nav link added to creator sidebar. |

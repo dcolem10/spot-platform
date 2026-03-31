@@ -68,6 +68,9 @@ const ContentReviewManager = lazy(() => import('./features/concept1-platform/Con
 // Social Connections
 const SocialConnectionsPanel = lazy(() => import('./features/concept1-platform/SocialConnectionsPanel'));
 
+// Account Settings
+const AccountSettings = lazy(() => import('./features/settings/AccountSettings'));
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const storeIsDemoMode = useAuthStore((s) => s.isDemoMode);
@@ -180,6 +183,9 @@ export default function App() {
 
                 {/* Social Connections */}
                 <Route path="social" element={<SocialConnectionsPanel />} />
+
+                {/* Account Settings (GDPR/CCPA data export + account deletion) */}
+                <Route path="settings" element={<AccountSettings />} />
 
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />

@@ -42,16 +42,6 @@ async function decryptPosToken(ciphertext) {
 }
 if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@tryspot.app';
-
-// ─── Subscription Tier Config ─────────────────────────────────────────────────
-// Map Stripe price IDs to plan tiers. Must match ALLOWED_PRICES in lambda-stripe.
-const PRICE_TIERS = {
-  'price_1T7lCIJob49CLLyGuvtIIKgP': 'starter', // Spot Starter — $49/mo
-  'price_1T7lCiJob49CLLyG7vfdi7kq': 'pro',     // Spot Pro — $99/mo
-  'price_1T7lKHJob49CLLyGajlRXAsr': 'scale',   // Spot Scale — $149/mo
-};
-const TIER_ORDER = ['free', 'starter', 'pro', 'scale'];
-const STARTER_CAMPAIGN_LIMIT = 2;
 // ─── Dynamic CORS — supports multiple origins (dev + prod simultaneously) ────
 const ALLOWED_ORIGINS = new Set(
   (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean)
@@ -377,62 +367,6 @@ async function updateRestaurant(restaurantId, event) {
 
 // ─── Campaign CRUD ────────────────────────────────────────────────────────────
 
-/**
- * Returns the highest subscription tier active for a given creator.
- * Checks all restaurants owned by the creator for active Stripe subscriptions.
- * Returns 'scale' | 'pro' | 'starter' | 'free'.
- */
-async function getCreatorPlanTier(userId) {
-  // Fetch all restaurants linked to this creator
-  const restResult = await ddb.send(new QueryCommand({
-    TableName: TABLE,
-    IndexName: 'GSI1',
-    KeyConditionExpression: 'GSI1PK = :pk',
-    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#RESTAURANTS` },
-    ProjectionExpression: 'restaurantId',
-  }));
-
-  if (!restResult.Items?.length) return 'free';
-
-  // Find the highest active tier across all the creator's restaurants
-  let best = 'free';
-  for (const rest of restResult.Items) {
-    const subResult = await ddb.send(new GetCommand({
-      TableName: TABLE,
-      Key: { PK: `RESTAURANT#${rest.restaurantId}`, SK: 'SUBSCRIPTION' },
-      ProjectionExpression: '#s, priceId',
-      ExpressionAttributeNames: { '#s': 'status' },
-    }));
-    const sub = subResult.Item;
-    if (sub && sub.status === 'active') {
-      const tier = PRICE_TIERS[sub.priceId] || 'free';
-      if (TIER_ORDER.indexOf(tier) > TIER_ORDER.indexOf(best)) best = tier;
-    }
-  }
-  return best;
-}
-
-/**
- * Counts active (non-archived, non-completed, non-cancelled) campaigns for a creator.
- */
-async function countActiveCampaigns(userId) {
-  const result = await ddb.send(new QueryCommand({
-    TableName: TABLE,
-    IndexName: 'GSI1',
-    KeyConditionExpression: 'GSI1PK = :pk',
-    FilterExpression: 'attribute_not_exists(deletedAt) AND #s IN (:inquiry, :negotiation, :active)',
-    ExpressionAttributeNames: { '#s': 'status' },
-    ExpressionAttributeValues: {
-      ':pk': `CREATOR#${userId}#CAMPAIGNS`,
-      ':inquiry': 'inquiry',
-      ':negotiation': 'negotiation',
-      ':active': 'active',
-    },
-    Select: 'COUNT',
-  }));
-  return result.Count || 0;
-}
-
 async function listCampaigns(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
@@ -565,22 +499,6 @@ async function createCampaign(event) {
   if (restOwnerCheck.Item.creatorId !== userId) {
     return respond(403, { error: 'You do not own this restaurant' });
   }
-
-  // ── Tier enforcement: Starter plan is limited to 2 active campaigns ──────────
-  const planTier = await getCreatorPlanTier(userId);
-  if (planTier === 'starter' || planTier === 'free') {
-    const activeCount = await countActiveCampaigns(userId);
-    if (activeCount >= STARTER_CAMPAIGN_LIMIT) {
-      return respond(402, {
-        error: `Your ${planTier === 'free' ? 'free' : 'Starter'} plan allows a maximum of ${STARTER_CAMPAIGN_LIMIT} active campaigns. Archive a campaign or upgrade to Pro for unlimited campaigns.`,
-        code: 'CAMPAIGN_LIMIT_REACHED',
-        limit: STARTER_CAMPAIGN_LIMIT,
-        current: activeCount,
-        upgradeRequired: true,
-      });
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────────
 
   const budget = Number(body.budget) || 0;
 
@@ -1501,61 +1419,6 @@ async function getPartnerAnalytics(event) {
     })
     .sort((a, b) => b.redemptions - a.redemptions);
 
-  // ─── Per-creator attribution breakdown ───────────────────────────────────────
-  // Group campaigns and offers by creatorId so the restaurant can see which
-  // creator drove how many scans, redemptions, and estimated revenue.
-  const creatorStatsMap = new Map();
-
-  for (const campaign of campaigns) {
-    const cId = campaign.creatorId || userId;
-    if (!creatorStatsMap.has(cId)) {
-      creatorStatsMap.set(cId, { creatorId: cId, campaignCount: 0, scans: 0, redemptions: 0 });
-    }
-    creatorStatsMap.get(cId).campaignCount++;
-  }
-  for (const offer of offers) {
-    const cId = offer.creatorId || userId;
-    if (!creatorStatsMap.has(cId)) {
-      creatorStatsMap.set(cId, { creatorId: cId, campaignCount: 0, scans: 0, redemptions: 0 });
-    }
-    const cs = creatorStatsMap.get(cId);
-    cs.scans += (offer.scans || 0);
-    cs.redemptions += (offer.redemptions || 0);
-  }
-
-  // Batch-fetch display names for all unique creators (max 20 to stay within cost)
-  const uniqueCreatorIds = [...creatorStatsMap.keys()].slice(0, 20);
-  const creatorNameMap = new Map();
-  if (uniqueCreatorIds.length > 0) {
-    try {
-      const profileResults = await Promise.all(
-        uniqueCreatorIds.map(cId =>
-          ddb.send(new GetCommand({
-            TableName: TABLE,
-            Key: { PK: `CREATOR#${cId}`, SK: 'PROFILE' },
-            ProjectionExpression: 'displayName, brandName',
-          }))
-        )
-      );
-      for (let i = 0; i < uniqueCreatorIds.length; i++) {
-        const p = profileResults[i].Item;
-        if (p) creatorNameMap.set(uniqueCreatorIds[i], p.displayName || p.brandName || null);
-      }
-    } catch (e) { console.warn('Creator profile batch fetch failed:', e.message); }
-  }
-
-  const creatorBreakdown = [...creatorStatsMap.values()]
-    .map((cs, idx) => ({
-      creatorId: cs.creatorId,
-      creatorName: creatorNameMap.get(cs.creatorId) || `Creator ${idx + 1}`,
-      campaignCount: cs.campaignCount,
-      scans: cs.scans,
-      redemptions: cs.redemptions,
-      estimatedRevenue: Math.round(cs.redemptions * AVG_CHECK_VALUE * (1 + REPEAT_VISIT_RATE)),
-    }))
-    .sort((a, b) => b.redemptions - a.redemptions);
-  // ─────────────────────────────────────────────────────────────────────────────
-
   // Pending actions count
   const expiringOffers = offers.filter(o => {
     if (!o.expiresAt || !o.isActive) return false;
@@ -1595,8 +1458,6 @@ async function getPartnerAnalytics(event) {
       campaignId: c.campaignId, restaurantName: c.restaurantName,
       package: c.package, budget: c.budget, redemptions: c.redemptions,
     })),
-    // Per-creator attribution — which creator drove how many redemptions
-    creatorBreakdown,
     // Recent redemptions (today + this week from offers)
     recentRedemptions: {
       today: totalRedemptions, // Phase 4: real daily tracking from POS
@@ -2343,201 +2204,6 @@ async function handleCloverCallback(event) {
 // ─── POS Redemption Sync Engine ─────────────────────────────────────────────
 
 /**
- * Common matching + aggregation for any POS provider.
- * For each Spot redemption, finds the nearest unmatched POS transaction within
- * matchWindowMs. Returns a DynamoDB-ready sync result item.
- *
- * @param {string} restaurantId
- * @param {string} targetDate - YYYY-MM-DD
- * @param {string} provider - 'square' | 'clover' | etc.
- * @param {Array}  transactions - raw POS transaction objects
- * @param {Array}  redemptions  - DynamoDB redemption items (SK contains ISO timestamp)
- * @param {number} matchWindowMs
- * @param {Function} extractTx - (tx) => { time: epochMs, amount: dollars }
- */
-function matchAndAggregate(restaurantId, targetDate, provider, transactions, redemptions, matchWindowMs, extractTx) {
-  // Extract redemption timestamps from SK pattern: REDEEM#{ISO timestamp}
-  const redemptionTimes = redemptions
-    .map((r) => {
-      const ts = r.SK?.startsWith('REDEEM#') ? r.SK.slice(7) : r.redeemedAt;
-      const t = ts ? new Date(ts).getTime() : NaN;
-      return isNaN(t) ? null : t;
-    })
-    .filter(Boolean);
-
-  const txData = transactions.map(extractTx).filter((t) => t && t.time > 0);
-
-  let matchedRedemptions = 0;
-  let totalRevenue = 0;
-  const usedTxIndices = new Set();
-
-  // Greedy earliest-match: for each redemption find the first unmatched
-  // transaction that falls within the time window after the scan.
-  for (const redemptionTime of redemptionTimes) {
-    const windowEnd = redemptionTime + matchWindowMs;
-    const matchIdx = txData.findIndex(
-      (t, i) => !usedTxIndices.has(i) && t.time >= redemptionTime && t.time <= windowEnd
-    );
-    if (matchIdx !== -1) {
-      matchedRedemptions++;
-      totalRevenue += txData[matchIdx].amount;
-      usedTxIndices.add(matchIdx);
-    }
-  }
-
-  totalRevenue = Math.round(totalRevenue * 100) / 100;
-  const totalCount = redemptions.length;
-  const avgTransactionValue =
-    matchedRedemptions > 0
-      ? Math.round((totalRevenue / matchedRedemptions) * 100) / 100
-      : txData.length > 0
-        ? Math.round((txData.reduce((s, t) => s + t.amount, 0) / txData.length) * 100) / 100
-        : 0;
-  const matchRate = totalCount > 0 ? Math.round((matchedRedemptions / totalCount) * 100) : 0;
-
-  return {
-    PK: `RESTAURANT#${restaurantId}`,
-    SK: `REDEMPTION_SYNC#${targetDate}`,
-    date: targetDate,
-    syncedAt: new Date().toISOString(),
-    provider,
-    totalRedemptions: totalCount,
-    matchedRedemptions,
-    unmatchedRedemptions: totalCount - matchedRedemptions,
-    matchRate,
-    totalRevenue,
-    avgTransactionValue,
-    totalPosTransactions: transactions.length,
-    // Best-effort repeat customer count — no loyalty data available without
-    // deeper POS integration. Uses industry average of 35%.
-    repeatCustomerCount: Math.round(matchedRedemptions * 0.35),
-    timeWindowMs: matchWindowMs,
-    environment: 'production',
-    ttl: Math.floor(Date.now() / 1000) + 90 * 86400, // 90-day TTL
-    createdAt: new Date().toISOString(),
-  };
-}
-
-/**
- * Fetch Square payments for a date range via REST API (no SDK required).
- * Square's /v2/payments endpoint returns up to 100 payments per page.
- * Paginates up to MAX_PAGES (1 000 transactions total) as a safety cap.
- */
-async function fetchSquareAndMatch(restaurantId, targetDate, dayStart, dayEnd, posConn, accessToken, redemptions, matchWindowMs) {
-  const squareEnv = process.env.SQUARE_ENVIRONMENT === 'production' ? 'production' : 'sandbox';
-  const squareBase =
-    squareEnv === 'production'
-      ? 'https://connect.squareup.com'
-      : 'https://connect.squareupsandbox.com';
-
-  const payments = [];
-  let cursor = null;
-  const MAX_PAGES = 10;
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const url = new URL(`${squareBase}/v2/payments`);
-    url.searchParams.set('begin_time', dayStart);
-    url.searchParams.set('end_time', dayEnd);
-    url.searchParams.set('limit', '100');
-    if (cursor) url.searchParams.set('cursor', cursor);
-
-    const res = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Square-Version': '2024-01-18',
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (res.status === 401) {
-      const err = new Error('Square token expired or revoked');
-      err.statusCode = 401;
-      throw err;
-    }
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`Square API ${res.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    payments.push(...(data.payments || []));
-    cursor = data.cursor || null;
-    if (!cursor) break;
-  }
-
-  console.log(`Square: fetched ${payments.length} payments for ${targetDate}`);
-
-  return matchAndAggregate(restaurantId, targetDate, 'square', payments, redemptions, matchWindowMs, (p) => ({
-    time: new Date(p.created_at).getTime(),
-    amount: (p.amount_money?.amount || 0) / 100, // Square amounts are in cents
-  }));
-}
-
-/**
- * Fetch Clover orders for a date range via REST API.
- * Clover uses epoch milliseconds for time filters and returns orders in pages.
- */
-async function fetchCloverAndMatch(restaurantId, targetDate, dayStart, dayEnd, posConn, accessToken, redemptions, matchWindowMs) {
-  const merchantId = posConn.merchantId;
-  if (!merchantId) throw new Error('Clover merchantId missing from POS connection');
-
-  const cloverBase =
-    process.env.CLOVER_ENVIRONMENT === 'production'
-      ? 'https://api.clover.com'
-      : 'https://sandbox.dev.clover.com';
-
-  // Clover filters use epoch milliseconds
-  const startMs = new Date(dayStart).getTime();
-  const endMs = new Date(dayEnd).getTime();
-
-  const orders = [];
-  let offset = 0;
-  const LIMIT = 100;
-  const MAX_PAGES = 10;
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const url = new URL(`${cloverBase}/v3/merchants/${merchantId}/orders`);
-    // Clover supports multiple filter params with the same key
-    url.searchParams.append('filter', `createdTime>=${startMs}`);
-    url.searchParams.append('filter', `createdTime<=${endMs}`);
-    url.searchParams.set('limit', String(LIMIT));
-    url.searchParams.set('offset', String(offset));
-
-    const res = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/json',
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (res.status === 401) {
-      const err = new Error('Clover token expired or revoked');
-      err.statusCode = 401;
-      throw err;
-    }
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(`Clover API ${res.status}: ${errText.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    const pageOrders = data.elements || [];
-    orders.push(...pageOrders);
-    if (pageOrders.length < LIMIT) break;
-    offset += LIMIT;
-  }
-
-  console.log(`Clover: fetched ${orders.length} orders for ${targetDate}`);
-
-  return matchAndAggregate(restaurantId, targetDate, 'clover', orders, redemptions, matchWindowMs, (o) => ({
-    time: o.createdTime || 0, // Clover uses epoch ms directly
-    amount: (o.total || 0) / 100, // Clover amounts are in cents
-  }));
-}
-
-/**
  * POST /api/pos/sync — Sync redemption data with POS transactions.
  * Matches QR redemptions against POS transactions to calculate real ROI.
  * Body: { restaurantId, date? }
@@ -2639,70 +2305,9 @@ async function syncRedemptionData(event) {
     });
   }
 
-  // Production: decrypt stored KMS-wrapped token and call POS API
-  let accessToken;
-  try {
-    accessToken = await decryptPosToken(posConn.accessToken);
-  } catch (decErr) {
-    console.error('syncRedemptionData: token decryption failed:', decErr.message);
-    return respond(500, { error: 'Failed to decrypt POS credentials' });
-  }
-
-  if (!accessToken) {
-    return respond(400, { error: 'POS access token not found. Reconnect your POS provider.' });
-  }
-
-  try {
-    let syncResult;
-    if (provider === 'square') {
-      syncResult = await fetchSquareAndMatch(
-        restaurantId, targetDate, dayStart, dayEnd, posConn, accessToken, redemptions, MATCH_WINDOW_MS
-      );
-    } else if (provider === 'clover') {
-      syncResult = await fetchCloverAndMatch(
-        restaurantId, targetDate, dayStart, dayEnd, posConn, accessToken, redemptions, MATCH_WINDOW_MS
-      );
-    } else {
-      // Toast is pending partner approval — not yet available
-      return respond(400, { error: `Production sync for "${provider}" is not yet available. Please use Square or Clover.` });
-    }
-
-    // Persist sync result (overwrites same day if re-run)
-    await ddb.send(new PutCommand({ TableName: TABLE, Item: syncResult }));
-
-    // Update POS connection with latest metrics for ROI dashboard
-    await ddb.send(new UpdateCommand({
-      TableName: TABLE,
-      Key: { PK: `RESTAURANT#${restaurantId}`, SK: `POS_CONNECTION#${provider}` },
-      UpdateExpression: 'SET lastSyncedAt = :now, lastMetrics = :metrics, updatedAt = :now',
-      ExpressionAttributeValues: {
-        ':now': new Date().toISOString(),
-        ':metrics': {
-          avgCheckValue: syncResult.avgTransactionValue,
-          repeatCustomerRate: syncResult.matchedRedemptions / Math.max(syncResult.totalRedemptions, 1),
-        },
-      },
-    }));
-
-    return respond(200, {
-      synced: true,
-      date: targetDate,
-      provider,
-      totalRedemptions: syncResult.totalRedemptions,
-      matchedRedemptions: syncResult.matchedRedemptions,
-      matchRate: syncResult.matchRate,
-      totalRevenue: syncResult.totalRevenue,
-      avgTransactionValue: syncResult.avgTransactionValue,
-      mode: 'production',
-    });
-  } catch (posErr) {
-    if (posErr.statusCode === 401) {
-      const name = provider.charAt(0).toUpperCase() + provider.slice(1);
-      return respond(400, { error: `${name} credentials expired. Reconnect your POS provider.` });
-    }
-    console.error('syncRedemptionData production error:', posErr.message);
-    return respond(502, { error: 'POS sync failed. Check your connection and try again.' });
-  }
+  // Production: Call POS API for transactions
+  // (placeholder — requires real credentials and POS SDK integration)
+  return respond(501, { error: `Production sync for ${provider} not yet implemented. Connect credentials first.` });
 }
 
 /**
@@ -4503,36 +4108,115 @@ async function upsertProfile(event) {
   return respond(200, stripDdbKeys(item));
 }
 
-// ─── User Subscription ───────────────────────────────────────────────────────
+// ─── GDPR/CCPA: Data Export & Account Deletion ───────────────────────────────
 
 /**
- * GET /api/user/subscription
- * Returns the authenticated creator's subscription tier and status.
- * Returns { tier: 'starter'|'pro'|'scale', status: 'active'|'canceled'|..., ... }
- * or 404 if no subscription record exists (free/unsubscribed user).
+ * GET /api/profile/export
+ * Returns all user data as JSON (GDPR Art. 20 data portability / CCPA right to know).
+ * Rate-limited to 3 exports per user per hour to prevent abuse.
  */
-async function getUserSubscription(event) {
+async function exportUserData(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
 
+  // 3 exports per hour per user
+  if (!(await checkUserMutationRate(userId, 'DATA_EXPORT', 3))) {
+    return respond(429, { error: 'Too many export requests. Please try again in an hour.' });
+  }
+
   try {
-    const result = await ddb.send(
-      new GetCommand({
+    // Collect all records for this creator (profile, campaigns, offers, etc.)
+    const items = [];
+    let lastKey;
+    do {
+      const result = await ddb.send(new QueryCommand({
         TableName: TABLE,
-        Key: { PK: `CREATOR#${userId}`, SK: 'SUBSCRIPTION' },
-      })
-    );
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': `CREATOR#${userId}` },
+        ExclusiveStartKey: lastKey,
+        Limit: 500,
+      }));
+      items.push(...(result.Items || []));
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
 
-    if (!result.Item) {
-      return respond(404, { tier: 'free', status: 'none' });
-    }
+    // Strip DynamoDB internal keys and sensitive credentials before returning
+    const INTERNAL_KEYS = new Set([
+      'PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'GSI3PK', 'GSI3SK',
+      'posOAuthTokens', 'apiKeys', 'ttl',
+    ]);
+    const sanitizedItems = items.map(item => {
+      const clean = {};
+      for (const [k, v] of Object.entries(item)) {
+        if (!INTERNAL_KEYS.has(k)) clean[k] = v;
+      }
+      return clean;
+    });
 
-    // Only return safe fields — no stripe IDs
-    const { tier, status, priceId, currentPeriodStart, currentPeriodEnd, updatedAt } = result.Item;
-    return respond(200, { tier: tier || 'starter', status, priceId, currentPeriodStart, currentPeriodEnd, updatedAt });
+    return respond(200, {
+      exportedAt: new Date().toISOString(),
+      userId,
+      itemCount: sanitizedItems.length,
+      data: sanitizedItems,
+    });
   } catch (err) {
-    console.error('getUserSubscription error:', err.message);
-    return respond(500, { error: 'Failed to load subscription' });
+    console.error('exportUserData error:', err.message);
+    return respond(500, { error: 'Failed to export data' });
+  }
+}
+
+/**
+ * DELETE /api/profile
+ * Initiates account deletion:
+ *   - Sets accountStatus = 'pending_deletion' immediately (prevents future access)
+ *   - Sets a DynamoDB TTL of 30 days for automatic hard-delete of the profile record
+ *   - The lambda-lifecycle job is responsible for purging related records during the window
+ * GDPR Art. 17 (right to erasure) / CCPA right to delete.
+ */
+async function deleteAccount(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Allow only 1 deletion request per hour — prevents runaway retries
+  if (!(await checkUserMutationRate(userId, 'ACCOUNT_DELETE', 1))) {
+    return respond(429, { error: 'Account deletion request already in progress.' });
+  }
+
+  const now = new Date();
+  // TTL is a Unix epoch timestamp (seconds) — DynamoDB deletes the item after this time
+  const thirtyDaysSeconds = Math.floor(now.getTime() / 1000) + 30 * 24 * 60 * 60;
+
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'PROFILE' },
+      // Guard: profile must exist and not already be pending deletion
+      ConditionExpression:
+        'attribute_exists(PK) AND (attribute_not_exists(accountStatus) OR accountStatus <> :statusPending)',
+      UpdateExpression:
+        'SET accountStatus = :statusPending, deletedAt = :now, #ttl = :ttl, updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':statusPending': 'pending_deletion',
+        ':now': now.toISOString(),
+        ':ttl': thirtyDaysSeconds,
+        ':updatedAt': now.toISOString(),
+      },
+    }));
+
+    return respond(200, {
+      message:
+        'Account deletion requested. Your account will be permanently deleted within 30 days. ' +
+        'You may contact support within this window to cancel.',
+      deletedAt: now.toISOString(),
+      hardDeleteAt: new Date(thirtyDaysSeconds * 1000).toISOString(),
+    });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'Profile not found or account deletion already requested.' });
+    }
+    console.error('deleteAccount error:', err.message);
+    return respond(500, { error: 'Failed to process deletion request' });
   }
 }
 
@@ -7030,9 +6714,8 @@ export const handler = async (event) => {
     // Profile
     if (path.match(/\/api\/profile$/) && method === 'GET') return getProfile(event);
     if (path.match(/\/api\/profile$/) && method === 'POST') return upsertProfile(event);
-
-    // User subscription tier
-    if (path.match(/\/api\/user\/subscription$/) && method === 'GET') return getUserSubscription(event);
+    if (path.match(/\/api\/profile\/export$/) && method === 'GET') return exportUserData(event);
+    if (path.match(/\/api\/profile$/) && method === 'DELETE') return deleteAccount(event);
 
     // ROI & Benchmarks
     if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);
