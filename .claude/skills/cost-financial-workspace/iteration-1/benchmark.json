@@ -1,0 +1,72 @@
+{
+  "skill_name": "cost-financial",
+  "iteration": 1,
+  "timestamp": "2026-03-09T00:00:00Z",
+  "configurations": [
+    {
+      "name": "with_skill",
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "n": 18
+      },
+      "time": {
+        "mean": 44.5,
+        "stddev": 6.4,
+        "unit": "seconds"
+      },
+      "tokens": {
+        "mean": 38827,
+        "stddev": 178
+      }
+    },
+    {
+      "name": "without_skill",
+      "pass_rate": {
+        "mean": 0.833,
+        "stddev": 0.14,
+        "n": 18
+      },
+      "time": {
+        "mean": 38.4,
+        "stddev": 4.4,
+        "unit": "seconds"
+      },
+      "tokens": {
+        "mean": 34051,
+        "stddev": 350
+      }
+    }
+  ],
+  "delta": {
+    "pass_rate": "+16.7%",
+    "time": "+16% (slower due to skill context loading)",
+    "tokens": "+14% (more tokens from skill context)"
+  },
+  "per_eval": [
+    {
+      "eval_name": "current-spend-breakdown",
+      "with_skill": {"pass_rate": 1.0, "passed": 5, "total": 5},
+      "without_skill": {"pass_rate": 0.8, "passed": 4, "total": 5},
+      "notes": "Without skill missed third-party API costs (Anthropic, Google Places)"
+    },
+    {
+      "eval_name": "new-ai-feature-cost-forecast",
+      "with_skill": {"pass_rate": 1.0, "passed": 7, "total": 7},
+      "without_skill": {"pass_rate": 1.0, "passed": 7, "total": 7},
+      "notes": "Both performed well on cost forecasting. With-skill had more precise per-step math and implementation-specific recommendations."
+    },
+    {
+      "eval_name": "cost-reduction-opportunities",
+      "with_skill": {"pass_rate": 1.0, "passed": 6, "total": 6},
+      "without_skill": {"pass_rate": 0.667, "passed": 4, "total": 6},
+      "notes": "Without skill missed API Gateway v1→v2 migration (biggest win) and Anthropic model selection. Incorrectly suggested switching DynamoDB from on-demand to provisioned (risky for unpredictable traffic)."
+    }
+  ],
+  "analyst_observations": [
+    "The skill's biggest value-add is in cost reduction recommendations — it consistently surfaces Spot-specific optimizations (API Gateway v1→v2, Anthropic model tiers) that generic knowledge misses.",
+    "The without-skill baseline incorrectly suggested switching DynamoDB to provisioned capacity, which could cause throttling for a startup with unpredictable traffic patterns. The skill correctly avoids this recommendation.",
+    "Both configurations performed equally well on the forecasting task (eval 2), suggesting the skill's cost forecasting framework is useful but not strictly necessary for well-scoped questions.",
+    "The skill adds ~6 seconds and ~4,800 tokens of overhead per run — acceptable for the quality improvement."
+  ]
+}
