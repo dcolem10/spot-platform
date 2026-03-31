@@ -100,14 +100,14 @@
   - Scope: Frontend — embed Calendly widget or add booking link to landing page/partner portal.
   - Acceptance: Restaurant prospects can schedule a consultation call from the Spot Platform.
 
-- [x] **14. Brand logo carousel on landing page**
+- [ ] **14. Brand logo carousel on landing page**
   - Source: Competitive Analysis
   - Problem: 3 text testimonials exist but no visual brand logos from partner restaurants.
   - Scope: Frontend — add logo carousel/grid to landing page testimonials section.
   - Key files: `src/features/landing/LandingPage.tsx` (testimonials section ~line 716)
   - Acceptance: At least 5-6 partner restaurant logos displayed with testimonials.
 
-- [ ] **15. Connect AI insights to real Claude API**
+- [x] **15. Connect AI insights to real Claude API**
   - Source: Value Proposition, Strategic Review
   - Problem: AIInsights component shows hardcoded demo data. lambda-ai backend exists but isn't connected to SpotOps AI tabs.
   - Scope: Backend (lambda-ai endpoints for campaign-insights, recommendations, content-ideas) + Frontend (wire API calls)
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #14 | Done | Added BrandLogoCarousel component — CSS marquee with 8 DC restaurant partners, fade-edge mask, reduced-motion support |
+| 2026-03-30 | #15 | Done | Wired AIInsights.tsx to lambda-ai real Claude API: auto-load on mount, removed hardcoded demo data payload, 30s timeout, refresh button |
