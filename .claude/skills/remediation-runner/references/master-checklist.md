@@ -191,7 +191,7 @@
   - Problem: ~192 tests concentrated in backend. No frontend tests. No integration tests.
   - Scope: Add React Testing Library tests for critical user flows (auth, campaign creation, offer management).
 
-- [ ] **28. Per-Lambda IAM roles (SEC-04)**
+- [x] **28. Per-Lambda IAM roles (SEC-04)**
   - Source: Production Readiness Review
   - Problem: All Lambdas share DynamoDBCrudPolicy. Over-permissioned.
   - Scope: Infrastructure — separate IAM policies per Lambda in template.yaml.
@@ -228,3 +228,4 @@
 | 2026-03-31 | #25 | Restaurant offer approval UI polish | Done |
 | 2026-03-31 | #26 | Fix CollaborationPanel feature flag default | Done |
 | 2026-03-31 | #27 | Frontend test coverage | Done |
+| 2026-03-31 | #28 | Per-Lambda IAM roles | Done |

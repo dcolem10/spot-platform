@@ -325,8 +325,15 @@ Resources:
           ALLOWED_ORIGINS: !Sub "${AllowedOrigin},http://localhost:5173,https://spot-platform.com"
           SECRETS_ARN: !Ref SecretsArn
       Policies:
-        - DynamoDBCrudPolicy:
+        # AI Lambda: read campaign/offer data, write AI insight cache — no delete needed
+        - DynamoDBReadPolicy:
             TableName: !Ref DataTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt DataTable.Arn
         - Statement:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
@@ -397,8 +404,15 @@ Resources:
           ALLOWED_ORIGINS: !Sub "${AllowedOrigin},http://localhost:5173,https://spot-platform.com"
           SECRETS_ARN: !Ref SecretsArn
       Policies:
-        - DynamoDBCrudPolicy:
+        # Stripe Lambda: reads/writes subscription records — no table-level delete needed
+        - DynamoDBReadPolicy:
             TableName: !Ref DataTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt DataTable.Arn
         - Statement:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
