@@ -144,7 +144,7 @@
   - Scope: Frontend — add toggle between table view and Kanban board view.
   - Key files: `src/features/concept3-spotops/PartnershipCRM.tsx`
 
-- [ ] **20. Landing page 3D scene or enhanced hero visual**
+- [x] **20. Landing page 3D scene or enhanced hero visual**
   - Source: Strategic Review
   - Problem: "3D Spline scene" is a static PNG placeholder.
   - Scope: Frontend — integrate Spline 3D viewer or replace with polished animation/illustration.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #20 | Enhanced landing page hero visual |

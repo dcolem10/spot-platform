@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "run_type": "with_skill",
+  "expectations": [
+    {"text": "Mentions API Gateway v1 to v2 migration with savings percentage", "passed": true, "evidence": "Detailed section: 'Migrate API Gateway: REST API v1 → HttpApi v2 (71% Savings)' with cost table and implementation notes"},
+    {"text": "Mentions Lambda memory right-sizing", "passed": true, "evidence": "Section: 'Reduce Lambda Memory Allocation (10-20% Lambda Cost Savings)' with per-function memory analysis"},
+    {"text": "Mentions CloudWatch log retention reduction", "passed": true, "evidence": "Mentioned as cost reduction opportunity with 30-day retention recommendation"},
+    {"text": "Mentions Anthropic model selection (Haiku vs Sonnet)", "passed": true, "evidence": "Covered in AI cost capping section with model pricing comparison"},
+    {"text": "Provides dollar estimates for at least 2 recommendations", "passed": true, "evidence": "API Gateway: '$1.25-$2.50/month savings', Lambda: detailed per-function cost breakdowns with savings"},
+    {"text": "Explains trade-offs or caveats for recommendations", "passed": true, "evidence": "API Gateway: 'Current blocker: Cognito authorizer... Solution: Replace with Lambda authorizer. Effort: ~2-4 hours'. Lambda: 'Use AWS Lambda Power Tuning tool to verify'"}
+  ]
+}

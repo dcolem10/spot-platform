@@ -797,6 +797,117 @@ function TestimonialsSection() {
   );
 }
 
+/* ─── HeroVisual — CSS-only animated dashboard ──────────────────────────── */
+
+const HLD_BARS = [28, 45, 38, 62, 55, 72, 68, 85, 78, 92, 88, 95];
+
+function HeroVisual() {
+  return (
+    <div className="landing-hero-3d">
+      <div className="hero-device-wrap">
+        <div className="hero-device-glow" aria-hidden="true" />
+        <div className="hld-card">
+          {/* Window chrome */}
+          <div className="hld-chrome">
+            <div className="hld-dots" aria-hidden="true">
+              <span className="hld-dot hld-dot--r" />
+              <span className="hld-dot hld-dot--y" />
+              <span className="hld-dot hld-dot--g" />
+            </div>
+            <span className="hld-chrome-title">Spot — Creator Analytics</span>
+            <div className="hld-chrome-live">
+              <span className="hld-live-dot" aria-hidden="true" />
+              Live
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="hld-stats">
+            <div className="hld-stat">
+              <span className="hld-stat-v hld-stat-v--orange">$18.4K</span>
+              <span className="hld-stat-k">Revenue</span>
+            </div>
+            <div className="hld-stat">
+              <span className="hld-stat-v hld-stat-v--green">247</span>
+              <span className="hld-stat-k">Visits</span>
+            </div>
+            <div className="hld-stat">
+              <span className="hld-stat-v hld-stat-v--blue">5.6x</span>
+              <span className="hld-stat-k">ROAS</span>
+            </div>
+            <div className="hld-stat">
+              <span className="hld-stat-v hld-stat-v--purple">12</span>
+              <span className="hld-stat-k">Active</span>
+            </div>
+          </div>
+
+          {/* Animated bar chart */}
+          <div className="hld-chart-wrap">
+            <div className="hld-chart-label">Revenue attribution — 90 days</div>
+            <div className="hld-chart-bars">
+              {HLD_BARS.map((h, i) => (
+                <div
+                  key={i}
+                  className="hld-bar"
+                  style={{ '--hld-h': `${h}%`, '--hld-d': `${i * 80}ms` } as React.CSSProperties}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Live activity feed */}
+          <div className="hld-feed">
+            <div className="hld-feed-item hld-feed-item--1">
+              <span className="hld-feed-pulse hld-feed-pulse--green" aria-hidden="true" />
+              <span className="hld-feed-msg">Sarah K. drove <strong>89 new visits</strong></span>
+              <span className="hld-feed-chip hld-feed-chip--green">+$2.1K</span>
+            </div>
+            <div className="hld-feed-item hld-feed-item--2">
+              <span className="hld-feed-pulse hld-feed-pulse--blue" aria-hidden="true" />
+              <span className="hld-feed-msg">Rasika — content approved</span>
+              <span className="hld-feed-chip hld-feed-chip--blue">Live</span>
+            </div>
+            <div className="hld-feed-item hld-feed-item--3">
+              <span className="hld-feed-pulse hld-feed-pulse--orange" aria-hidden="true" />
+              <span className="hld-feed-msg">QR scan — Table 7, Tail Up Goat</span>
+              <span className="hld-feed-chip hld-feed-chip--orange">Now</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating metric badges */}
+        <div className="hbf hbf--1" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
+          </svg>
+          <div className="hbf-text">
+            <span className="hbf-v">+340%</span>
+            <span className="hbf-k">Creator Reach</span>
+          </div>
+        </div>
+        <div className="hbf hbf--2" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
+          </svg>
+          <div className="hbf-text">
+            <span className="hbf-v">90-day</span>
+            <span className="hbf-k">Attribution</span>
+          </div>
+        </div>
+        <div className="hbf hbf--3" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+          <div className="hbf-text">
+            <span className="hbf-v">$0</span>
+            <span className="hbf-k">For Restaurants</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Landing Page ───────────────────────────────────────────────────────── */
 
 export default function LandingPage() {
@@ -936,20 +1047,8 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Right: Floating dashboard mockup */}
-        <div className="landing-hero-3d">
-          <div className="hero-device-wrap">
-            <div className="hero-device-glow" aria-hidden="true" />
-            <img
-              src="/hero-dashboard.png"
-              alt="Spot Platform dashboard showing campaign pipeline with attribution analytics"
-              className="hero-device-img"
-              loading="eager"
-              width={600}
-              height={340}
-            />
-          </div>
-        </div>
+        {/* Right: Animated live dashboard visual */}
+        <HeroVisual />
       </section>
 
       {/* ── Integration Trust Bar ───────────────────────────────────────── */}
