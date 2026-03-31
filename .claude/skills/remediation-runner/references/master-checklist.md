@@ -202,7 +202,7 @@
   - Problem: Free-text console.log throughout. CloudWatch Insights queries impossible.
   - Scope: All Lambdas — implement JSON structured logging with requestId, timestamp, level, operation.
 
-- [ ] **30. Health check dependency verification (OBS-07)**
+- [x] **30. Health check dependency verification (OBS-07)**
   - Source: Production Readiness Review
   - Problem: `GET /health` returns 200 without checking DynamoDB or Secrets Manager.
   - Scope: Backend — add dependency checks, return 503 if degraded.
@@ -230,3 +230,4 @@
 | 2026-03-31 | #27 | Frontend test coverage | Done |
 | 2026-03-31 | #28 | Per-Lambda IAM roles | Done |
 | 2026-03-31 | #29 | Structured JSON logging | Done |
+| 2026-03-31 | #30 | Health check dependency verification | Done |
