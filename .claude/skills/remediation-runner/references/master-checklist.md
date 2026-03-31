@@ -174,7 +174,7 @@
   - Scope: Backend — add SES email trigger in proposal expiration check.
   - Key files: `backend/lambda-lifecycle/index.mjs`, `backend/lambda-email/index.mjs`
 
-- [ ] **25. Restaurant offer approval UI polish**
+- [x] **25. Restaurant offer approval UI polish**
   - Source: Interconnectivity Plan
   - Problem: Backend approve/reject/pause flow complete but Partner Portal may not expose clear approval buttons.
   - Scope: Frontend — verify and improve restaurant-side approval actions in PartnerPortal.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-31 | #25 | Restaurant offer approval UI polish | Done |
