@@ -186,7 +186,7 @@
   - Scope: Frontend — change default to `false` in featureFlags.ts.
   - Key files: `src/lib/featureFlags.ts`
 
-- [ ] **27. Frontend test coverage**
+- [x] **27. Frontend test coverage**
   - Source: Strategic Review
   - Problem: ~192 tests concentrated in backend. No frontend tests. No integration tests.
   - Scope: Add React Testing Library tests for critical user flows (auth, campaign creation, offer management).
@@ -227,3 +227,4 @@
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
 | 2026-03-31 | #25 | Restaurant offer approval UI polish | Done |
 | 2026-03-31 | #26 | Fix CollaborationPanel feature flag default | Done |
+| 2026-03-31 | #27 | Frontend test coverage | Done |
