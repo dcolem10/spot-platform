@@ -94,7 +94,7 @@
   - Scope: Decision — build minimal blog in React, or use external blog (Ghost, WordPress) linked from Spot.
   - Acceptance: At minimum, a `/blog` route exists with restaurant-focused content capability.
 
-- [ ] **13. Scheduling/booking integration**
+- [x] **13. Scheduling/booking integration**
   - Source: Competitive Analysis
   - Problem: dcspot.com has Calendly for prospect booking. Spot has no equivalent.
   - Scope: Frontend — embed Calendly widget or add booking link to landing page/partner portal.
@@ -225,3 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
+| 2026-03-30 | #13 Scheduling/booking integration | Done | Added "Book a Free Demo" section to landing page with Calendly link (VITE_CALENDLY_URL env var). CSS responsive layout. No npm package required. |
