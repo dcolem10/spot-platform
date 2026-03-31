@@ -16,6 +16,15 @@ interface PartnerDashboardData {
   reports: CampaignReport[];
 }
 
+interface CreatorAttribution {
+  creatorId: string;
+  creatorName: string;
+  campaignCount: number;
+  scans: number;
+  redemptions: number;
+  estimatedRevenue: number;
+}
+
 interface AnalyticsData {
   estimatedRevenue: number;
   totalBudgetSpent: number;
@@ -33,6 +42,7 @@ interface AnalyticsData {
   expiringOfferCount: number;
   expiringProposalCount: number;
   topCampaigns: { campaignId: string; restaurantName: string; package: string; budget: number; redemptions: number }[];
+  creatorBreakdown: CreatorAttribution[];
   assumptions: { avgCheckValue: number; repeatVisitRate: number; note: string };
 }
 
@@ -58,6 +68,11 @@ const DEMO_ANALYTICS: AnalyticsData = {
     { campaignId: 'c5', restaurantName: 'Rasika', package: 'Feature', budget: 4000, redemptions: 186 },
     { campaignId: 'c8', restaurantName: "Rose's Luxury", package: 'Feature', budget: 2500, redemptions: 123 },
     { campaignId: 'c6', restaurantName: 'The Dabney', package: 'Quick Bite', budget: 1200, redemptions: 48 },
+  ],
+  creatorBreakdown: [
+    { creatorId: 'u1', creatorName: 'Mariana Eats DC', campaignCount: 3, scans: 612, redemptions: 186, estimatedRevenue: 11_273 },
+    { creatorId: 'u2', creatorName: 'DMV Foodie', campaignCount: 2, scans: 298, redemptions: 123, estimatedRevenue: 7_452 },
+    { creatorId: 'u3', creatorName: 'The Bitesize Guide', campaignCount: 1, scans: 167, redemptions: 48, estimatedRevenue: 2_916 },
   ],
   assumptions: {
     avgCheckValue: 45,
@@ -224,6 +239,40 @@ export default function PartnerPortal() {
     },
   });
 
+  // Offer approval mutations
+  const approveOfferMutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const res = await api.put(`/api/offers/${offerId}/approve`, {});
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to approve offer');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
+  const rejectOfferMutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const res = await api.put(`/api/offers/${offerId}/reject`, {});
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to reject offer');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
+  const pauseOfferMutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const res = await api.put(`/api/offers/${offerId}/pause`, {});
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to pause offer');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
   const dashboard = data ?? (isDemoMode()
     ? { campaigns: DEMO_CAMPAIGNS, offers: DEMO_OFFERS, reports: DEMO_CAMPAIGN_REPORTS }
     : { campaigns: [], offers: [], reports: [] });
@@ -237,13 +286,25 @@ export default function PartnerPortal() {
     [dashboard.campaigns],
   );
 
+  const pendingOffers = useMemo(
+    () => dashboard.offers.filter((o) => o.approvalStatus === 'pending_restaurant'),
+    [dashboard.offers],
+  );
+
   const activeOffers = useMemo(
-    () => dashboard.offers.filter((o) => o.isActive),
+    () => dashboard.offers.filter((o) => o.isActive && o.approvalStatus === 'approved'),
     [dashboard.offers],
   );
 
   // Pending actions
   const pendingActions: { icon: string; label: string; link: string }[] = [];
+  if (pendingOffers.length > 0) {
+    pendingActions.push({
+      icon: '🏷️',
+      label: `${pendingOffers.length} offer${pendingOffers.length > 1 ? 's' : ''} awaiting your approval`,
+      link: '#pending-offers',
+    });
+  }
   if (stats.pendingProposalCount > 0) {
     pendingActions.push({
       icon: '📩',
@@ -687,6 +748,81 @@ export default function PartnerPortal() {
         </section>
       )}
 
+      {/* ─── Creator Attribution ─── */}
+      <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
+        <div className="section-card-header">
+          <h2 className="section-card-title">Creator Attribution</h2>
+          <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', fontStyle: 'italic' }}>
+            Which creator drove your results
+          </span>
+        </div>
+        {(!stats.creatorBreakdown || stats.creatorBreakdown.length === 0) ? (
+          <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-textMuted)' }}>
+            No creator data yet. Attribution will appear once campaigns are active.
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', marginTop: 'var(--space-3)' }}>
+            <table style={{ width: '100%', fontSize: 'var(--font-sm)', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <th style={{ textAlign: 'left', padding: 'var(--space-2) var(--space-3)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Creator</th>
+                  <th style={{ textAlign: 'center', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Campaigns</th>
+                  <th style={{ textAlign: 'right', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Scans</th>
+                  <th style={{ textAlign: 'right', padding: 'var(--space-2)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Redemptions</th>
+                  <th style={{ textAlign: 'right', padding: 'var(--space-2) var(--space-3)', color: 'var(--color-textMuted)', fontWeight: 600, fontSize: 'var(--font-xs)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Est. Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.creatorBreakdown.map((creator, idx) => {
+                  const isTop = idx === 0 && creator.redemptions > 0;
+                  return (
+                    <tr
+                      key={creator.creatorId}
+                      style={{
+                        borderBottom: idx < stats.creatorBreakdown.length - 1 ? '1px solid var(--color-border)' : 'none',
+                        background: isTop ? 'rgba(16, 185, 129, 0.04)' : 'transparent',
+                      }}
+                    >
+                      <td style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <span style={{
+                          width: 24, height: 24, borderRadius: 'var(--radius-full)',
+                          background: isTop ? 'var(--color-successMuted)' : 'var(--color-bgElevated)',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 'var(--font-xs)', fontWeight: 700, flexShrink: 0,
+                          color: isTop ? 'var(--color-success)' : 'var(--color-textMuted)',
+                        }}>
+                          {idx + 1}
+                        </span>
+                        <span style={{ fontWeight: 600, color: 'var(--color-textPrimary)' }}>
+                          {creator.creatorName}
+                        </span>
+                        {isTop && (
+                          <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-success)', fontWeight: 600, marginLeft: 'var(--space-1)' }}>
+                            Top
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: 'var(--space-3)', textAlign: 'center', color: 'var(--color-textSecondary)' }}>
+                        {creator.campaignCount}
+                      </td>
+                      <td style={{ padding: 'var(--space-3)', textAlign: 'right', color: 'var(--color-textSecondary)' }}>
+                        {fmtNum(creator.scans)}
+                      </td>
+                      <td style={{ padding: 'var(--space-3)', textAlign: 'right', fontWeight: 700, color: 'var(--color-success)' }}>
+                        {fmtNum(creator.redemptions)}
+                      </td>
+                      <td style={{ padding: 'var(--space-3) var(--space-3)', textAlign: 'right', fontWeight: 600, color: 'var(--color-textPrimary)' }}>
+                        {fmtMoney(creator.estimatedRevenue)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* ─── Active Campaigns ─── */}
       <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
         <div className="section-card-header">
@@ -746,6 +882,68 @@ export default function PartnerPortal() {
           </div>
         )}
       </section>
+
+      {/* ─── Pending Offer Approvals ─── */}
+      {pendingOffers.length > 0 && (
+        <section className="section-card" style={{ marginBottom: 'var(--space-6)', borderColor: 'rgba(249, 115, 22, 0.3)' }}>
+          <div className="section-card-header">
+            <h2 className="section-card-title" style={{ color: 'var(--color-accent)' }}>
+              Offers Awaiting Your Approval ({pendingOffers.length})
+            </h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+            {pendingOffers.map((offer) => (
+              <div key={offer.offerId} className="card" style={{ borderLeft: '3px solid var(--color-accent)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+                      <span className={`badge ${offer.type === 'qr' ? 'badge--info' : offer.type === 'promo' ? 'badge--accent' : 'badge--success'}`} style={{ textTransform: 'uppercase' }}>
+                        {offer.type}
+                      </span>
+                      <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-warning)', fontWeight: 600 }}>Pending Approval</span>
+                    </div>
+                    <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)', margin: 0, lineHeight: 1.5 }}>
+                      {offer.description}
+                    </p>
+                    {offer.creatorTerms && (
+                      <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-1)' }}>
+                        Terms: {offer.creatorTerms.discountType === 'percent'
+                          ? `${offer.creatorTerms.discountValue}% off`
+                          : offer.creatorTerms.discountType === 'fixed'
+                          ? `$${offer.creatorTerms.discountValue} off`
+                          : offer.creatorTerms.freeItemDescription ?? 'Free item'}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexShrink: 0 }}>
+                    <button
+                      className="btn btn-success"
+                      style={{ fontSize: 'var(--font-sm)', padding: 'var(--space-2) var(--space-4)' }}
+                      disabled={approveOfferMutation.isPending || rejectOfferMutation.isPending}
+                      onClick={() => approveOfferMutation.mutate(offer.offerId)}
+                    >
+                      {approveOfferMutation.isPending ? 'Approving…' : 'Approve'}
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 'var(--font-sm)', padding: 'var(--space-2) var(--space-4)', color: 'var(--color-error)' }}
+                      disabled={approveOfferMutation.isPending || rejectOfferMutation.isPending}
+                      onClick={() => rejectOfferMutation.mutate(offer.offerId)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+                {(approveOfferMutation.isError || rejectOfferMutation.isError) && (
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)', marginTop: 'var(--space-2)' }}>
+                    Action failed. Please try again.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ─── Active Offers ─── */}
       <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>

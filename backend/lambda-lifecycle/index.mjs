@@ -9,7 +9,7 @@
  */
 
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, ScanCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 
 const ddbClient = new DynamoDBClient({});
@@ -85,7 +85,12 @@ export const handler = async (_event, context) => {
     }
 
     console.log(`Lifecycle complete: processed=${processed}, sent=${sent}, errors=${errors}, timedOut=${timedOut}`);
-    return { statusCode: 200, processed, sent, errors, timedOut };
+
+    // Check for proposals expiring in ~2 days and send day-5 warning emails
+    const proposalWarnings = await checkProposalExpirations(now);
+    console.log(`Proposal expiration warnings: warned=${proposalWarnings.warned}, errors=${proposalWarnings.errors}`);
+
+    return { statusCode: 200, processed, sent, errors, timedOut, proposalWarnings };
   } catch (err) {
     console.error(`Lifecycle scheduler failed: ${err.message}`);
     return { statusCode: 500, error: err.message };
@@ -233,6 +238,95 @@ async function getCreatorActivity(userId) {
   }
 
   return activity;
+}
+
+/**
+ * Scan for pending proposals expiring in ~40–72 hours (day-5 window) and send warning emails.
+ * Uses `warningEmailSentAt` on the proposal item as an idempotency guard.
+ */
+async function checkProposalExpirations(now) {
+  // Target proposals expiring in 40–72 hours (i.e. created 4–5 days ago for a 7-day TTL)
+  const minExpiry = new Date(now.getTime() + 40 * 60 * 60 * 1000).toISOString();
+  const maxExpiry = new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString();
+
+  let warned = 0;
+  let errors = 0;
+
+  try {
+    const result = await ddb.send(new ScanCommand({
+      TableName: TABLE,
+      FilterExpression:
+        'begins_with(SK, :prefix) AND #s = :pending AND expiresAt BETWEEN :min AND :max AND attribute_not_exists(warningEmailSentAt)',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: {
+        ':prefix': 'PROPOSAL#',
+        ':pending': 'pending',
+        ':min': minExpiry,
+        ':max': maxExpiry,
+      },
+      Limit: 200,
+    }));
+
+    for (const proposal of result.Items || []) {
+      try {
+        const targetEmail = await getProposalTargetEmail(proposal);
+        if (!targetEmail) continue;
+
+        await invokeEmailLambda('proposal_expiring_day5', targetEmail, {
+          targetName: proposal.targetName || 'there',
+          initiatorName: proposal.initiatorName || 'Someone',
+          proposalType: proposal.proposalType || 'collaboration',
+        });
+
+        // Mark warning sent so we don't send again
+        await ddb.send(new UpdateCommand({
+          TableName: TABLE,
+          Key: { PK: proposal.PK, SK: proposal.SK },
+          UpdateExpression: 'SET warningEmailSentAt = :now',
+          ExpressionAttributeValues: { ':now': now.toISOString() },
+        }));
+
+        console.log(`Sent proposal_expiring_day5 to targetId=${proposal.targetId} for proposalId=${proposal.proposalId}`);
+        warned++;
+      } catch (err) {
+        errors++;
+        console.error(`Failed to send proposal warning for ${proposal.proposalId}: ${err.message}`);
+      }
+    }
+  } catch (err) {
+    errors++;
+    console.error(`Proposal expiration scan failed: ${err.message}`);
+  }
+
+  return { warned, errors };
+}
+
+/**
+ * Look up the email address for the proposal target (recipient who needs to respond).
+ * The target could be a creator (CREATOR#{id}) or restaurant (RESTAURANT#{id}).
+ * Uses initiatedBy to determine which prefix to try first.
+ */
+async function getProposalTargetEmail(proposal) {
+  const { targetId, initiatedBy } = proposal;
+  if (!targetId) return null;
+
+  // If creator initiated, the target is a restaurant; otherwise it's a creator
+  const primaryPrefix = initiatedBy === 'creator' ? 'RESTAURANT' : 'CREATOR';
+  const fallbackPrefix = initiatedBy === 'creator' ? 'CREATOR' : 'RESTAURANT';
+
+  for (const prefix of [primaryPrefix, fallbackPrefix]) {
+    try {
+      const result = await ddb.send(new GetCommand({
+        TableName: TABLE,
+        Key: { PK: `${prefix}#${targetId}`, SK: 'PROFILE' },
+        ProjectionExpression: 'email',
+      }));
+      if (result.Item?.email) return result.Item.email;
+    } catch (_) {
+      // try next prefix
+    }
+  }
+  return null;
 }
 
 /**

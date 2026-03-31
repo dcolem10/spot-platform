@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "run_type": "without_skill",
+  "expectations": [
+    {"text": "Uses aws ce get-cost-and-usage CLI command or equivalent", "passed": true, "evidence": "Uses 'aws ce get-cost-and-usage' with UnblendedCost metric and SERVICE grouping"},
+    {"text": "Groups costs by SERVICE dimension", "passed": true, "evidence": "Groups by Type=DIMENSION,Key=SERVICE, also shows multi-dimension grouping"},
+    {"text": "References the $50/month budget threshold", "passed": true, "evidence": "Table shows '$50 Budget Alert set' and mentions CloudFormation budget alert"},
+    {"text": "Identifies Lambda, DynamoDB, API Gateway as key services", "passed": true, "evidence": "Lists all 6 Lambda functions, DynamoDB with GSI and PITR details, API Gateway REST API"},
+    {"text": "Mentions third-party API costs (Anthropic, Google Places) beyond just AWS", "passed": false, "evidence": "Does NOT mention Anthropic or Google Places API costs. Only covers AWS services."}
+  ]
+}

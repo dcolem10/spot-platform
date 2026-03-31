@@ -284,7 +284,8 @@ export default function ROIReporter() {
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shareStatus, setShareStatus] = useState<'idle' | 'generating' | 'done'>('idle');
+  const [shareStatus, setShareStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -352,6 +353,7 @@ export default function ROIReporter() {
   const handleCampaignSelect = (campaignId: string) => {
     setSelectedCampaignId(campaignId);
     setShareStatus('idle');
+    setShareUrl(null);
     if (campaignId) {
       fetchReport(campaignId);
     } else {
@@ -389,9 +391,25 @@ export default function ROIReporter() {
   const handleGenerateShare = async () => {
     if (!report) return;
     setShareStatus('generating');
-    // Simulate report generation
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setShareStatus('done');
+    setShareUrl(null);
+
+    const res = await api.post<{ shareUrl: string; token: string; expiresAt: string }>(
+      `/api/spotops/reports/${report.campaignId}/share`,
+      {}
+    );
+
+    if (res.data?.shareUrl) {
+      setShareUrl(res.data.shareUrl);
+      try {
+        await navigator.clipboard.writeText(res.data.shareUrl);
+      } catch {
+        // clipboard API may be unavailable (non-HTTPS or blocked) — URL still shown
+      }
+      setShareStatus('done');
+    } else {
+      setShareStatus('error');
+      setError(res.error || 'Failed to generate share link');
+    }
   };
 
   /* ─── Loading ──────────────────────────────────────────────────────────── */
@@ -703,6 +721,45 @@ export default function ROIReporter() {
             </div>
           )}
 
+          {/* Shareable link display */}
+          {shareStatus === 'done' && shareUrl && (
+            <div style={{
+              padding: 'var(--space-4)',
+              background: 'var(--color-successMuted)',
+              border: '1px solid var(--color-success)',
+              borderRadius: 'var(--radius-md)',
+              marginTop: 'var(--space-4)',
+            }}>
+              <div style={{ fontSize: 'var(--font-sm)', fontWeight: 600, color: 'var(--color-success)', marginBottom: 'var(--space-2)' }}>
+                Link copied to clipboard! Valid for 30 days.
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                <input
+                  readOnly
+                  value={shareUrl}
+                  style={{
+                    flex: 1,
+                    padding: 'var(--space-2) var(--space-3)',
+                    background: 'var(--color-bgSecondary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-textPrimary)',
+                    fontSize: 'var(--font-xs)',
+                    fontFamily: 'monospace',
+                  }}
+                  onFocus={e => e.target.select()}
+                />
+                <button
+                  className="btn btn-secondary"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => navigator.clipboard.writeText(shareUrl)}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Generate & Share */}
           <div style={styles.actions}>
             <button className="btn btn-secondary" onClick={() => window.print()}>
@@ -714,7 +771,9 @@ export default function ROIReporter() {
               disabled={shareStatus === 'generating'}
             >
               {shareStatus === 'idle' && 'Generate & Share'}
+              {shareStatus === 'generating' && 'Generating...'}
               {shareStatus === 'done' && 'Link Copied!'}
+              {shareStatus === 'error' && 'Try Again'}
             </button>
           </div>
         </div>

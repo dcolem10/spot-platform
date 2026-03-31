@@ -1,0 +1,202 @@
+.account-settings {
+  max-width: 760px;
+}
+
+.account-settings-header {
+  margin-bottom: var(--space-8);
+}
+
+.account-settings-title {
+  font-family: var(--font-display);
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+  margin: 0 0 var(--space-2);
+}
+
+.account-settings-subtitle {
+  font-size: var(--font-base);
+  color: var(--color-textSecondary);
+  margin: 0;
+}
+
+/* ── Section ── */
+.account-settings-section {
+  margin-bottom: var(--space-10);
+}
+
+.account-settings-section-title {
+  font-family: var(--font-display);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  color: var(--color-textPrimary);
+  margin: 0 0 var(--space-2);
+}
+
+.account-settings-section-desc {
+  font-size: var(--font-sm);
+  color: var(--color-textSecondary);
+  margin: 0 0 var(--space-6);
+  line-height: 1.6;
+}
+
+/* ── Cards ── */
+.account-settings-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.account-settings-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-bgSecondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-base);
+}
+
+.account-settings-card:hover {
+  border-color: var(--color-borderHover);
+}
+
+.account-settings-card--danger {
+  border-left: 3px solid var(--color-error);
+  flex-wrap: wrap;
+}
+
+.account-settings-card-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.account-settings-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-settings-card-body h3 {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--color-textPrimary);
+  margin: 0 0 var(--space-1);
+}
+
+.account-settings-card-body p {
+  font-size: var(--font-sm);
+  color: var(--color-textSecondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Buttons ── */
+.account-settings-btn {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+  white-space: nowrap;
+}
+
+.account-settings-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-settings-btn--primary {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+}
+
+.account-settings-btn--primary:hover:not(:disabled) {
+  background: var(--color-accentHover);
+}
+
+.account-settings-btn--danger {
+  background: var(--color-error);
+  color: #fff;
+  border: none;
+}
+
+.account-settings-btn--danger:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.account-settings-btn--ghost {
+  background: transparent;
+  color: var(--color-textSecondary);
+  border: 1px solid var(--color-border);
+}
+
+.account-settings-btn--ghost:hover:not(:disabled) {
+  border-color: var(--color-borderHover);
+  color: var(--color-textPrimary);
+}
+
+/* ── Feedback messages ── */
+.account-settings-error {
+  font-size: var(--font-xs);
+  color: var(--color-error);
+  margin: var(--space-2) 0 0;
+}
+
+.account-settings-success {
+  font-size: var(--font-xs);
+  color: var(--color-success);
+  margin: var(--space-2) 0 0;
+}
+
+/* ── Delete confirmation inline form ── */
+.account-settings-confirm {
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
+.account-settings-confirm-label {
+  font-size: var(--font-sm);
+  color: var(--color-textSecondary);
+  margin: 0 0 var(--space-2);
+}
+
+.account-settings-confirm-input {
+  width: 100%;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bgPrimary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-textPrimary);
+  font-size: var(--font-sm);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.account-settings-confirm-input:focus {
+  border-color: var(--color-error);
+}
+
+.account-settings-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .account-settings-card {
+    flex-wrap: wrap;
+  }
+
+  .account-settings-btn {
+    width: 100%;
+    text-align: center;
+  }
+}

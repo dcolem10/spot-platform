@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { seedRestaurants } from './seeder.mjs';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -355,6 +356,8 @@ async function hydrateContacts(options = {}) {
 
 export const handler = async (event = {}) => {
   const action = event.action || 'validate';
+  initLogger(event.requestContext?.requestId || 'scheduled', `sync:${action}`);
+  log.info('handler_invoked', { action });
 
   if (action === 'seed') {
     console.log('Seed mode triggered');

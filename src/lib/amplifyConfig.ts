@@ -1,8 +1,25 @@
 import { Amplify } from 'aws-amplify';
 
-export function bootstrapAmplify() {
-  const userPoolId = import.meta.env.VITE_COGNITO_USER_POOL_ID;
-  const appClientId = import.meta.env.VITE_COGNITO_APP_CLIENT_ID;
+/**
+ * Configure Amplify for a specific user pool.
+ *
+ * Spot Platform uses two separate Cognito user pools:
+ *   - Creator pool  (VITE_COGNITO_USER_POOL_ID / VITE_COGNITO_APP_CLIENT_ID)
+ *   - Restaurant pool (VITE_COGNITO_RESTAURANT_USER_POOL_ID / VITE_COGNITO_RESTAURANT_APP_CLIENT_ID)
+ *
+ * Call bootstrapAmplify('creator') on app load (default).
+ * Call bootstrapAmplify('restaurant') before authenticating restaurant/partner users.
+ */
+export function bootstrapAmplify(poolType: 'creator' | 'restaurant' = 'creator') {
+  const isRestaurant = poolType === 'restaurant';
+
+  const userPoolId = isRestaurant
+    ? import.meta.env.VITE_COGNITO_RESTAURANT_USER_POOL_ID
+    : import.meta.env.VITE_COGNITO_USER_POOL_ID;
+
+  const appClientId = isRestaurant
+    ? import.meta.env.VITE_COGNITO_RESTAURANT_APP_CLIENT_ID
+    : import.meta.env.VITE_COGNITO_APP_CLIENT_ID;
 
   // Skip configuration if Cognito env vars are not set (demo mode)
   if (!userPoolId || !appClientId) return;

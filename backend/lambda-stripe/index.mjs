@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import Stripe from 'stripe';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -74,12 +75,14 @@ async function getWebhookSecret() {
   return secrets.STRIPE_WEBHOOK_SECRET;
 }
 
-// Allowed price IDs — hardcoded to prevent abuse (max 3)
+// Allowed price IDs — read from env vars so production IDs can be configured
+// without code changes. Set STRIPE_PRICE_STARTER, STRIPE_PRICE_PRO, STRIPE_PRICE_SCALE
+// in Lambda env vars for each environment (test vs live Stripe account).
 const ALLOWED_PRICES = new Set([
-  'price_1T7lCIJob49CLLyGuvtIIKgP', // Spot Starter — $49/mo
-  'price_1T7lCiJob49CLLyG7vfdi7kq', // Spot Pro — $99/mo
-  'price_1T7lKHJob49CLLyGajlRXAsr', // Spot Scale — $149/mo
-]);
+  process.env.STRIPE_PRICE_STARTER || 'price_1T7lCIJob49CLLyGuvtIIKgP', // Spot Starter — $49/mo
+  process.env.STRIPE_PRICE_PRO     || 'price_1T7lCiJob49CLLyG7vfdi7kq', // Spot Pro — $99/mo
+  process.env.STRIPE_PRICE_SCALE   || 'price_1T7lKHJob49CLLyGajlRXAsr', // Spot Scale — $149/mo
+].filter(Boolean));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -108,9 +111,10 @@ const isValidId = (id) =>
 
 /**
  * POST /api/stripe/create-checkout-session
- * Creates a Stripe Checkout session for restaurant subscription.
+ * Creates a Stripe Checkout session for a creator subscription (Starter/Pro/Scale).
+ * Restaurants join free — this endpoint is creator-only.
  * Authenticated endpoint.
- * Body: { priceId, restaurantId }
+ * Body: { priceId }
  * Returns: { sessionId, url }
  */
 async function createCheckoutSession(event) {
@@ -126,14 +130,10 @@ async function createCheckoutSession(event) {
     return respond(400, { error: 'Invalid JSON body' });
   }
 
-  const { priceId, restaurantId } = body;
+  const { priceId } = body;
 
   if (!priceId || typeof priceId !== 'string') {
     return respond(400, { error: 'Missing or invalid priceId' });
-  }
-
-  if (!restaurantId || !isValidId(restaurantId)) {
-    return respond(400, { error: 'Missing or invalid restaurantId' });
   }
 
   // Validate priceId is in allowed list
@@ -142,22 +142,7 @@ async function createCheckoutSession(event) {
   }
 
   try {
-    // Verify restaurant exists and user is the listing creator (manages billing)
-    // NOTE: METADATA stores the restaurant-level billing record; creatorId here is whoever
-    // listed (added) the restaurant on Spot — they manage subscriptions on behalf of the restaurant.
-    // Other creators can partner via offers/proposals without needing billing access.
-    const restaurantRes = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'METADATA' },
-      })
-    );
-
-    if (!restaurantRes.Item || restaurantRes.Item.creatorId !== userId) {
-      return respond(403, { error: 'Only the creator who listed this restaurant can manage its subscription' });
-    }
-
-    // Create Stripe checkout session
+    // Create Stripe checkout session for the authenticated creator
     const stripeClient = await getStripe();
     const session = await stripeClient.checkout.sessions.create({
       mode: 'subscription',
@@ -171,7 +156,6 @@ async function createCheckoutSession(event) {
       success_url: `${ORIGIN}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${ORIGIN}/billing`,
       metadata: {
-        restaurantId,
         userId,
       },
     });
@@ -271,12 +255,13 @@ async function handleWebhook(event) {
 
 /**
  * Webhook handler: checkout.session.completed
- * Creates subscription record in DynamoDB.
+ * Creates creator subscription record in DynamoDB.
+ * Restaurants join free — subscriptions belong to creators only.
  */
 async function handleCheckoutSessionCompleted(session) {
-  const restaurantId = session.metadata?.restaurantId;
-  if (!restaurantId) {
-    console.warn('Checkout session missing restaurantId metadata');
+  const userId = session.metadata?.userId;
+  if (!userId) {
+    console.warn('Checkout session missing userId metadata');
     return;
   }
 
@@ -287,12 +272,12 @@ async function handleCheckoutSessionCompleted(session) {
 
     const now = new Date().toISOString();
 
-    // Write subscription to DynamoDB with conditional write to prevent duplicates
+    // Write subscription to DynamoDB under the creator's record
     await ddb.send(
       new PutCommand({
         TableName: TABLE,
         Item: {
-          PK: `RESTAURANT#${restaurantId}`,
+          PK: `CREATOR#${userId}`,
           SK: 'SUBSCRIPTION',
           GSI1PK: 'SUBSCRIPTIONS',
           GSI1SK: `SUBSCRIPTION#${subscription.id}`,
@@ -309,10 +294,10 @@ async function handleCheckoutSessionCompleted(session) {
       })
     );
 
-    console.log(`Subscription created for restaurant ${restaurantId}`);
+    console.log(`Subscription created for creator ${userId}`);
   } catch (err) {
     if (err.name === 'ConditionalCheckFailedException') {
-      console.log(`Subscription already exists for restaurant ${restaurantId}`);
+      console.log(`Subscription already exists for creator ${userId}`);
     } else {
       console.error('Error handling checkout completion:', err.message);
       throw err;
@@ -436,8 +421,8 @@ async function handleInvoicePaymentFailed(invoice) {
 
 /**
  * GET /api/stripe/subscription
- * Returns subscription status for a restaurant (authenticated).
- * Query params: restaurantId
+ * Returns the authenticated creator's subscription status.
+ * Restaurants join free and have no subscription.
  */
 async function getSubscription(event) {
   const userId = getUserId(event);
@@ -445,31 +430,12 @@ async function getSubscription(event) {
     return respond(401, { error: 'Unauthorized' });
   }
 
-  const params = event.queryStringParameters || {};
-  const restaurantId = params.restaurantId;
-
-  if (!restaurantId || !isValidId(restaurantId)) {
-    return respond(400, { error: 'Missing or invalid restaurantId' });
-  }
-
   try {
-    // Verify user is the listing creator (manages billing on behalf of the restaurant)
-    const restaurantRes = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'METADATA' },
-      })
-    );
-
-    if (!restaurantRes.Item || restaurantRes.Item.creatorId !== userId) {
-      return respond(403, { error: 'Only the creator who listed this restaurant can view its subscription' });
-    }
-
-    // Get subscription
+    // Get the creator's subscription directly by userId
     const subRes = await ddb.send(
       new GetCommand({
         TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'SUBSCRIPTION' },
+        Key: { PK: `CREATOR#${userId}`, SK: 'SUBSCRIPTION' },
       })
     );
 
@@ -491,8 +457,8 @@ async function getSubscription(event) {
 
 /**
  * POST /api/stripe/create-portal-session
- * Creates a Stripe Customer Portal session (authenticated).
- * Body: { restaurantId }
+ * Creates a Stripe Customer Portal session for the authenticated creator.
+ * Restaurants join free and have no billing portal.
  * Returns: { url }
  */
 async function createPortalSession(event) {
@@ -501,37 +467,12 @@ async function createPortalSession(event) {
     return respond(401, { error: 'Unauthorized' });
   }
 
-  let body;
   try {
-    body = JSON.parse(event.body || '{}');
-  } catch {
-    return respond(400, { error: 'Invalid JSON body' });
-  }
-
-  const { restaurantId } = body;
-
-  if (!restaurantId || !isValidId(restaurantId)) {
-    return respond(400, { error: 'Missing or invalid restaurantId' });
-  }
-
-  try {
-    // Verify user is the listing creator (manages billing on behalf of the restaurant)
-    const restaurantRes = await ddb.send(
-      new GetCommand({
-        TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'METADATA' },
-      })
-    );
-
-    if (!restaurantRes.Item || restaurantRes.Item.creatorId !== userId) {
-      return respond(403, { error: 'Only the creator who listed this restaurant can manage its subscription' });
-    }
-
-    // Get subscription to get Stripe customer ID
+    // Get the creator's subscription to retrieve Stripe customer ID
     const subRes = await ddb.send(
       new GetCommand({
         TableName: TABLE,
-        Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'SUBSCRIPTION' },
+        Key: { PK: `CREATOR#${userId}`, SK: 'SUBSCRIPTION' },
       })
     );
 
@@ -561,6 +502,8 @@ export const handler = async (event) => {
   setRequestOrigin(event); // Dynamic CORS — match request origin against allowed list
   const path = event.path || event.rawPath || '';
   const method = event.httpMethod || event.requestContext?.http?.method || 'GET';
+  initLogger(event.requestContext?.requestId, `${method} ${path}`);
+  log.info('request', { method, path });
 
   // CORS preflight
   if (method === 'OPTIONS') {

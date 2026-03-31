@@ -13,6 +13,7 @@ import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp, escapeHtml } from './helpers.mjs';
+import { initLogger, log } from './logger.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -175,6 +176,34 @@ async function listRestaurants(event) {
     if (decoded) queryParams.ExclusiveStartKey = decoded;
   }
 
+  // Server-side FilterExpression for cuisine, neighborhood, and partner.
+  // Reduces data transferred from DynamoDB to Lambda at scale (COST-03).
+  // Note: search remains client-side — DynamoDB contains() is case-sensitive
+  // and case-insensitive matching would require storing lowercase fields.
+  const filterParts = [];
+  if (params.cuisine) {
+    const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);
+    if (cuisines.length > 0) {
+      const cuisineClauses = cuisines.map((c, i) => {
+        queryParams.ExpressionAttributeValues[`:cuisine${i}`] = c;
+        return `contains(cuisine, :cuisine${i})`;
+      });
+      filterParts.push(`(${cuisineClauses.join(' OR ')})`);
+    }
+  }
+  if (params.neighborhood) {
+    const hood = sanitize(params.neighborhood, 100);
+    queryParams.ExpressionAttributeValues[':neighborhood'] = hood;
+    filterParts.push('neighborhood = :neighborhood');
+  }
+  if (params.partner === 'true') {
+    queryParams.ExpressionAttributeValues[':isPartner'] = true;
+    filterParts.push('isPartner = :isPartner');
+  }
+  if (filterParts.length > 0) {
+    queryParams.FilterExpression = filterParts.join(' AND ');
+  }
+
   const result = await ddb.send(new QueryCommand(queryParams));
 
   let items = result.Items || [];
@@ -183,21 +212,6 @@ async function listRestaurants(event) {
   if (params.city) {
     const city = sanitize(params.city, 100);
     items = items.filter((r) => r.city === city || (r.GSI1SK && r.GSI1SK.startsWith(`CITY#${city}`)));
-  }
-  if (params.cuisine) {
-    const cuisines = sanitize(params.cuisine, 500).split(',').map((c) => c.trim()).filter(Boolean).slice(0, 10);
-    items = items.filter((r) =>
-      r.cuisine?.some((c) => cuisines.includes(c))
-    );
-  }
-  if (params.neighborhood) {
-    const hood = sanitize(params.neighborhood, 100);
-    items = items.filter(
-      (r) => r.neighborhood === hood
-    );
-  }
-  if (params.partner === 'true') {
-    items = items.filter((r) => r.isPartner);
   }
   if (params.search) {
     const q = sanitize(params.search, 100).toLowerCase();
@@ -1152,18 +1166,26 @@ async function listSaves(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
   try {
-    const result = await ddb.send(
-      new QueryCommand({
-        TableName: TABLE,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
-        ExpressionAttributeValues: {
-          ':pk': `AUDIENCE#${userId}`,
-          ':sk': 'SAVE#',
-        },
-        Limit: 100, // Cap to prevent unbounded reads
-      })
-    );
-    return respond(200, stripAll(result.Items || []));
+    const params = event.queryStringParameters || {};
+    const limit = Math.min(Math.max(Number(params.limit) || 100, 1), 100);
+    const queryParams = {
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `AUDIENCE#${userId}`,
+        ':sk': 'SAVE#',
+      },
+      Limit: limit,
+    };
+    if (params.lastKey) {
+      const decoded = decodePaginationKey(params.lastKey);
+      if (decoded) queryParams.ExclusiveStartKey = decoded;
+    }
+    const result = await ddb.send(new QueryCommand(queryParams));
+    const nextPage = result.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+      : null;
+    return respond(200, { items: stripAll(result.Items || []), nextPage });
   } catch (err) {
     console.error('listSaves error:', err.message);
     return respond(500, { error: 'Failed to load saves' });
@@ -2814,7 +2836,9 @@ async function initSocialOAuth(platform, event) {
 
     const hasSecret = !!getSocialSecretEnvVar(platform);
     const appId = getSocialAppIdEnvVar(platform);
-    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/api/social/callback';
+    // SOCIAL_OAUTH_CALLBACK_BASE must point to the frontend /app/social/callback path so the
+    // browser lands on SocialOAuthCallback.tsx, which then calls GET /api/social/callback/:platform.
+    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/app/social/callback';
     const authUrl = buildSocialAuthUrl(platform, appId, state, codeChallenge, callbackBase);
 
     return respond(200, {
@@ -2896,7 +2920,7 @@ async function handleSocialCallback(platform, event) {
     // Production mode — exchange code for tokens
     const appId = getSocialAppIdEnvVar(platform);
     const appSecret = getSocialSecretEnvVar(platform);
-    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/api/social/callback';
+    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/app/social/callback';
     const redirectUri = `${callbackBase}/${platform}`;
 
     let tokenUrl, tokenBody, profileUrl, profileHeaders;
@@ -3671,17 +3695,25 @@ async function listDeals(event) {
     return respond(429, { error: 'Too many requests. Please try again later.' });
   }
 
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      IndexName: 'GSI1',
-      KeyConditionExpression: 'GSI1PK = :pk',
-      ExpressionAttributeValues: { ':pk': 'DEALS' },
-      Limit: 50, // Cap to prevent unbounded reads
-    })
-  );
+  const params = event.queryStringParameters || {};
+  const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 50);
+  const queryParams = {
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': 'DEALS' },
+    Limit: limit,
+  };
+  if (params.lastKey) {
+    const decoded = decodePaginationKey(params.lastKey);
+    if (decoded) queryParams.ExclusiveStartKey = decoded;
+  }
 
-  return respond(200, stripAll(result.Items || []));
+  const result = await ddb.send(new QueryCommand(queryParams));
+  const nextPage = result.LastEvaluatedKey
+    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+    : null;
+  return respond(200, { items: stripAll(result.Items || []), nextPage });
 }
 
 async function redeemDeal(dealId, event) {
@@ -3737,6 +3769,41 @@ async function getMembership(event) {
   );
 
   return respond(200, { tier: result.Item?.tier || 'free' });
+}
+
+/**
+ * POST /api/insider/subscribe
+ * Initiates an Insider membership subscription.
+ * Authenticated endpoint.
+ * Body: { planId: 'insider_monthly' | 'insider_yearly' }
+ *
+ * NOTE: Insider Stripe price IDs are not yet configured (see remediation item #18).
+ * Returns coming_soon status until INSIDER_MONTHLY_PRICE_ID and INSIDER_YEARLY_PRICE_ID
+ * env vars are set and wired to real Stripe checkout (to be done alongside item #18).
+ */
+async function subscribeInsider(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  let body;
+  try {
+    body = JSON.parse(event.body || '{}');
+  } catch {
+    return respond(400, { error: 'Invalid JSON body' });
+  }
+
+  const { planId } = body;
+  const VALID_PLAN_IDS = ['insider_monthly', 'insider_yearly'];
+  if (!planId || !VALID_PLAN_IDS.includes(planId)) {
+    return respond(400, { error: 'planId must be insider_monthly or insider_yearly' });
+  }
+
+  // Insider Stripe price IDs are not yet configured — return coming_soon so the
+  // frontend can show a clear message instead of silently failing.
+  return respond(200, {
+    status: 'coming_soon',
+    message: 'Insider memberships are launching soon! We\'ll notify you when subscriptions open.',
+  });
 }
 
 // ─── Save Management ─────────────────────────────────────────────────────────
@@ -4108,6 +4175,118 @@ async function upsertProfile(event) {
   return respond(200, stripDdbKeys(item));
 }
 
+// ─── GDPR/CCPA: Data Export & Account Deletion ───────────────────────────────
+
+/**
+ * GET /api/profile/export
+ * Returns all user data as JSON (GDPR Art. 20 data portability / CCPA right to know).
+ * Rate-limited to 3 exports per user per hour to prevent abuse.
+ */
+async function exportUserData(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // 3 exports per hour per user
+  if (!(await checkUserMutationRate(userId, 'DATA_EXPORT', 3))) {
+    return respond(429, { error: 'Too many export requests. Please try again in an hour.' });
+  }
+
+  try {
+    // Collect all records for this creator (profile, campaigns, offers, etc.)
+    const items = [];
+    let lastKey;
+    do {
+      const result = await ddb.send(new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'PK = :pk',
+        ExpressionAttributeValues: { ':pk': `CREATOR#${userId}` },
+        ExclusiveStartKey: lastKey,
+        Limit: 500,
+      }));
+      items.push(...(result.Items || []));
+      lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+
+    // Strip DynamoDB internal keys and sensitive credentials before returning
+    const INTERNAL_KEYS = new Set([
+      'PK', 'SK', 'GSI1PK', 'GSI1SK', 'GSI2PK', 'GSI2SK', 'GSI3PK', 'GSI3SK',
+      'posOAuthTokens', 'apiKeys', 'ttl',
+    ]);
+    const sanitizedItems = items.map(item => {
+      const clean = {};
+      for (const [k, v] of Object.entries(item)) {
+        if (!INTERNAL_KEYS.has(k)) clean[k] = v;
+      }
+      return clean;
+    });
+
+    return respond(200, {
+      exportedAt: new Date().toISOString(),
+      userId,
+      itemCount: sanitizedItems.length,
+      data: sanitizedItems,
+    });
+  } catch (err) {
+    console.error('exportUserData error:', err.message);
+    return respond(500, { error: 'Failed to export data' });
+  }
+}
+
+/**
+ * DELETE /api/profile
+ * Initiates account deletion:
+ *   - Sets accountStatus = 'pending_deletion' immediately (prevents future access)
+ *   - Sets a DynamoDB TTL of 30 days for automatic hard-delete of the profile record
+ *   - The lambda-lifecycle job is responsible for purging related records during the window
+ * GDPR Art. 17 (right to erasure) / CCPA right to delete.
+ */
+async function deleteAccount(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  // Allow only 1 deletion request per hour — prevents runaway retries
+  if (!(await checkUserMutationRate(userId, 'ACCOUNT_DELETE', 1))) {
+    return respond(429, { error: 'Account deletion request already in progress.' });
+  }
+
+  const now = new Date();
+  // TTL is a Unix epoch timestamp (seconds) — DynamoDB deletes the item after this time
+  const thirtyDaysSeconds = Math.floor(now.getTime() / 1000) + 30 * 24 * 60 * 60;
+
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'PROFILE' },
+      // Guard: profile must exist and not already be pending deletion
+      ConditionExpression:
+        'attribute_exists(PK) AND (attribute_not_exists(accountStatus) OR accountStatus <> :statusPending)',
+      UpdateExpression:
+        'SET accountStatus = :statusPending, deletedAt = :now, #ttl = :ttl, updatedAt = :updatedAt',
+      ExpressionAttributeNames: { '#ttl': 'ttl' },
+      ExpressionAttributeValues: {
+        ':statusPending': 'pending_deletion',
+        ':now': now.toISOString(),
+        ':ttl': thirtyDaysSeconds,
+        ':updatedAt': now.toISOString(),
+      },
+    }));
+
+    return respond(200, {
+      message:
+        'Account deletion requested. Your account will be permanently deleted within 30 days. ' +
+        'You may contact support within this window to cancel.',
+      deletedAt: now.toISOString(),
+      hardDeleteAt: new Date(thirtyDaysSeconds * 1000).toISOString(),
+    });
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') {
+      return respond(409, { error: 'Profile not found or account deletion already requested.' });
+    }
+    console.error('deleteAccount error:', err.message);
+    return respond(500, { error: 'Failed to process deletion request' });
+  }
+}
+
 // ─── ROI Calculator ───────────────────────────────────────────────────────────
 
 async function calculateROI(event) {
@@ -4189,6 +4368,156 @@ async function calculateROI(event) {
   await ddb.send(new PutCommand({ TableName: TABLE, Item: roiReport }));
 
   return respond(200, stripDdbKeys(roiReport));
+}
+
+// ─── Shared Reports ────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/spotops/reports/{campaignId}/share
+ * Auth required. Snapshots the campaign's current metrics into a time-limited
+ * share token so a restaurant partner can view the report without logging in.
+ * Token expires in 30 days.
+ */
+async function createShareToken(campaignId, event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(campaignId)) return respond(400, { error: 'Invalid campaignId' });
+
+  // Verify the campaign belongs to this creator
+  const campaignResult = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: `CAMPAIGN#${campaignId}` },
+  }));
+  if (!campaignResult.Item) return respond(404, { error: 'Campaign not found' });
+  const campaign = campaignResult.Item;
+
+  // Fetch this creator's offers to compute attribution metrics
+  const offersResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#OFFERS` },
+    Limit: 200,
+  }));
+  const restaurantOffers = (offersResult.Items || []).filter(
+    o => o.restaurantId === campaign.restaurantId
+  );
+
+  const totalScans = restaurantOffers.reduce((s, o) => s + (o.scans || 0), 0);
+  const totalRedemptions = restaurantOffers.reduce((s, o) => s + (o.redemptions || 0), 0);
+  const estimatedVisits = Math.round(totalRedemptions * 1.8);
+
+  // Fetch the most recent ROI report for this campaign (if one exists)
+  const reportResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :prefix)',
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}#REPORTS`,
+      ':prefix': `REPORT#roi-${campaignId}`,
+    },
+    Limit: 1,
+    ScanIndexForward: false, // newest first
+  }));
+  const latestReport = reportResult.Items?.[0];
+
+  const now = new Date().toISOString();
+  const token = crypto.randomUUID().replace(/-/g, '');
+  const expiresAt = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
+  const ttlSeconds = Math.floor(Date.now() / 1000) + (30 * 86400);
+
+  // Build report snapshot from ROI report data if available, else use offer metrics
+  const snapshot = {
+    campaignId,
+    restaurantName: campaign.restaurantName || '',
+    package: campaign.package || campaign.packageType || '',
+    period: {
+      start: campaign.startDate || campaign.createdAt || now,
+      end: campaign.endDate || now,
+    },
+    metrics: latestReport ? {
+      totalScans: latestReport.totalScans || totalScans,
+      totalRedemptions: latestReport.totalRedemptions || totalRedemptions,
+      estimatedVisits: latestReport.estimatedVisits || estimatedVisits,
+      estimatedRevenue: latestReport.estimatedRevenue || 0,
+      roi: latestReport.roi || 0,
+      costPerVisit: latestReport.costPerVisit || 0,
+      costPerRedemption: latestReport.costPerRedemption || 0,
+      scanToRedemptionRate: latestReport.scanToRedemptionRate || 0,
+      budget: latestReport.budget || campaign.budget || 0,
+    } : {
+      totalScans,
+      totalRedemptions,
+      estimatedVisits,
+      estimatedRevenue: 0,
+      roi: 0,
+      costPerVisit: 0,
+      costPerRedemption: 0,
+      scanToRedemptionRate: totalScans > 0 ? totalRedemptions / totalScans : 0,
+      budget: campaign.budget || 0,
+    },
+    generatedAt: now,
+  };
+
+  await ddb.send(new PutCommand({
+    TableName: TABLE,
+    Item: {
+      PK: `SHARED_REPORT#${token}`,
+      SK: 'DATA',
+      token,
+      creatorId: userId,
+      campaignId,
+      snapshot,
+      createdAt: now,
+      expiresAt,
+      ttl: ttlSeconds,
+    },
+  }));
+
+  const frontendUrl = (process.env.ALLOWED_ORIGINS || 'https://main.dc04hhpr1ng78.amplifyapp.com')
+    .split(',')[0].trim();
+
+  return respond(201, {
+    shareUrl: `${frontendUrl}/shared-report/${token}`,
+    token,
+    expiresAt,
+  });
+}
+
+/**
+ * GET /api/shared-report/{token}
+ * Public — no auth required. Returns snapshotted report data for a share token.
+ * Token must not be expired.
+ */
+async function getSharedReport(token) {
+  // Validate token format (32-char hex from UUID without dashes)
+  if (!token || !/^[a-f0-9]{32}$/.test(token)) {
+    return respond(400, { error: 'Invalid token format' });
+  }
+
+  let result;
+  try {
+    result = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `SHARED_REPORT#${token}`, SK: 'DATA' },
+    }));
+  } catch (err) {
+    console.error('getSharedReport error:', err.message);
+    return respond(500, { error: 'Failed to load report' });
+  }
+
+  if (!result.Item) return respond(404, { error: 'Report not found or link has expired' });
+
+  const item = result.Item;
+  // Belt-and-suspenders expiry check (DynamoDB TTL removal can lag up to 48h)
+  if (item.expiresAt && new Date(item.expiresAt) < new Date()) {
+    return respond(404, { error: 'Report link has expired' });
+  }
+
+  return respond(200, {
+    ...item.snapshot,
+    expiresAt: item.expiresAt,
+  });
 }
 
 // ─── Creator Benchmarking ─────────────────────────────────────────────────────
@@ -6450,6 +6779,10 @@ export const handler = async (event) => {
   const method = event.httpMethod;
   const path = event.path || '';
   const pathParts = path.split('/').filter(Boolean);
+  const requestId = event.requestContext?.requestId || 'unknown';
+
+  initLogger(requestId, `${method} ${path}`);
+  log.info('request', { method, path, sourceIp: event.requestContext?.identity?.sourceIp });
 
   try {
     // CORS preflight — return immediately with proper headers
@@ -6468,8 +6801,44 @@ export const handler = async (event) => {
     if (event.body && event.body.length > 102400) {
       return respond(413, { error: 'Request body too large' });
     }
-    // Health check
-    if (path.endsWith('/health')) return respond(200, { status: 'ok' });
+    // Health check — verify DynamoDB and Secrets Manager are reachable
+    if (path.endsWith('/health')) {
+      const checks = { dynamodb: 'ok', secrets: 'ok' };
+      let degraded = false;
+
+      // DynamoDB: attempt a lightweight DescribeTable equivalent via a benign GetItem
+      try {
+        await ddb.send(new GetCommand({
+          TableName: TABLE,
+          Key: { PK: 'HEALTH_CHECK', SK: 'PING' },
+          ProjectionExpression: 'PK',
+        }));
+      } catch (err) {
+        checks.dynamodb = err.name || 'error';
+        degraded = true;
+        log.error('health_check_dynamodb_fail', { error: err.message });
+      }
+
+      // Secrets Manager: verify the ARN resolves (uses cache when warm)
+      try {
+        const arn = process.env.SECRETS_ARN;
+        if (!arn) throw new Error('SECRETS_ARN not set');
+        await smClient.send(new GetSecretValueCommand({ SecretId: arn }));
+      } catch (err) {
+        checks.secrets = err.name || 'error';
+        degraded = true;
+        log.error('health_check_secrets_fail', { error: err.message });
+      }
+
+      if (degraded) {
+        return {
+          statusCode: 503,
+          headers: { ...headers, 'Cache-Control': 'no-store' },
+          body: JSON.stringify({ status: 'degraded', checks, timestamp: new Date().toISOString() }),
+        };
+      }
+      return respond(200, { status: 'ok', checks, timestamp: new Date().toISOString() });
+    }
 
     // Restaurants
     if (path.match(/\/api\/restaurants$/) && method === 'GET')
@@ -6570,6 +6939,8 @@ export const handler = async (event) => {
     // Insider membership
     if (path.match(/\/api\/insider\/membership$/) && method === 'GET')
       return getMembership(event);
+    if (path.match(/\/api\/insider\/subscribe$/) && method === 'POST')
+      return subscribeInsider(event);
 
     // Saves
     if (path.match(/\/api\/saves\/[^/]+$/) && method === 'POST')
@@ -6602,10 +6973,18 @@ export const handler = async (event) => {
     // Profile
     if (path.match(/\/api\/profile$/) && method === 'GET') return getProfile(event);
     if (path.match(/\/api\/profile$/) && method === 'POST') return upsertProfile(event);
+    if (path.match(/\/api\/profile\/export$/) && method === 'GET') return exportUserData(event);
+    if (path.match(/\/api\/profile$/) && method === 'DELETE') return deleteAccount(event);
 
     // ROI & Benchmarks
     if (path.match(/\/api\/reports\/roi-calculate$/) && method === 'POST') return calculateROI(event);
     if (path.match(/\/api\/reports\/benchmarks$/) && method === 'GET') return getBenchmarks(event);
+
+    // Shared Reports (auth required to create, public to view)
+    if (path.match(/\/api\/spotops\/reports\/[^/]+\/share$/) && method === 'POST')
+      return createShareToken(pathParts[pathParts.length - 2], event);
+    if (path.match(/\/api\/shared-report\/[^/]+$/) && method === 'GET')
+      return getSharedReport(pathParts[pathParts.length - 1]);
 
     // Ambassador & Referral
     if (path.match(/\/api\/ambassador\/generate-link$/) && method === 'POST')
@@ -6739,14 +7118,11 @@ export const handler = async (event) => {
     return respond(404, { error: 'Not found' });
   } catch (err) {
     const errorId = randomUUID().slice(0, 12);
-    console.error(JSON.stringify({
-      level: 'ERROR',
+    log.error('unhandled_exception', {
       errorId,
       message: err.message,
       stack: err.stack?.split('\n').slice(0, 5).join(' | '),
-      path: event?.rawPath || event?.path,
-      method: event?.requestContext?.http?.method,
-    }));
+    });
     return respond(500, { error: 'Internal server error', errorId });
   }
 };

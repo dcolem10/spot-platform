@@ -29,6 +29,7 @@ interface UpgradeCardProps {
 export function UpgradeCard({ variant = 'full', onUpgrade }: UpgradeCardProps) {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -39,6 +40,7 @@ export function UpgradeCard({ variant = 'full', onUpgrade }: UpgradeCardProps) {
     }
 
     setIsProcessing(true);
+    setNotice(null);
     const plan = PRICING[selectedPlan];
 
     if (onUpgrade) {
@@ -47,14 +49,19 @@ export function UpgradeCard({ variant = 'full', onUpgrade }: UpgradeCardProps) {
       return;
     }
 
-    const result = await api.post<{ checkoutUrl: string }>('/api/insider/subscribe', {
-      planId: plan.planId,
-    });
+    const result = await api.post<{ checkoutUrl?: string; status?: string; message?: string }>(
+      '/api/insider/subscribe',
+      { planId: plan.planId },
+    );
 
     setIsProcessing(false);
 
     if (result.status === 'success' && result.data?.checkoutUrl) {
       window.location.href = result.data.checkoutUrl;
+    } else if (result.status === 'success' && result.data?.status === 'coming_soon') {
+      setNotice(result.data.message ?? 'Insider memberships are coming soon!');
+    } else {
+      setNotice('Something went wrong. Please try again later.');
     }
   };
 
@@ -107,6 +114,18 @@ export function UpgradeCard({ variant = 'full', onUpgrade }: UpgradeCardProps) {
         >
           {isProcessing ? 'Processing...' : 'Upgrade Now'}
         </button>
+        {notice && (
+          <p
+            style={{
+              fontSize: 'var(--font-xs)',
+              color: 'var(--color-textSecondary)',
+              marginTop: 'var(--space-3)',
+              textAlign: 'center',
+            }}
+          >
+            {notice}
+          </p>
+        )}
       </div>
     );
   }
@@ -324,6 +343,21 @@ export function UpgradeCard({ variant = 'full', onUpgrade }: UpgradeCardProps) {
       >
         Cancel anytime. No commitment.
       </p>
+      {notice && (
+        <p
+          style={{
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-textSecondary)',
+            marginTop: 'var(--space-4)',
+            padding: 'var(--space-3) var(--space-4)',
+            background: 'var(--color-bgElevated)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          {notice}
+        </p>
+      )}
     </div>
   );
 }

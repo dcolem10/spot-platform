@@ -23,24 +23,45 @@ type TierLevel = 'bronze' | 'silver' | 'gold';
 
 /* ─── Tier Configuration ────────────────────────────────────────────────────── */
 
-const TIER_CONFIG: Record<TierLevel, { color: string; badge: string; nextThreshold: number; description: string }> = {
+const TIER_CONFIG: Record<TierLevel, { color: string; badge: string; nextThreshold: number; description: string; commissionRate: number; benefits: string[] }> = {
   bronze: {
     color: '#CD7F32',
-    badge: '⚪',
+    badge: '🥉',
     nextThreshold: 5,
     description: '0-4 referrals',
+    commissionRate: 10,
+    benefits: [
+      '10% commission on each referred creator\'s monthly subscription',
+      'Ambassador badge on your profile',
+      'Access to the Spot creator community',
+    ],
   },
   silver: {
     color: '#C0C0C0',
     badge: '🥈',
     nextThreshold: 15,
     description: '5-14 referrals',
+    commissionRate: 15,
+    benefits: [
+      '15% commission on each referred creator\'s monthly subscription',
+      'Silver ambassador badge + featured profile placement',
+      'Priority support (24-hour response SLA)',
+      'Early access to new platform features',
+    ],
   },
   gold: {
     color: '#FFD700',
     badge: '🥇',
     nextThreshold: Infinity,
     description: '15+ referrals',
+    commissionRate: 20,
+    benefits: [
+      '20% commission on each referred creator\'s monthly subscription',
+      'Gold ambassador badge + top placement in creator directory',
+      'Dedicated account manager',
+      'Exclusive access to premium restaurant partnerships',
+      'Co-marketing opportunities with the Spot team',
+    ],
   },
 };
 
@@ -640,6 +661,9 @@ export default function AmbassadorDashboard() {
               <div style={styles.metricValue}>
                 ${ambassadorStatus.commissionEarned.toLocaleString()}
               </div>
+              <div style={{ fontSize: '12px', color: 'var(--color-textMuted)', marginTop: '4px' }}>
+                {TIER_CONFIG[ambassadorStatus.tier].commissionRate}% rate · {ambassadorStatus.tier} tier
+              </div>
             </div>
           </div>
         </div>
@@ -651,21 +675,63 @@ export default function AmbassadorDashboard() {
       </div>
 
       <div style={styles.card}>
-        <div style={styles.sectionTitle}>How It Works</div>
-        <div style={{ lineHeight: '1.8', color: 'var(--color-textSecondary)', fontSize: '14px' }}>
-          <p>
-            Share your unique referral code with other creators. When they sign up using your code,
-            you'll both earn rewards:
-          </p>
-          <ul style={{ marginLeft: '20px', marginTop: '12px' }}>
-            <li>Bronze tier: 0-4 referrals</li>
-            <li>Silver tier: 5-14 referrals</li>
-            <li>Gold tier: 15+ referrals</li>
-          </ul>
-          <p style={{ marginTop: '12px' }}>
-            Each referral unlocks higher-tier benefits including exclusive partnership opportunities
-            and premium features.
-          </p>
+        <div style={styles.sectionTitle}>Tier Benefits</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+          {((['bronze', 'silver', 'gold'] as TierLevel[])).map((tier) => {
+            const config = TIER_CONFIG[tier];
+            const isCurrentTier = ambassadorStatus.tier === tier;
+            return (
+              <div
+                key={tier}
+                style={{
+                  padding: '20px',
+                  borderRadius: '10px',
+                  border: `2px solid ${isCurrentTier ? config.color : '#e8e8e8'}`,
+                  background: isCurrentTier ? `${config.color}12` : 'var(--color-bgSurface)',
+                  position: 'relative',
+                }}
+              >
+                {isCurrentTier && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    right: '12px',
+                    background: config.color,
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}>
+                    Current
+                  </div>
+                )}
+                <div style={{ fontSize: '28px', marginBottom: '8px' }}>{config.badge}</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--color-textPrimary)', marginBottom: '4px' }}>
+                  {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--color-textMuted)', marginBottom: '12px' }}>
+                  {config.description}
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: config.color, marginBottom: '12px' }}>
+                  {config.commissionRate}% commission
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '16px', listStyle: 'none' }}>
+                  {config.benefits.map((benefit, i) => (
+                    <li key={i} style={{ fontSize: '13px', color: 'var(--color-textSecondary)', marginBottom: '6px', display: 'flex', gap: '6px' }}>
+                      <span style={{ color: config.color, flexShrink: 0 }}>✓</span>
+                      {benefit}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: '20px', fontSize: '13px', color: 'var(--color-textMuted)', lineHeight: '1.6' }}>
+          Commission is paid monthly on active subscriptions of creators you referred. Payouts require a minimum balance of $50 and are processed via Stripe.
         </div>
       </div>
     </div>
