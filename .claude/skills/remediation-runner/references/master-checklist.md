@@ -21,14 +21,14 @@
   - Scope: Decision required from founder (Darren). Then update whichever document is wrong.
   - Acceptance: All documents agree on one restaurant revenue model. Code matches.
 
-- [x] **3. POS production sync — remove 501 stub**
+- [ ] **3. POS production sync — remove 501 stub**
   - Source: Business Plan, Value Proposition, Interconnectivity Plan
   - Problem: `syncRedemptionData()` returns 501 in production. The attribution loop breaks at the most critical step: connecting QR scans to actual POS transactions.
   - Scope: Backend (`backend/lambda-sync/`), POS credential setup, Square/Clover SDK integration
   - Key files: `backend/lambda-sync/index.mjs`, `backend/lambda-api/index.mjs` (lines ~2211-2311)
   - Acceptance: At least Square sync works in production with real credentials. Redemption data flows from POS to DynamoDB.
 
-- [ ] **4. Real QR code generation**
+- [x] **4. Real QR code generation**
   - Source: Value Proposition
   - Problem: `QRCodePlaceholder` renders a fake SVG pattern. No actual QR library. Creators can't print/share scannable codes.
   - Scope: Frontend — integrate `qrcode.react` or similar library into OfferManager
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #3 POS production sync | Done | Replaced 501 stub with real Square + Clover REST API integration in lambda-api. matchAndAggregate helper matches redemptions to POS transactions by time window. Toast remains 400 (pending partner approval). |
+| 2026-03-30 | #4 Real QR code generation | Done | Replaced QRCodePlaceholder with QRCodeImage using `qrcode` lib; encodes `/api/offers/{code}/scan`; PNG download; print support |

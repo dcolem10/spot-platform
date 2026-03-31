@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
+import QRCodeLib from 'qrcode';
 import { api } from '../../services/ApiService';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { EmptyState } from '../../components/EmptyState';
@@ -8,6 +9,8 @@ import { StyledSelect } from '../../components/FormControls';
 import { CalendarDatePicker } from '../../components/CalendarDatePicker';
 import { isDemoMode, DEMO_OFFERS, DEMO_CAMPAIGNS } from '../../data/demoData';
 import type { Offer, Campaign, OfferApprovalStatus } from '../../types';
+
+const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string) || '').replace(/\/$/, '');
 
 function escapeHtml(str: string): string {
   return str
@@ -77,61 +80,53 @@ const APPROVAL_BADGE: Record<OfferApprovalStatus, { bg: string; color: string; l
 };
 
 /**
- * Placeholder QR code SVG.
+ * Real QR code image generated via the `qrcode` library.
+ * `value` should be the full URL to encode (e.g. the offer scan URL).
+ * `id` is forwarded to the <img> element so download/print handlers can find it.
  */
-function QRCodePlaceholder({ code }: { code: string }) {
-  const cells: boolean[][] = [];
-  let hash = 0;
-  for (let i = 0; i < code.length; i++) {
-    hash = code.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const size = 21;
-  for (let row = 0; row < size; row++) {
-    cells[row] = [];
-    for (let col = 0; col < size; col++) {
-      const isFinderTL = row < 7 && col < 7;
-      const isFinderTR = row < 7 && col >= size - 7;
-      const isFinderBL = row >= size - 7 && col < 7;
-      if (isFinderTL || isFinderTR || isFinderBL) {
-        const lr = isFinderTL ? row : isFinderBL ? row - (size - 7) : row;
-        const lc = isFinderTL ? col : isFinderTR ? col - (size - 7) : col;
-        cells[row][col] =
-          lr === 0 || lr === 6 || lc === 0 || lc === 6 ||
-          (lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4);
-      } else {
-        const seed = (hash + row * 31 + col * 17) & 0xffff;
-        cells[row][col] = seed % 3 !== 0;
-      }
-    }
-  }
+function QRCodeImage({ value, size = 180, id }: { value: string; size?: number; id?: string }) {
+  const [dataUrl, setDataUrl] = useState<string>('');
 
-  const cellSize = 6;
-  const padding = 2;
-  const totalSize = (size + padding * 2) * cellSize;
+  useEffect(() => {
+    QRCodeLib.toDataURL(value, {
+      width: size,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    })
+      .then(setDataUrl)
+      .catch(() => setDataUrl(''));
+  }, [value, size]);
+
+  if (!dataUrl) {
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          background: '#f0f0f0',
+          borderRadius: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 12,
+          color: '#999',
+        }}
+      >
+        …
+      </div>
+    );
+  }
 
   return (
-    <svg
-      width={totalSize}
-      height={totalSize}
-      viewBox={`0 0 ${totalSize} ${totalSize}`}
-      style={{ display: 'block', maxWidth: '180px' }}
-    >
-      <rect width={totalSize} height={totalSize} fill="#fff" rx="4" />
-      {cells.map((row, r) =>
-        row.map((filled, c) =>
-          filled ? (
-            <rect
-              key={`${r}-${c}`}
-              x={(c + padding) * cellSize}
-              y={(r + padding) * cellSize}
-              width={cellSize}
-              height={cellSize}
-              fill="#000"
-            />
-          ) : null,
-        ),
-      )}
-    </svg>
+    <img
+      id={id}
+      src={dataUrl}
+      alt="QR code"
+      width={size}
+      height={size}
+      style={{ display: 'block' }}
+    />
   );
 }
 
@@ -300,32 +295,27 @@ export default function OfferManager() {
   }, [form, createMutation]);
 
   const handleDownloadQR = useCallback((offer: Offer) => {
-    const svgEl = document.getElementById(`qr-svg-${offer.offerId}`);
-    if (!svgEl) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+    const imgEl = document.getElementById(`qr-img-${offer.offerId}`) as HTMLImageElement | null;
+    if (!imgEl?.src) return;
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `qr-${offer.code}.svg`;
+    link.href = imgEl.src;
+    link.download = `qr-${offer.code}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   }, []);
 
   const handlePrint = useCallback((offer: Offer) => {
-    const svgEl = document.getElementById(`qr-svg-${offer.offerId}`);
-    if (!svgEl) return;
+    const imgEl = document.getElementById(`qr-img-${offer.offerId}`) as HTMLImageElement | null;
+    if (!imgEl?.src) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
     printWindow.document.write(`
       <html>
         <head><title>QR Code - ${escapeHtml(offer.code)}</title></head>
         <body style="display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;">
           <div style="text-align:center;">
-            ${svgData}
+            <img src="${imgEl.src}" width="240" height="240" alt="QR Code" />
             <p style="margin-top:16px;font-family:sans-serif;font-size:14px;color:#666;">${escapeHtml(offer.description)}</p>
             <p style="font-family:monospace;font-size:18px;font-weight:bold;">${escapeHtml(offer.code)}</p>
           </div>
@@ -628,7 +618,9 @@ export default function OfferManager() {
                 border: '1px solid var(--color-border)',
                 display: 'inline-block',
               }}>
-                <QRCodePlaceholder code={`SPOT-${form.restaurantId.slice(0, 8).toUpperCase()}`} />
+                <QRCodeImage
+                  value={`${API_BASE}/api/offers/SPOT-${form.restaurantId.slice(0, 8).toUpperCase()}/scan`}
+                />
               </div>
               <div>
                 <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-1)' }}>
@@ -1005,7 +997,6 @@ const OfferRow = memo(function OfferRow({
           flexWrap: 'wrap',
         }}>
           <div
-            id={`qr-svg-${offer.offerId}`}
             style={{
               padding: 'var(--space-4)',
               background: '#fff',
@@ -1014,11 +1005,14 @@ const OfferRow = memo(function OfferRow({
               display: 'inline-block',
             }}
           >
-            <QRCodePlaceholder code={offer.code} />
+            <QRCodeImage
+              id={`qr-img-${offer.offerId}`}
+              value={`${API_BASE}/api/offers/${offer.code}/scan`}
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <button className="btn btn-secondary" onClick={() => onDownload(offer)}>
-              Download SVG
+              Download PNG
             </button>
             <button className="btn btn-secondary" onClick={() => onPrint(offer)}>
               Print QR
