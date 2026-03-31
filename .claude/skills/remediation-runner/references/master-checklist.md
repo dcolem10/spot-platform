@@ -35,14 +35,14 @@
   - Key files: `src/features/concept1-platform/OfferManager.tsx` (lines 82-136)
   - Acceptance: QR codes encode the offer scan URL (`/api/offers/{code}/scan`), are downloadable as PNG, and scan correctly with phone cameras.
 
-- [x] **5. Creator-to-restaurant attribution reporting**
+- [ ] **5. Creator-to-restaurant attribution reporting**
   - Source: Value Proposition
   - Problem: No dashboard shows restaurants "Creator X drove 47 redemptions worth $2,350." Partner analytics aggregates everything — no per-creator breakdown.
   - Scope: Backend (new endpoint or modify `/api/partner/analytics`) + Frontend (PartnerPortal dashboard)
   - Key files: `backend/lambda-api/index.mjs` (partner analytics ~line 1298), `src/features/concept1-platform/PartnerPortal.tsx`
   - Acceptance: Restaurant sees a table/chart of each creator's scans, redemptions, and estimated revenue.
 
-- [ ] **6. Campaign limit enforcement for Starter tier**
+- [x] **6. Campaign limit enforcement for Starter tier**
   - Source: Business Plan
   - Problem: Starter ($49) should be limited to 2 active campaigns. No enforcement exists.
   - Scope: Backend — check subscription tier on campaign creation. Depends on item #1.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #5 Creator attribution | Done | Backend: `getPartnerAnalytics` now groups campaigns/offers by creatorId, batch-fetches display names, returns `creatorBreakdown[]`. Frontend: new "Creator Attribution" table in PartnerPortal shows each creator's campaigns, scans, redemptions, est. revenue. |
+| 2026-03-30 | #6 Campaign limit enforcement | Done | Added `getCreatorPlanTier()` + `countActiveCampaigns()` helpers in lambda-api. `createCampaign` now blocks Starter/free users at 2 active campaigns with 402 + `CAMPAIGN_LIMIT_REACHED`. Frontend CampaignManager surfaces clear upgrade message on 402. |

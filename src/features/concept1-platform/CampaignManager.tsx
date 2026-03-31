@@ -66,6 +66,10 @@ export default function CampaignManager() {
   const createMutation = useMutation({
     mutationFn: async (payload: Partial<Campaign>) => {
       const res = await api.post<Campaign>('/api/campaigns', payload);
+      if (res.statusCode === 402) {
+        // Plan limit reached — surface a clear upgrade prompt
+        throw Object.assign(new Error(res.error ?? 'Campaign limit reached'), { isLimitError: true });
+      }
       if (res.error) throw new Error(res.error);
       return res.data;
     },
@@ -74,8 +78,12 @@ export default function CampaignManager() {
       handleCloseWizard();
       setMutationError(null);
     },
-    onError: (err: Error) => {
-      setMutationError(`Failed to create campaign: ${err.message}`);
+    onError: (err: Error & { isLimitError?: boolean }) => {
+      if (err.isLimitError) {
+        setMutationError(err.message);
+      } else {
+        setMutationError(`Failed to create campaign: ${err.message}`);
+      }
     },
   });
 

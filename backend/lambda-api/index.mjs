@@ -42,6 +42,16 @@ async function decryptPosToken(ciphertext) {
 }
 if (!TABLE) throw new Error('TABLE_NAME env var is required — Lambda misconfigured');
 const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'noreply@tryspot.app';
+
+// ─── Subscription Tier Config ─────────────────────────────────────────────────
+// Map Stripe price IDs to plan tiers. Must match ALLOWED_PRICES in lambda-stripe.
+const PRICE_TIERS = {
+  'price_1T7lCIJob49CLLyGuvtIIKgP': 'starter', // Spot Starter — $49/mo
+  'price_1T7lCiJob49CLLyG7vfdi7kq': 'pro',     // Spot Pro — $99/mo
+  'price_1T7lKHJob49CLLyGajlRXAsr': 'scale',   // Spot Scale — $149/mo
+};
+const TIER_ORDER = ['free', 'starter', 'pro', 'scale'];
+const STARTER_CAMPAIGN_LIMIT = 2;
 // ─── Dynamic CORS — supports multiple origins (dev + prod simultaneously) ────
 const ALLOWED_ORIGINS = new Set(
   (process.env.ALLOWED_ORIGINS || process.env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean)
@@ -367,6 +377,62 @@ async function updateRestaurant(restaurantId, event) {
 
 // ─── Campaign CRUD ────────────────────────────────────────────────────────────
 
+/**
+ * Returns the highest subscription tier active for a given creator.
+ * Checks all restaurants owned by the creator for active Stripe subscriptions.
+ * Returns 'scale' | 'pro' | 'starter' | 'free'.
+ */
+async function getCreatorPlanTier(userId) {
+  // Fetch all restaurants linked to this creator
+  const restResult = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    ExpressionAttributeValues: { ':pk': `CREATOR#${userId}#RESTAURANTS` },
+    ProjectionExpression: 'restaurantId',
+  }));
+
+  if (!restResult.Items?.length) return 'free';
+
+  // Find the highest active tier across all the creator's restaurants
+  let best = 'free';
+  for (const rest of restResult.Items) {
+    const subResult = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${rest.restaurantId}`, SK: 'SUBSCRIPTION' },
+      ProjectionExpression: '#s, priceId',
+      ExpressionAttributeNames: { '#s': 'status' },
+    }));
+    const sub = subResult.Item;
+    if (sub && sub.status === 'active') {
+      const tier = PRICE_TIERS[sub.priceId] || 'free';
+      if (TIER_ORDER.indexOf(tier) > TIER_ORDER.indexOf(best)) best = tier;
+    }
+  }
+  return best;
+}
+
+/**
+ * Counts active (non-archived, non-completed, non-cancelled) campaigns for a creator.
+ */
+async function countActiveCampaigns(userId) {
+  const result = await ddb.send(new QueryCommand({
+    TableName: TABLE,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk',
+    FilterExpression: 'attribute_not_exists(deletedAt) AND #s IN (:inquiry, :negotiation, :active)',
+    ExpressionAttributeNames: { '#s': 'status' },
+    ExpressionAttributeValues: {
+      ':pk': `CREATOR#${userId}#CAMPAIGNS`,
+      ':inquiry': 'inquiry',
+      ':negotiation': 'negotiation',
+      ':active': 'active',
+    },
+    Select: 'COUNT',
+  }));
+  return result.Count || 0;
+}
+
 async function listCampaigns(event) {
   const userId = getUserId(event);
   if (!userId) return respond(401, { error: 'Unauthorized' });
@@ -499,6 +565,22 @@ async function createCampaign(event) {
   if (restOwnerCheck.Item.creatorId !== userId) {
     return respond(403, { error: 'You do not own this restaurant' });
   }
+
+  // ── Tier enforcement: Starter plan is limited to 2 active campaigns ──────────
+  const planTier = await getCreatorPlanTier(userId);
+  if (planTier === 'starter' || planTier === 'free') {
+    const activeCount = await countActiveCampaigns(userId);
+    if (activeCount >= STARTER_CAMPAIGN_LIMIT) {
+      return respond(402, {
+        error: `Your ${planTier === 'free' ? 'free' : 'Starter'} plan allows a maximum of ${STARTER_CAMPAIGN_LIMIT} active campaigns. Archive a campaign or upgrade to Pro for unlimited campaigns.`,
+        code: 'CAMPAIGN_LIMIT_REACHED',
+        limit: STARTER_CAMPAIGN_LIMIT,
+        current: activeCount,
+        upgradeRequired: true,
+      });
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const budget = Number(body.budget) || 0;
 
