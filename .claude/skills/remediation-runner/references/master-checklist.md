@@ -215,7 +215,7 @@
 - [ ] **31. NDA template for early access users** — Source: Compliance/IP Review
 - [ ] **32. Provisional patent application** — Source: Compliance/IP Review
 - [ ] **33. Trademark filing for "Spot"** — Source: Compliance/IP Review
-- [ ] **34. Patch fast-xml-parser CVE (DEP-01)** — Source: Production Readiness Review
+- [x] **34. Patch fast-xml-parser CVE (DEP-01)** — Source: Production Readiness Review
 - [ ] **35. Remove unused Amplify analytics deps (DEP-02)** — Source: Production Readiness Review
 
 ---
@@ -231,3 +231,4 @@
 | 2026-03-31 | #28 | Per-Lambda IAM roles | Done |
 | 2026-03-31 | #29 | Structured JSON logging | Done |
 | 2026-03-31 | #30 | Health check dependency verification | Done |
+| 2026-03-31 | #34 | Patched fast-xml-parser CVE |
