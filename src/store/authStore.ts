@@ -23,6 +23,8 @@ interface AuthState {
   role: UserRole | null;
   groups: string[];
   orgId: string | null;
+  /** Which Cognito pool this session authenticated against */
+  poolType: 'creator' | 'restaurant' | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   isDemoMode: boolean;
@@ -35,6 +37,7 @@ interface AuthState {
     role: UserRole;
     groups: string[];
     orgId?: string;
+    poolType?: 'creator' | 'restaurant';
   }) => void;
   setDemoMode: (demo: boolean) => void;
   setDemoOnboarded: (onboarded: boolean) => void;
@@ -50,6 +53,7 @@ const initialState = {
   role: null as UserRole | null,
   groups: [] as string[],
   orgId: null,
+  poolType: null as 'creator' | 'restaurant' | null,
   isAuthenticated: false,
   isLoading: true,
   isDemoMode: false,
@@ -67,6 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       role: payload.role,
       groups: payload.groups,
       orgId: payload.orgId ?? null,
+      poolType: payload.poolType ?? 'creator',
       isAuthenticated: true,
       isLoading: false,
     }),

@@ -74,14 +74,14 @@
 
 ## HIGH (Items 10–18)
 
-- [x] **10. Insider subscription payment endpoint**
+- [ ] **10. Insider subscription payment endpoint**
   - Source: Value Proposition
   - Problem: MembershipGate calls `/api/insider/subscribe` which doesn't exist in the backend. "Subscribe" button has no backend.
   - Scope: Backend — new endpoint wiring to Stripe with Insider price ID. Or defer Insider payments entirely (mark as "coming soon").
   - Key files: `src/features/concept2-insider/MembershipGate.tsx`, `backend/lambda-stripe/index.mjs`
   - Acceptance: Either subscription works end-to-end, or UI clearly shows "coming soon" without broken buttons.
 
-- [ ] **11. Separate Cognito pool for restaurants**
+- [x] **11. Separate Cognito pool for restaurants**
   - Source: Interconnectivity Plan
   - Problem: Creators and restaurants share one Cognito pool. Plan calls for separate pools (security isolation, POS OAuth readiness).
   - Scope: Infrastructure — new Cognito pool in template.yaml, update auth flows, mapping table.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #10 Insider subscribe endpoint | Done | Added POST /api/insider/subscribe to lambda-api; returns coming_soon until Insider Stripe price IDs exist (item #18). Frontend shows clear message instead of silently failing. |
+| 2026-03-30 | #11 Separate Cognito pool for restaurants | Done | Added RestaurantUserPool + RestaurantUserPoolClient to template.yaml; RestaurantCognitoAuthorizer on /api/partner/* routes; bootstrapAmplify(poolType) dual-pool config; poolType field in authStore |
