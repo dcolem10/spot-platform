@@ -3,12 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { CookieConsent } from './components/CookieConsent';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { useAuth } from './hooks/useAuth';
 import { useAuthStore } from './store/authStore';
 import { FeatureGate } from './components/FeatureGate';
-import { TierGate } from './components/TierGate';
 import { useAuthInit } from './hooks/useAuthInit';
 import { api } from './services/ApiService';
 import './styles/print.css';
@@ -68,8 +66,9 @@ const ContentReviewManager = lazy(() => import('./features/concept1-platform/Con
 // Social Connections
 const SocialConnectionsPanel = lazy(() => import('./features/concept1-platform/SocialConnectionsPanel'));
 
-// Account Settings
-const AccountSettings = lazy(() => import('./features/settings/AccountSettings'));
+// Blog
+const BlogIndex = lazy(() => import('./features/blog/BlogIndex'));
+const BlogPost = lazy(() => import('./features/blog/BlogPost'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -138,7 +137,6 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <CookieConsent />
           <Suspense fallback={<AppFallback />}>
             <Routes>
               {/* Public landing */}
@@ -161,8 +159,7 @@ export default function App() {
                 <Route path="restaurants/:id" element={<FeatureGate flag="restaurantPortal"><RestaurantDetail /></FeatureGate>} />
                 <Route path="campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
                 <Route path="offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
-                {/* ROI Reporter — Pro+ */}
-                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><TierGate minTier="pro" featureName="ROI Reporter"><ROIReporter /></TierGate></FeatureGate>} />
+                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><ROIReporter /></FeatureGate>} />
                 <Route path="reports/:campaignId" element={<FeatureGate flag="restaurantPortal"><CampaignReport /></FeatureGate>} />
                 <Route path="crm" element={<FeatureGate flag="restaurantPortal"><PartnershipCRM /></FeatureGate>} />
 
@@ -184,22 +181,18 @@ export default function App() {
                 {/* Social Connections */}
                 <Route path="social" element={<SocialConnectionsPanel />} />
 
-                {/* Account Settings (GDPR/CCPA data export + account deletion) */}
-                <Route path="settings" element={<AccountSettings />} />
-
                 {/* Multi-Creator Collaborations */}
                 <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />
 
-                {/* AI — Pro+ */}
-                <Route path="insights" element={<TierGate minTier="pro" featureName="AI Insights"><AIInsights /></TierGate>} />
+                {/* AI */}
+                <Route path="insights" element={<AIInsights />} />
 
                 {/* Content */}
                 <Route path="archive" element={<ContentArchive />} />
-                {/* Calendar — Pro+ */}
-                <Route path="calendar" element={<TierGate minTier="pro" featureName="Editorial Calendar"><EditorialCalendar /></TierGate>} />
+                <Route path="calendar" element={<EditorialCalendar />} />
 
-                {/* Ambassador Program — Scale+ */}
-                <Route path="ambassador" element={<FeatureGate flag="ambassador"><TierGate minTier="scale" featureName="Ambassador Program"><AmbassadorDashboard /></TierGate></FeatureGate>} />
+                {/* Ambassador Program */}
+                <Route path="ambassador" element={<FeatureGate flag="ambassador"><AmbassadorDashboard /></FeatureGate>} />
 
                 {/* Audience & Discovery */}
                 <Route path="discover" element={<DiscoverApp />} />
@@ -209,6 +202,10 @@ export default function App() {
 
               {/* Public Raffle Entry Page */}
               <Route path="/raffle/:id" element={<RaffleEntryPage />} />
+
+              {/* Blog */}
+              <Route path="/blog" element={<BlogIndex />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
 
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />
