@@ -50,15 +50,14 @@
   - Acceptance: Starter users get error when creating 3rd active campaign. Pro/Scale unlimited.
   - Dependency: Item #1 must be completed first.
 
-- [x] **7. Privacy Policy & Terms of Service — attorney review**
+- [ ] **7. Privacy Policy & Terms of Service — attorney review**
   - Source: Compliance/IP Review
   - Problem: Frontend pages exist at `/privacy` and `/terms` but content needs legal review before collecting real user data.
   - Scope: Review current content, identify gaps (data retention, third-party sharing, CCPA rights), get attorney sign-off or use Termly/Iubenda generator.
   - Key files: Landing page legal sections
   - Acceptance: Privacy Policy covers data collected, purpose, retention, third-party sharing, user rights. ToS covers acceptable use, liability, termination.
-  - Code done: Created `Legal.css`, added ToC with anchor links, scroll-to-top, sticky header, print styles, and `PENDING_LEGAL_REVIEW` banner (set to `false` once attorney signs off). Added §7.4 Do Not Track + GDPR DPA contact to Privacy Policy. External attorney review still required.
 
-- [ ] **8. Cookie consent banner**
+- [x] **8. Cookie consent banner**
   - Source: Compliance/IP Review
   - Problem: No cookie consent mechanism. Required for GDPR/ePrivacy.
   - Scope: Frontend — add lightweight banner component. Classify cookies (strictly necessary vs analytics).
@@ -226,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #7 Privacy Policy & ToS | Done | Code complete: Legal.css, ToC, review banner, scroll-to-top, print styles, Do Not Track + GDPR DPA contact added. Set PENDING_LEGAL_REVIEW=false after attorney review. |
+| 2026-03-30 | #8 Cookie consent banner | Done | Added CookieConsent component with necessary/all choice; persists to localStorage; renders on all routes via App.tsx |
