@@ -1352,6 +1352,39 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Book a Demo — Scheduling CTA ────────────────────────────────── */}
+      <section className="landing-section landing-section--alt landing-booking-section">
+        <div className="landing-booking-inner reveal">
+          <div className="landing-booking-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
+            </svg>
+          </div>
+          <div className="landing-booking-copy">
+            <h2>See Spot in action</h2>
+            <p>
+              Schedule a 20-minute call with the Spot team. We&rsquo;ll walk you through the attribution
+              dashboard, answer your questions, and set up your first creator partnership on the spot.
+            </p>
+            <div className="landing-booking-targets">
+              <span className="landing-booking-target">&#x1F37D;&#xFE0F;&nbsp; Restaurant owners</span>
+              <span className="landing-booking-target">&#x1F4F8;&nbsp; Food creators</span>
+              <span className="landing-booking-target">&#x23F0;&nbsp; 20 minutes</span>
+              <span className="landing-booking-target">&#x2615;&nbsp; Free consultation</span>
+            </div>
+          </div>
+          <a
+            href={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/spot-platform/demo'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-gradient btn-lg landing-booking-btn"
+          >
+            Book a Free Demo
+          </a>
+        </div>
+      </section>
+
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="landing-footer">
         <div className="landing-footer-inner">

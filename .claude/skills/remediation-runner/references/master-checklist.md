@@ -81,20 +81,20 @@
   - Key files: `src/features/concept2-insider/MembershipGate.tsx`, `backend/lambda-stripe/index.mjs`
   - Acceptance: Either subscription works end-to-end, or UI clearly shows "coming soon" without broken buttons.
 
-- [x] **11. Separate Cognito pool for restaurants**
+- [ ] **11. Separate Cognito pool for restaurants**
   - Source: Interconnectivity Plan
   - Problem: Creators and restaurants share one Cognito pool. Plan calls for separate pools (security isolation, POS OAuth readiness).
   - Scope: Infrastructure — new Cognito pool in template.yaml, update auth flows, mapping table.
   - Key files: `backend/template.yaml`, `src/lib/amplifyConfig.ts`, `src/store/authStore.ts`
   - Acceptance: Restaurant users authenticate to separate pool. Creator pool unaffected. Hybrid user mapping works.
 
-- [x] **12. Blog infrastructure**
+- [ ] **12. Blog infrastructure**
   - Source: Competitive Analysis
   - Problem: No blog routes, CMS, or content pipeline. dcspot.com has blog with SEO infrastructure.
   - Scope: Decision — build minimal blog in React, or use external blog (Ghost, WordPress) linked from Spot.
   - Acceptance: At minimum, a `/blog` route exists with restaurant-focused content capability.
 
-- [ ] **13. Scheduling/booking integration**
+- [x] **13. Scheduling/booking integration**
   - Source: Competitive Analysis
   - Problem: dcspot.com has Calendly for prospect booking. Spot has no equivalent.
   - Scope: Frontend — embed Calendly widget or add booking link to landing page/partner portal.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #11 Separate Cognito pool for restaurants | Done | Added RestaurantUserPool + RestaurantUserPoolClient to template.yaml; RestaurantCognitoAuthorizer on /api/partner/* routes; bootstrapAmplify(poolType) dual-pool config; poolType field in authStore |
+| 2026-03-30 | #13 Scheduling/booking integration | Done | Added "Book a Free Demo" section to landing page with Calendly link (VITE_CALENDLY_URL env var). CSS responsive layout. No npm package required. |

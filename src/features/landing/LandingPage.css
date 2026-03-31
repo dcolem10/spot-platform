@@ -1738,6 +1738,103 @@
 
 /* ─── Footer ──────────────────────────────────────────────────────────────── */
 
+/* ── Booking / Demo Scheduling Section ──────────────────────────────────── */
+.landing-booking-section {
+  padding-top: var(--space-20);
+  padding-bottom: var(--space-20);
+}
+
+.landing-booking-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-10);
+  background: linear-gradient(135deg, var(--color-bgElevated) 0%, color-mix(in srgb, var(--color-accent) 8%, var(--color-bgElevated)) 100%);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+  border-radius: var(--radius-2xl);
+  box-shadow: 0 8px 40px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.landing-booking-icon {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-radius: var(--radius-xl);
+  color: var(--color-accent);
+}
+
+.landing-booking-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.landing-booking-copy h2 {
+  font-family: var(--font-display);
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+  margin-bottom: var(--space-2);
+  letter-spacing: -0.02em;
+}
+
+.landing-booking-copy p {
+  font-size: var(--font-sm);
+  color: var(--color-textSecondary);
+  line-height: 1.65;
+  margin-bottom: var(--space-4);
+  max-width: 480px;
+}
+
+.landing-booking-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.landing-booking-target {
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+  background: var(--color-bgSecondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-3);
+}
+
+.landing-booking-btn {
+  flex-shrink: 0;
+  text-decoration: none;
+  display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .landing-booking-inner {
+    flex-direction: column;
+    text-align: center;
+    padding: var(--space-8) var(--space-6);
+    gap: var(--space-6);
+  }
+
+  .landing-booking-copy p {
+    max-width: 100%;
+  }
+
+  .landing-booking-targets {
+    justify-content: center;
+  }
+
+  .landing-booking-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
 .landing-footer {
   border-top: 1px solid var(--color-border);
   padding: var(--space-8) var(--space-6);
