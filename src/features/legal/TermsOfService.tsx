@@ -1,38 +1,71 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './Legal.css';
 
 const EFFECTIVE_DATE = 'March 6, 2026';
 const LAST_UPDATED = 'March 6, 2026';
 const CONTACT_EMAIL = 'legal@spotplatform.io';
 
+// Set to false once attorney has reviewed and signed off
+const PENDING_LEGAL_REVIEW = true;
+
+const TOC_SECTIONS = [
+  { id: 'acceptance', label: '1. Acceptance of Terms' },
+  { id: 'description', label: '2. Description of the Service' },
+  { id: 'accounts', label: '3. Accounts' },
+  { id: 'subscriptions', label: '4. Subscriptions and Payments' },
+  { id: 'content-ip', label: '5. Content and Intellectual Property' },
+  { id: 'attribution', label: '6. Attribution and Analytics' },
+  { id: 'acceptable-use', label: '7. Acceptable Use' },
+  { id: 'confidentiality', label: '8. Confidentiality' },
+  { id: 'third-party', label: '9. Third-Party Services' },
+  { id: 'termination', label: '10. Termination' },
+  { id: 'disclaimers', label: '11. Disclaimers' },
+  { id: 'liability', label: '12. Limitation of Liability' },
+  { id: 'indemnification', label: '13. Indemnification' },
+  { id: 'dispute-resolution', label: '14. Dispute Resolution' },
+  { id: 'governing-law', label: '15. Governing Law' },
+  { id: 'modifications', label: '16. Modifications' },
+  { id: 'general', label: '17. General' },
+  { id: 'contact', label: '18. Contact' },
+];
+
 export default function TermsOfService() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bgSurface)' }}>
-      {/* Header bar */}
-      <header style={{
-        padding: 'var(--space-4) var(--space-6)',
-        borderBottom: '1px solid var(--color-border)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: 'var(--color-bgPrimary)',
-      }}>
-        <Link to="/" style={{ textDecoration: 'none', fontWeight: 700, fontSize: 'var(--font-xl)', color: 'var(--color-accent)' }}>
-          Spot
-        </Link>
-        <Link to="/privacy" style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', textDecoration: 'none' }}>
-          Privacy Policy &rarr;
-        </Link>
+    <div className="legal-page">
+      <header className="legal-header">
+        <Link to="/" className="legal-header-logo">Spot</Link>
+        <Link to="/privacy" className="legal-header-link">Privacy Policy &rarr;</Link>
       </header>
 
-      <main style={{ maxWidth: '760px', margin: '0 auto', padding: 'var(--space-8) var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-2)' }}>
-          Terms of Service
-        </h1>
-        <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-8)' }}>
+      {PENDING_LEGAL_REVIEW && (
+        <div className="legal-review-notice">
+          <strong>Notice:</strong>&nbsp;These Terms of Service are pending attorney review and have not yet been finalized for legal compliance. Do not rely on this document until attorney sign-off is confirmed.
+        </div>
+      )}
+
+      <main className="legal-main">
+        <h1 className="legal-title">Terms of Service</h1>
+        <p className="legal-meta">
           Effective: {EFFECTIVE_DATE} &middot; Last updated: {LAST_UPDATED}
         </p>
 
-        <Section title="1. Acceptance of Terms">
+        <nav className="legal-toc" aria-label="Table of contents">
+          <div className="legal-toc-title">Contents</div>
+          <ul className="legal-toc-list">
+            {TOC_SECTIONS.map(({ id, label }) => (
+              <li key={id}>
+                <a href={`#${id}`}>{label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <Section id="acceptance" title="1. Acceptance of Terms">
           <P>
             By accessing or using Spot Platform ("Spot," "we," "us," or "our"), including our website,
             application, and related services (collectively, the "Service"), you agree to be bound by
@@ -45,7 +78,7 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="2. Description of the Service">
+        <Section id="description" title="2. Description of the Service">
           <P>
             Spot is a two-sided marketplace connecting food content creators with restaurants for paid
             partnerships. The Service enables food content creators ("Creators") to earn income by creating
@@ -60,13 +93,13 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="3. Accounts">
+        <Section id="accounts" title="3. Accounts">
           <SubSection title="3.1 Registration">
             <P>
               To access certain features, you must create an account by providing accurate and complete
               information. You are responsible for maintaining the confidentiality of your account
               credentials and for all activity under your account. Notify us immediately at{' '}
-              <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--color-accent)' }}>{CONTACT_EMAIL}</a>{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{' '}
               if you suspect unauthorized access.
             </P>
           </SubSection>
@@ -80,7 +113,7 @@ export default function TermsOfService() {
           </SubSection>
         </Section>
 
-        <Section title="4. Subscriptions and Payments">
+        <Section id="subscriptions" title="4. Subscriptions and Payments">
           <SubSection title="4.1 Plans">
             <P>
               Spot offers subscription plans with different feature sets and usage limits. Current plans,
@@ -113,7 +146,7 @@ export default function TermsOfService() {
           </SubSection>
         </Section>
 
-        <Section title="5. Content and Intellectual Property">
+        <Section id="content-ip" title="5. Content and Intellectual Property">
           <SubSection title="5.1 Your Content">
             <P>
               You retain ownership of all content you upload, create, or share through the Service
@@ -141,7 +174,7 @@ export default function TermsOfService() {
           </SubSection>
         </Section>
 
-        <Section title="6. Attribution and Analytics">
+        <Section id="attribution" title="6. Attribution and Analytics">
           <SubSection title="6.1 No Guarantee of Accuracy">
             <P>
               Spot provides restaurant visit attribution and performance analytics on a best-effort basis.
@@ -161,7 +194,7 @@ export default function TermsOfService() {
           </SubSection>
         </Section>
 
-        <Section title="7. Acceptable Use">
+        <Section id="acceptable-use" title="7. Acceptable Use">
           <P>You agree not to:</P>
           <BulletList items={[
             'Use the Service for any unlawful purpose or in violation of applicable laws',
@@ -177,7 +210,7 @@ export default function TermsOfService() {
           ]} />
         </Section>
 
-        <Section title="8. Confidentiality">
+        <Section id="confidentiality" title="8. Confidentiality">
           <SubSection title="8.1 Campaign Data">
             <P>
               Campaign performance data, partnership terms, and financial details shared between
@@ -196,7 +229,7 @@ export default function TermsOfService() {
           </SubSection>
         </Section>
 
-        <Section title="9. Third-Party Services">
+        <Section id="third-party" title="9. Third-Party Services">
           <P>
             The Service integrates with third-party services including Stripe (payments), AWS
             (infrastructure), Anthropic (AI), and Google (restaurant data). Your use of these
@@ -205,13 +238,13 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="10. Termination">
+        <Section id="termination" title="10. Termination">
           <SubSection title="10.1 By You">
             <P>
               You may terminate your account at any time by contacting us or using the account deletion
               feature (when available). Upon termination, your access to the Service will cease and your
               data will be deleted in accordance with our{' '}
-              <Link to="/privacy" style={{ color: 'var(--color-accent)' }}>Privacy Policy</Link>.
+              <Link to="/privacy">Privacy Policy</Link>.
             </P>
           </SubSection>
 
@@ -225,7 +258,7 @@ export default function TermsOfService() {
           </SubSection>
         </Section>
 
-        <Section title="11. Disclaimers">
+        <Section id="disclaimers" title="11. Disclaimers">
           <P>
             THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS
             OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR
@@ -238,7 +271,7 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="12. Limitation of Liability">
+        <Section id="liability" title="12. Limitation of Liability">
           <P>
             TO THE MAXIMUM EXTENT PERMITTED BY LAW, SPOT AND ITS OFFICERS, DIRECTORS, EMPLOYEES, AND
             AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE
@@ -253,7 +286,7 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="13. Indemnification">
+        <Section id="indemnification" title="13. Indemnification">
           <P>
             You agree to indemnify, defend, and hold harmless Spot and its officers, directors,
             employees, and agents from any claims, losses, damages, liabilities, and expenses
@@ -262,7 +295,7 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="14. Dispute Resolution">
+        <Section id="dispute-resolution" title="14. Dispute Resolution">
           <P>
             Any disputes arising out of or relating to these Terms or the Service shall be resolved
             through binding arbitration in Washington, D.C., under the rules of the American Arbitration
@@ -272,14 +305,14 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="15. Governing Law">
+        <Section id="governing-law" title="15. Governing Law">
           <P>
             These Terms are governed by and construed in accordance with the laws of the District of
             Columbia, United States, without regard to conflict of law principles.
           </P>
         </Section>
 
-        <Section title="16. Modifications">
+        <Section id="modifications" title="16. Modifications">
           <P>
             We may update these Terms from time to time. Material changes will be communicated through
             the Service or by email at least 30 days before taking effect. Your continued use of the
@@ -288,52 +321,41 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="17. General">
+        <Section id="general" title="17. General">
           <P>
             If any provision of these Terms is found to be unenforceable, the remaining provisions will
             continue in effect. Our failure to enforce any right or provision does not constitute a
             waiver. These Terms, together with our{' '}
-            <Link to="/privacy" style={{ color: 'var(--color-accent)' }}>Privacy Policy</Link>,
+            <Link to="/privacy">Privacy Policy</Link>,
             constitute the entire agreement between you and Spot regarding the Service.
           </P>
         </Section>
 
-        <Section title="18. Contact">
+        <Section id="contact" title="18. Contact">
           <P>
             For questions about these Terms, contact us at:
           </P>
           <P>
             Spot Platform<br />
-            Email: <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--color-accent)' }}>{CONTACT_EMAIL}</a>
+            Email: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
           </P>
         </Section>
 
-        {/* Footer nav */}
-        <div style={{
-          marginTop: 'var(--space-8)',
-          paddingTop: 'var(--space-6)',
-          borderTop: '1px solid var(--color-border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--color-textMuted)',
-        }}>
-          <Link to="/" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>&larr; Back to Spot</Link>
-          <Link to="/privacy" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>Privacy Policy &rarr;</Link>
+        <div className="legal-footer-nav">
+          <Link to="/">&larr; Back to Spot</Link>
+          <Link to="/privacy">Privacy Policy &rarr;</Link>
         </div>
       </main>
     </div>
   );
 }
 
-/* ─── Reusable sub-components ─────────────────────────────────────────────── */
+/* ─── Sub-components ─────────────────────────────────────────────────────── */
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 'var(--space-8)' }}>
-      <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-3)' }}>
-        {title}
-      </h2>
+    <section id={id} className="legal-section">
+      <h2 className="legal-section-title">{title}</h2>
       {children}
     </section>
   );
@@ -341,31 +363,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 'var(--space-4)', marginLeft: 'var(--space-2)' }}>
-      <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-2)' }}>
-        {title}
-      </h3>
+    <div className="legal-subsection">
+      <h3 className="legal-subsection-title">{title}</h3>
       {children}
     </div>
   );
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ fontSize: 'var(--font-sm)', lineHeight: 1.7, color: 'var(--color-textSecondary)', marginBottom: 'var(--space-3)' }}>
-      {children}
-    </p>
-  );
+  return <p className="legal-p">{children}</p>;
 }
 
 function BulletList({ items }: { items: string[] }) {
   return (
-    <ul style={{ paddingLeft: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>
-      {items.map((item, i) => (
-        <li key={i} style={{ fontSize: 'var(--font-sm)', lineHeight: 1.7, color: 'var(--color-textSecondary)', marginBottom: 'var(--space-1)' }}>
-          {item}
-        </li>
-      ))}
+    <ul className="legal-list">
+      {items.map((item, i) => <li key={i}>{item}</li>)}
     </ul>
   );
 }

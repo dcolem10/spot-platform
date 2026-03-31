@@ -1,38 +1,65 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './Legal.css';
 
 const EFFECTIVE_DATE = 'March 6, 2026';
 const LAST_UPDATED = 'March 6, 2026';
 const CONTACT_EMAIL = 'privacy@spotplatform.io';
 
+// Set to false once attorney has reviewed and signed off
+const PENDING_LEGAL_REVIEW = true;
+
+const TOC_SECTIONS = [
+  { id: 'who-we-are', label: '1. Who We Are' },
+  { id: 'information-we-collect', label: '2. Information We Collect' },
+  { id: 'how-we-use', label: '3. How We Use Your Information' },
+  { id: 'how-we-share', label: '4. How We Share Your Information' },
+  { id: 'ai-features', label: '5. AI-Powered Features' },
+  { id: 'data-retention', label: '6. Data Retention' },
+  { id: 'your-rights', label: '7. Your Rights' },
+  { id: 'security', label: '8. Security' },
+  { id: 'cookies', label: '9. Cookies' },
+  { id: 'childrens-privacy', label: "10. Children's Privacy" },
+  { id: 'changes', label: '11. Changes to This Policy' },
+  { id: 'contact', label: '12. Contact Us' },
+];
+
 export default function PrivacyPolicy() {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bgSurface)' }}>
-      {/* Header bar */}
-      <header style={{
-        padding: 'var(--space-4) var(--space-6)',
-        borderBottom: '1px solid var(--color-border)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: 'var(--color-bgPrimary)',
-      }}>
-        <Link to="/" style={{ textDecoration: 'none', fontWeight: 700, fontSize: 'var(--font-xl)', color: 'var(--color-accent)' }}>
-          Spot
-        </Link>
-        <Link to="/terms" style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', textDecoration: 'none' }}>
-          Terms of Service &rarr;
-        </Link>
+    <div className="legal-page">
+      <header className="legal-header">
+        <Link to="/" className="legal-header-logo">Spot</Link>
+        <Link to="/terms" className="legal-header-link">Terms of Service &rarr;</Link>
       </header>
 
-      <main style={{ maxWidth: '760px', margin: '0 auto', padding: 'var(--space-8) var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-2)' }}>
-          Privacy Policy
-        </h1>
-        <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-8)' }}>
+      {PENDING_LEGAL_REVIEW && (
+        <div className="legal-review-notice">
+          <strong>Notice:</strong>&nbsp;This Privacy Policy is pending attorney review and has not yet been finalized for legal compliance. Do not rely on this document until attorney sign-off is confirmed.
+        </div>
+      )}
+
+      <main className="legal-main">
+        <h1 className="legal-title">Privacy Policy</h1>
+        <p className="legal-meta">
           Effective: {EFFECTIVE_DATE} &middot; Last updated: {LAST_UPDATED}
         </p>
 
-        <Section title="1. Who We Are">
+        <nav className="legal-toc" aria-label="Table of contents">
+          <div className="legal-toc-title">Contents</div>
+          <ul className="legal-toc-list">
+            {TOC_SECTIONS.map(({ id, label }) => (
+              <li key={id}>
+                <a href={`#${id}`}>{label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <Section id="who-we-are" title="1. Who We Are">
           <P>
             Spot Platform ("Spot," "we," "us," or "our") is a two-sided marketplace that connects food content
             creators with restaurants for paid partnerships — tracking attribution from content to customer visit.
@@ -41,11 +68,11 @@ export default function PrivacyPolicy() {
           </P>
           <P>
             If you have questions about this policy, contact us at{' '}
-            <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--color-accent)' }}>{CONTACT_EMAIL}</a>.
+            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
           </P>
         </Section>
 
-        <Section title="2. Information We Collect">
+        <Section id="information-we-collect" title="2. Information We Collect">
           <SubSection title="2.1 Information You Provide">
             <P>When you create an account or use our Service, you may provide:</P>
             <BulletList items={[
@@ -86,12 +113,12 @@ export default function PrivacyPolicy() {
           </SubSection>
         </Section>
 
-        <Section title="3. How We Use Your Information">
+        <Section id="how-we-use" title="3. How We Use Your Information">
           <P>We use the information we collect to:</P>
           <BulletList items={[
             'Provide the Service: create your profile, display restaurants, manage campaigns, and track attribution',
             'Generate analytics: calculate campaign performance, engagement rates, and attribution reports',
-            'Power AI features: provide content insights and recommendations (your data is sent to Anthropic\'s Claude API for analysis; see Section 5)',
+            "Power AI features: provide content insights and recommendations (your data is sent to Anthropic's Claude API for analysis; see Section 5)",
             'Process payments: manage your subscription through Stripe',
             'Communicate with you: send transactional emails about your account, campaigns, and offers (via Amazon SES)',
             'Improve the Service: understand usage patterns and fix issues',
@@ -99,14 +126,14 @@ export default function PrivacyPolicy() {
           ]} />
         </Section>
 
-        <Section title="4. How We Share Your Information">
+        <Section id="how-we-share" title="4. How We Share Your Information">
           <P>We do not sell your personal information. We share information only in these circumstances:</P>
 
           <SubSection title="4.1 Service Providers">
             <P>We use the following third-party services to operate Spot:</P>
             <BulletList items={[
-              'Amazon Web Services (AWS): cloud infrastructure, database (DynamoDB), authentication (Cognito), email (SES), and hosting (Amplify). Data is stored in the us-east-1 (N. Virginia) region.',
-              'Stripe: payment processing. Stripe receives your email and subscription selection. Stripe\'s privacy policy governs their handling of payment data.',
+              "Amazon Web Services (AWS): cloud infrastructure, database (DynamoDB), authentication (Cognito), email (SES), and hosting (Amplify). Data is stored in the us-east-1 (N. Virginia) region.",
+              "Stripe: payment processing. Stripe receives your email and subscription selection. Stripe's privacy policy governs their handling of payment data.",
               'Anthropic (Claude API): AI-powered insights. Campaign and content data may be sent for analysis. Anthropic\'s usage policy governs their data handling.',
               'Google Places API: restaurant search and details. Search queries are sent to Google.',
             ]} />
@@ -129,7 +156,7 @@ export default function PrivacyPolicy() {
           </SubSection>
         </Section>
 
-        <Section title="5. AI-Powered Features">
+        <Section id="ai-features" title="5. AI-Powered Features">
           <P>
             Spot uses Anthropic's Claude API to provide content insights, campaign recommendations, and
             performance analysis. When you use AI features, relevant data (such as campaign metrics,
@@ -141,7 +168,7 @@ export default function PrivacyPolicy() {
           </P>
         </Section>
 
-        <Section title="6. Data Retention">
+        <Section id="data-retention" title="6. Data Retention">
           <P>We retain your information for as long as your account is active. Specific retention periods:</P>
           <BulletList items={[
             'Account and profile data: retained until you delete your account',
@@ -157,7 +184,7 @@ export default function PrivacyPolicy() {
           </P>
         </Section>
 
-        <Section title="7. Your Rights">
+        <Section id="your-rights" title="7. Your Rights">
           <SubSection title="7.1 All Users">
             <P>You have the right to:</P>
             <BulletList items={[
@@ -168,7 +195,7 @@ export default function PrivacyPolicy() {
             ]} />
             <P>
               To exercise these rights, contact us at{' '}
-              <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--color-accent)' }}>{CONTACT_EMAIL}</a>.
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
               We will respond within 30 days.
             </P>
           </SubSection>
@@ -177,7 +204,9 @@ export default function PrivacyPolicy() {
             <P>
               Under the California Consumer Privacy Act, you have additional rights including the right to
               know what personal information is collected, the right to delete, and the right to
-              opt-out of the sale of personal information. We do not sell personal information.
+              opt-out of the sale of personal information. We do not sell personal information. To submit
+              a CCPA request, contact us at{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
             </P>
           </SubSection>
 
@@ -187,12 +216,21 @@ export default function PrivacyPolicy() {
               General Data Protection Regulation, including the right to object to processing and the
               right to lodge a complaint with a supervisory authority. Our legal basis for processing
               is contract performance (providing the Service) and legitimate interest (security and
-              improvement).
+              improvement). To submit a GDPR request or inquire about a Data Processing Agreement,
+              contact us at{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            </P>
+          </SubSection>
+
+          <SubSection title="7.4 Do Not Track">
+            <P>
+              Our Service does not currently respond to "Do Not Track" signals from browsers. We will
+              update this section when industry standards for DNT are established.
             </P>
           </SubSection>
         </Section>
 
-        <Section title="8. Security">
+        <Section id="security" title="8. Security">
           <P>
             We implement industry-standard security measures to protect your data, including:
             encryption in transit (HTTPS/TLS), authentication via AWS Cognito with secure token handling,
@@ -202,15 +240,18 @@ export default function PrivacyPolicy() {
           </P>
         </Section>
 
-        <Section title="9. Cookies">
+        <Section id="cookies" title="9. Cookies">
           <P>
             Spot uses strictly necessary cookies for authentication session management (AWS Cognito).
             We do not use advertising cookies or third-party tracking cookies. By using the Service, you
             consent to the use of these essential cookies required for the Service to function.
           </P>
+          <P>
+            See our cookie consent notice for additional controls over non-essential cookies.
+          </P>
         </Section>
 
-        <Section title="10. Children's Privacy">
+        <Section id="childrens-privacy" title="10. Children's Privacy">
           <P>
             Spot is not intended for users under the age of 13. We do not knowingly collect personal
             information from children under 13. If you believe we have collected such information,
@@ -218,50 +259,40 @@ export default function PrivacyPolicy() {
           </P>
         </Section>
 
-        <Section title="11. Changes to This Policy">
+        <Section id="changes" title="11. Changes to This Policy">
           <P>
             We may update this Privacy Policy from time to time. We will notify you of material changes
-            by posting the updated policy on this page and updating the "Last updated" date. Your
-            continued use of the Service after changes constitutes acceptance of the updated policy.
+            by posting the updated policy on this page and updating the "Last updated" date. For
+            significant changes, we will also notify you by email. Your continued use of the Service
+            after changes constitutes acceptance of the updated policy.
           </P>
         </Section>
 
-        <Section title="12. Contact Us">
+        <Section id="contact" title="12. Contact Us">
           <P>
-            For questions, concerns, or requests related to this Privacy Policy or your personal data, contact us at:
+            For questions, concerns, or data requests related to this Privacy Policy, contact us at:
           </P>
           <P>
             Spot Platform<br />
-            Email: <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'var(--color-accent)' }}>{CONTACT_EMAIL}</a>
+            Email: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
           </P>
         </Section>
 
-        {/* Footer nav */}
-        <div style={{
-          marginTop: 'var(--space-8)',
-          paddingTop: 'var(--space-6)',
-          borderTop: '1px solid var(--color-border)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: 'var(--font-sm)',
-          color: 'var(--color-textMuted)',
-        }}>
-          <Link to="/" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>&larr; Back to Spot</Link>
-          <Link to="/terms" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>Terms of Service &rarr;</Link>
+        <div className="legal-footer-nav">
+          <Link to="/">&larr; Back to Spot</Link>
+          <Link to="/terms">Terms of Service &rarr;</Link>
         </div>
       </main>
     </div>
   );
 }
 
-/* ─── Reusable sub-components ─────────────────────────────────────────────── */
+/* ─── Sub-components ─────────────────────────────────────────────────────── */
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 'var(--space-8)' }}>
-      <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-3)' }}>
-        {title}
-      </h2>
+    <section id={id} className="legal-section">
+      <h2 className="legal-section-title">{title}</h2>
       {children}
     </section>
   );
@@ -269,31 +300,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 'var(--space-4)', marginLeft: 'var(--space-2)' }}>
-      <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-2)' }}>
-        {title}
-      </h3>
+    <div className="legal-subsection">
+      <h3 className="legal-subsection-title">{title}</h3>
       {children}
     </div>
   );
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ fontSize: 'var(--font-sm)', lineHeight: 1.7, color: 'var(--color-textSecondary)', marginBottom: 'var(--space-3)' }}>
-      {children}
-    </p>
-  );
+  return <p className="legal-p">{children}</p>;
 }
 
 function BulletList({ items }: { items: string[] }) {
   return (
-    <ul style={{ paddingLeft: 'var(--space-6)', marginBottom: 'var(--space-3)' }}>
-      {items.map((item, i) => (
-        <li key={i} style={{ fontSize: 'var(--font-sm)', lineHeight: 1.7, color: 'var(--color-textSecondary)', marginBottom: 'var(--space-1)' }}>
-          {item}
-        </li>
-      ))}
+    <ul className="legal-list">
+      {items.map((item, i) => <li key={i}>{item}</li>)}
     </ul>
   );
 }
