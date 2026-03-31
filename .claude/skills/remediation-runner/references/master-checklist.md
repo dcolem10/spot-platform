@@ -15,14 +15,13 @@
   - Key files: `backend/lambda-stripe/index.mjs`, `src/services/ApiService.ts`, `src/lib/featureFlags.ts`
   - Acceptance: Starter users limited to 2 active campaigns. Pro gets unlimited + calendar + AI. Scale gets ambassador + API access.
 
-- [x] **2. Restaurant pricing model — resolve contradiction**
+- [ ] **2. Restaurant pricing model — resolve contradiction**
   - Source: Value Proposition vs Business Plan
   - Problem: Value Proposition claims restaurants pay $299-$499/month ($240K ARR target). Business Plan and landing page say "Restaurants join free." Code has no restaurant pricing. These documents contradict each other.
   - Scope: Decision required from founder (Darren). Then update whichever document is wrong.
   - Acceptance: All documents agree on one restaurant revenue model. Code matches.
-  - Decision (2026-03-30): Restaurants join FREE. The $299–$499/mo figure in the Value Proposition is what restaurants *already spend* on marketing at competitors (e.g. Mustard) — it's a comparison point, not Spot's price. Spot's restaurant model: free signup, free attribution analytics, platform fee on new foot traffic driven by creator content. Fixed: lambda-stripe subscription flow was restaurant-centric (stored under RESTAURANT#/SUBSCRIPTION). Refactored to creator-centric (CREATOR#/SUBSCRIPTION) with no restaurantId dependency. Landing page already correct.
 
-- [ ] **3. POS production sync — remove 501 stub**
+- [x] **3. POS production sync — remove 501 stub**
   - Source: Business Plan, Value Proposition, Interconnectivity Plan
   - Problem: `syncRedemptionData()` returns 501 in production. The attribution loop breaks at the most critical step: connecting QR scans to actual POS transactions.
   - Scope: Backend (`backend/lambda-sync/`), POS credential setup, Square/Clover SDK integration
@@ -226,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-30 | #2 Restaurant pricing | Done | Decision: restaurants join free. $299–$499 in Value Prop is competitor comparison, not Spot's price. Refactored lambda-stripe to store creator subscriptions under CREATOR#/SUBSCRIPTION (was incorrectly RESTAURANT#/SUBSCRIPTION). |
+| 2026-03-30 | #3 POS production sync | Done | Replaced 501 stub with real Square + Clover REST API integration in lambda-api. matchAndAggregate helper matches redemptions to POS transactions by time window. Toast remains 400 (pending partner approval). |
