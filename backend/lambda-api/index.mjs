@@ -2814,7 +2814,9 @@ async function initSocialOAuth(platform, event) {
 
     const hasSecret = !!getSocialSecretEnvVar(platform);
     const appId = getSocialAppIdEnvVar(platform);
-    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/api/social/callback';
+    // SOCIAL_OAUTH_CALLBACK_BASE must point to the frontend /app/social/callback path so the
+    // browser lands on SocialOAuthCallback.tsx, which then calls GET /api/social/callback/:platform.
+    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/app/social/callback';
     const authUrl = buildSocialAuthUrl(platform, appId, state, codeChallenge, callbackBase);
 
     return respond(200, {
@@ -2896,7 +2898,7 @@ async function handleSocialCallback(platform, event) {
     // Production mode — exchange code for tokens
     const appId = getSocialAppIdEnvVar(platform);
     const appSecret = getSocialSecretEnvVar(platform);
-    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/api/social/callback';
+    const callbackBase = process.env.SOCIAL_OAUTH_CALLBACK_BASE || 'https://main.dc04hhpr1ng78.amplifyapp.com/app/social/callback';
     const redirectUri = `${callbackBase}/${platform}`;
 
     let tokenUrl, tokenBody, profileUrl, profileHeaders;

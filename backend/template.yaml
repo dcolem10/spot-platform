@@ -192,6 +192,21 @@ Resources:
           SECRETS_ARN: !Ref SecretsArn
           EMAIL_FUNCTION_NAME: !Ref EmailFunction
           POS_KMS_KEY_ID: !Ref PosKmsKeyArn
+          # Social OAuth — set these via aws lambda update-function-configuration (never commit real values)
+          # SOCIAL_OAUTH_CALLBACK_BASE: https://main.dc04hhpr1ng78.amplifyapp.com/app/social/callback
+          # --- Instagram (Meta Developer Portal: developers.facebook.com) ---
+          # App type: Business. Products: Facebook Login + Instagram. Permissions needed:
+          #   instagram_basic, instagram_manage_insights, pages_show_list (requires App Review)
+          # INSTAGRAM_APP_ID: <Meta App ID>
+          # INSTAGRAM_APP_SECRET: <Meta App Secret>
+          # --- TikTok (TikTok Developer Portal: developers.tiktok.com) ---
+          # Product: Login Kit. Scopes: user.info.basic, user.info.stats, video.list
+          # TIKTOK_CLIENT_KEY: <TikTok Client Key>
+          # TIKTOK_CLIENT_SECRET: <TikTok Client Secret>
+          # --- YouTube (Google Cloud Console: console.cloud.google.com) ---
+          # API: YouTube Data API v3. OAuth 2.0 Scope: youtube.readonly
+          # YOUTUBE_CLIENT_ID: <Google OAuth Client ID>
+          # YOUTUBE_CLIENT_SECRET: <Google OAuth Client Secret>
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DataTable
