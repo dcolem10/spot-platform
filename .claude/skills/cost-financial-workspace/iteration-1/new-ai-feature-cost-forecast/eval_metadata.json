@@ -1,0 +1,14 @@
+{
+  "eval_id": 2,
+  "eval_name": "new-ai-feature-cost-forecast",
+  "prompt": "I want to add a new Lambda function that calls the Anthropic API to generate personalized restaurant descriptions for every restaurant in the database. What will this cost?",
+  "assertions": [
+    {"text": "Calculates per-call Anthropic token cost with actual pricing", "type": "contains"},
+    {"text": "Estimates volume based on restaurant count in database", "type": "contains"},
+    {"text": "Shows monthly cost projection with math", "type": "contains"},
+    {"text": "Compares projected cost to $50/month budget", "type": "contains"},
+    {"text": "Recommends Haiku over Sonnet for cost savings", "type": "contains"},
+    {"text": "Suggests caching or rate limiting to control costs", "type": "contains"},
+    {"text": "Mentions Lambda compute cost in addition to API cost", "type": "contains"}
+  ]
+}
