@@ -162,13 +162,13 @@
   - Scope: Backend — add Limit: 100 and pagination cursor to both endpoints.
   - Key files: `backend/lambda-api/index.mjs`
 
-- [x] **23. Ambassador program — define tier benefits**
+- [ ] **23. Ambassador program — define tier benefits**
   - Source: Value Proposition
   - Problem: Bronze/Silver/Gold tiers exist but benefits are undefined. Commission rates not visible.
   - Scope: Product decision + Frontend UI update.
   - Key files: `src/features/concept3-spotops/AmbassadorDashboard.tsx`
 
-- [ ] **24. Day-5 proposal expiration email**
+- [x] **24. Day-5 proposal expiration email**
   - Source: Interconnectivity Plan
   - Problem: Proposals auto-expire at 7 days with in-app notification but no SES email at day 5.
   - Scope: Backend — add SES email trigger in proposal expiration check.
@@ -225,4 +225,4 @@
 | Date | Item | Status | Notes |
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
-| 2026-03-31 | #23 | Ambassador program tier benefits defined |
+| 2026-03-31 | #24 | Day-5 proposal expiration email |

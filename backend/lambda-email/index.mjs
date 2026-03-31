@@ -110,6 +110,7 @@ function getTemplate(type, data) {
     lifecycle_day1: getLifecycleDay1Template(data),
     lifecycle_day14: getLifecycleDay14Template(data),
     lifecycle_day28: getLifecycleDay28Template(data),
+    proposal_expiring_day5: getProposalExpiringDay5Template(data),
   };
 
   return templates[type] || null;
@@ -731,6 +732,80 @@ Unsubscribe: https://spot-platform.com/unsubscribe`;
 
   return {
     subject: `Your first month on Spot — ${tier} ambassador recap`,
+    html,
+    text,
+  };
+}
+
+/**
+ * Proposal expiring day-5 warning — sent when a pending proposal has 2 days left
+ */
+function getProposalExpiringDay5Template(data) {
+  const {
+    targetName = 'there',
+    initiatorName = 'Someone',
+    proposalType = 'collaboration',
+  } = data;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposal Expiring Soon</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+    .header { background: linear-gradient(135deg, #E8673C 0%, #d84d1f 100%); color: white; padding: 30px 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .warning-box { background-color: #fff3cd; border-left: 4px solid #E8673C; padding: 16px 20px; margin: 20px; border-radius: 4px; }
+    .warning-box p { margin: 0; font-size: 16px; color: #856404; font-weight: 600; }
+    .content { padding: 30px 20px; color: #333333; }
+    .content p { line-height: 1.6; margin: 15px 0; }
+    .cta-button { display: inline-block; background-color: #E8673C; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; font-weight: 600; margin: 20px 0; }
+    .footer { background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 12px; color: #666666; border-top: 1px solid #e0e0e0; }
+    .footer a { color: #E8673C; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Proposal Expiring in 2 Days</h1>
+    </div>
+    <div class="warning-box">
+      <p>&#9888; Action required — this proposal expires in 2 days</p>
+    </div>
+    <div class="content">
+      <p>Hi ${escapeHtml(targetName)},</p>
+      <p><strong>${escapeHtml(initiatorName)}</strong> sent you a <strong>${escapeHtml(proposalType)}</strong> proposal on Spot Platform. It will automatically expire in <strong>2 days</strong> if you don't respond.</p>
+      <p>Review the proposal terms and accept, counter, or decline before the deadline — once it expires you'll need to start fresh.</p>
+      <a href="https://main.dc04hhpr1ng78.amplifyapp.com/app/proposals" class="cta-button">Review Proposal</a>
+      <p style="font-size: 13px; color: #666;">You're receiving this because someone sent you a proposal on Spot Platform.</p>
+    </div>
+    <div class="footer">
+      <p>Spot Platform &bull; Creator-powered Restaurant Discovery</p>
+      <p><a href="https://spot-platform.com/unsubscribe">Unsubscribe</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = `Proposal Expiring in 2 Days
+
+Hi ${targetName},
+
+${initiatorName} sent you a ${proposalType} proposal on Spot Platform. It will automatically expire in 2 days if you don't respond.
+
+Review the proposal terms and accept, counter, or decline before the deadline.
+
+Review Proposal: https://main.dc04hhpr1ng78.amplifyapp.com/app/proposals
+
+---
+Spot Platform • Creator-powered Restaurant Discovery
+Unsubscribe: https://spot-platform.com/unsubscribe`;
+
+  return {
+    subject: `Action required: proposal from ${initiatorName} expires in 2 days`,
     html,
     text,
   };
