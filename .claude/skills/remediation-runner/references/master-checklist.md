@@ -180,7 +180,7 @@
   - Scope: Frontend — verify and improve restaurant-side approval actions in PartnerPortal.
   - Key files: `src/features/concept1-platform/PartnerPortal.tsx`
 
-- [ ] **26. Fix CollaborationPanel feature flag default**
+- [x] **26. Fix CollaborationPanel feature flag default**
   - Source: Strategic Review
   - Problem: `VITE_ENABLE_MULTI_CREATOR` defaults to `true` but Strategic Review says it should be OFF.
   - Scope: Frontend — change default to `false` in featureFlags.ts.
@@ -226,3 +226,4 @@
 |------|------|--------|-------|
 | 2026-03-30 | Checklist created | — | Initial analysis of 7 documents complete |
 | 2026-03-31 | #25 | Restaurant offer approval UI polish | Done |
+| 2026-03-31 | #26 | Fix CollaborationPanel feature flag default | Done |
