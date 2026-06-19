@@ -813,6 +813,14 @@
   flex-wrap: wrap;
 }
 
+/* Low-friction reassurance under the hero CTAs (inherits text-align from the
+   hero, so it left-aligns on desktop split and centers on mobile). */
+.hero-reassurance {
+  margin-top: var(--space-3);
+  font-size: var(--font-xs);
+  color: var(--color-textMuted);
+}
+
 /* ─── Stat Counter Row ────────────────────────────────────────────────────── */
 
 .landing-stats {
