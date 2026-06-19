@@ -244,6 +244,53 @@ export interface EditorialSlot {
   campaignId?: string;
 }
 
+// ─── Creator Earnings & Payouts (revenue-split engine) ───────────────────────
+// Shapes mirror the backend exactly: GET /api/earnings, GET /api/stripe/connect/status,
+// POST /api/stripe/payouts/run. See docs/revenue-split-design.md.
+
+export type PayoutOnboardingStatus =
+  | 'not_started'
+  | 'pending'
+  | 'pending_review'
+  | 'complete';
+
+export type EarningPeriodStatus = 'accruing' | 'pending_payout' | 'paid' | 'failed';
+
+/** One billing month of a creator's commission earnings (dollars). */
+export interface EarningPeriod {
+  period: string; // YYYY-MM
+  grossAttributed: number; // attributed sales this creator drove
+  earned: number; // their 60% share of the fee
+  paid: number;
+  pending: number;
+  status: EarningPeriodStatus;
+}
+
+export interface CreatorEarnings {
+  periods: EarningPeriod[];
+  totals: { earned: number; pending: number };
+  payouts: {
+    connected: boolean;
+    onboardingStatus: PayoutOnboardingStatus;
+    payoutsEnabled: boolean;
+  };
+}
+
+/** Stripe Connect payout readiness for the current creator. */
+export interface ConnectStatus {
+  connected: boolean;
+  onboardingStatus: PayoutOnboardingStatus;
+  payoutsEnabled: boolean;
+  detailsSubmitted?: boolean;
+}
+
+export interface PayoutResult {
+  paid: boolean;
+  period: string;
+  amount: number;
+  transferId: string;
+}
+
 // ─── Proposals (Handshake Model) ─────────────────────────────────────────────
 
 export type ProposalType = 'deal' | 'campaign' | 'qr_code' | 'content_review';

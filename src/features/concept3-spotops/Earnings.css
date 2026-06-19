@@ -1,0 +1,168 @@
+/* Earnings page — creator commission earnings + Stripe Connect payouts.
+   Uses the shared design tokens (theme.css); only page-specific structure here. */
+
+/* ─── Return-from-Stripe banner ─────────────────────────────────────────────── */
+.earnings-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+  font-size: var(--font-sm);
+  animation: fadeIn 0.4s ease;
+}
+.earnings-banner.success {
+  background: var(--color-successMuted, rgba(34, 197, 94, 0.12));
+  border: 1px solid var(--color-success);
+  color: var(--color-textPrimary);
+}
+.earnings-banner.info {
+  background: var(--color-accentMuted);
+  border: 1px solid var(--color-accent);
+  color: var(--color-textPrimary);
+}
+
+/* ─── Payout status hero ─────────────────────────────────────────────────────── */
+.payout-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(249, 115, 22, 0.14), transparent 60%),
+    var(--color-bgSecondary);
+}
+.payout-hero-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 240px; }
+.payout-hero-title {
+  font-family: var(--font-display);
+  font-size: var(--font-xl);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+}
+.payout-hero-sub { font-size: var(--font-sm); color: var(--color-textSecondary); max-width: 46ch; }
+
+/* Status pill */
+.payout-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.payout-pill .dot { width: 7px; height: 7px; border-radius: var(--radius-full); }
+.payout-pill.active { background: rgba(34, 197, 94, 0.14); color: var(--color-success); }
+.payout-pill.active .dot { background: var(--color-success); }
+.payout-pill.pending { background: rgba(234, 179, 8, 0.14); color: var(--color-warning); }
+.payout-pill.pending .dot { background: var(--color-warning); }
+.payout-pill.none { background: var(--color-bgElevated); color: var(--color-textMuted); }
+.payout-pill.none .dot { background: var(--color-textMuted); }
+
+/* ─── Stat cards ─────────────────────────────────────────────────────────────── */
+.earnings-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.earnings-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+}
+.earnings-stat-label {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-textMuted);
+}
+.earnings-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-textPrimary);
+  font-variant-numeric: tabular-nums;
+}
+.earnings-stat-value.accent { color: var(--color-accent); }
+.earnings-stat-hint { font-size: var(--font-xs); color: var(--color-textSecondary); }
+
+/* ─── Section heading inside cards ───────────────────────────────────────────── */
+.earnings-section-title {
+  font-family: var(--font-display);
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--color-textPrimary);
+  margin-bottom: var(--space-4);
+}
+
+/* ─── Periods table ──────────────────────────────────────────────────────────── */
+.earnings-table { width: 100%; border-collapse: collapse; font-size: var(--font-sm); }
+.earnings-table th {
+  text-align: left;
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-textMuted);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+.earnings-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-textPrimary);
+  font-variant-numeric: tabular-nums;
+}
+.earnings-table tr:last-child td { border-bottom: none; }
+.earnings-table .num { text-align: right; }
+.earnings-table .muted { color: var(--color-textSecondary); }
+
+/* Status pill in table */
+.status-pill {
+  display: inline-flex;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.status-pill.accruing { background: var(--color-accentMuted); color: var(--color-accent); }
+.status-pill.pending_payout { background: rgba(234, 179, 8, 0.14); color: var(--color-warning); }
+.status-pill.paid { background: rgba(34, 197, 94, 0.14); color: var(--color-success); }
+.status-pill.failed { background: rgba(239, 68, 68, 0.14); color: var(--color-error); }
+
+.cashout-btn { white-space: nowrap; }
+
+/* ─── How-it-works footnote ──────────────────────────────────────────────────── */
+.earnings-footnote {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-bgElevated);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-xs);
+  color: var(--color-textSecondary);
+  line-height: 1.6;
+}
+.earnings-footnote strong { color: var(--color-textPrimary); }
+
+/* Mobile: let the table scroll rather than squash */
+.earnings-table-wrap { overflow-x: auto; }
+@media (max-width: 600px) {
+  .payout-hero { flex-direction: column; align-items: flex-start; }
+}
