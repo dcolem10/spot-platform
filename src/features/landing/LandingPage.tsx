@@ -942,60 +942,6 @@ function HeroVisual() {
   );
 }
 
-/* ─── Section Jump Nav — sticky in-page navigation ──────────────────────── */
-
-const jumpSections = [
-  { id: 'creators', label: 'For Creators' },
-  { id: 'restaurants', label: 'For Restaurants' },
-  { id: 'how-it-works', label: 'How It Works' },
-  { id: 'pricing', label: 'Pricing' },
-];
-
-function SectionJumpNav() {
-  const [active, setActive] = useState<string>(jumpSections[0].id);
-
-  const handleJump = useCallback((id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const y = el.getBoundingClientRect().top + window.scrollY - 96; // clear the sticky bars
-    window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
-  }, []);
-
-  // Scroll-spy: highlight whichever section is currently in view.
-  useEffect(() => {
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) setActive(e.target.id);
-        });
-      },
-      { rootMargin: '-45% 0px -50% 0px', threshold: 0 }
-    );
-    jumpSections.forEach(({ id }) => {
-      const el = document.getElementById(id);
-      if (el) io.observe(el);
-    });
-    return () => io.disconnect();
-  }, []);
-
-  return (
-    <nav className="section-jump-nav" aria-label="Page sections">
-      <div className="section-jump-nav-inner">
-        {jumpSections.map((s) => (
-          <button
-            key={s.id}
-            className={`section-jump-pill${active === s.id ? ' section-jump-pill--active' : ''}`}
-            onClick={() => handleJump(s.id)}
-            aria-current={active === s.id ? 'true' : undefined}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-    </nav>
-  );
-}
 
 /* ─── Landing Page ───────────────────────────────────────────────────────── */
 
@@ -1006,6 +952,7 @@ export default function LandingPage() {
   const setDemoMode = useAuthStore((s) => s.setDemoMode);
   const setDemoOnboarded = useAuthStore((s) => s.setDemoOnboarded);
   const navScrolled = useScrolledNav();
+  const [activeContentTab, setActiveContentTab] = useState<'creators' | 'restaurants' | 'how-it-works'>('creators');
 
   const enterDemo = useCallback(async (path: string, role: 'creator' | 'partner' = 'creator') => {
     // Clear any stale Cognito session so demo mode doesn't conflict
@@ -1051,8 +998,8 @@ export default function LandingPage() {
           <span className="landing-nav-logo-text">Spot</span>
         </div>
         <div className="landing-nav-actions">
-          <a href="#restaurants" className="landing-nav-link landing-nav-link--restaurants">For Restaurants</a>
-          <a href="#pricing" className="landing-nav-link landing-nav-link--pricing">Pricing</a>
+          <button onClick={() => setActiveContentTab('restaurants')} className="landing-nav-link landing-nav-link--restaurants">For Restaurants</button>
+          <button onClick={() => setActiveContentTab('creators')} className="landing-nav-link landing-nav-link--pricing">Pricing</button>
           <Link to="/auth" className="landing-nav-link">Sign In</Link>
           <button
             onClick={() => enterDemo('/app/dashboard')}
@@ -1146,445 +1093,451 @@ export default function LandingPage() {
         <HeroVisual />
       </section>
 
-      {/* ── Sticky in-page section nav (jump links, nothing hidden) ──────── */}
-      <SectionJumpNav />
-
-      {/* ── Integration Trust Bar ───────────────────────────────────────── */}
-      <IntegrationTrustBar />
-
-      {/* ── Platform Capabilities ──────────────────────────────────────── */}
-      <section className="landing-stats reveal">
-        <div className="landing-stat">
-          <div className="landing-stat-value"><span ref={cities.ref}>{cities.value}</span></div>
-          <div className="landing-stat-label">Cities Supported</div>
+      {/* ── Tab Navigation ───────────────────────────────────────────────── */}
+      <nav className="content-tab-nav" aria-label="Content sections">
+        <div className="content-tab-nav-inner">
+          {(['creators', 'restaurants', 'how-it-works'] as const).map((tab) => (
+            <button
+              key={tab}
+              className={`content-tab-pill${activeContentTab === tab ? ' content-tab-pill--active' : ''}`}
+              onClick={() => setActiveContentTab(tab)}
+            >
+              {tab === 'creators' ? 'For Creators' : tab === 'restaurants' ? 'For Restaurants' : 'How It Works'}
+            </button>
+          ))}
         </div>
-        <div className="landing-stat">
-          <div className="landing-stat-value"><span ref={restaurants.ref}>{restaurants.value.toLocaleString()}</span>+</div>
-          <div className="landing-stat-label">Restaurants Open to Partnerships</div>
-        </div>
-        <div className="landing-stat">
-          <div className="landing-stat-value"><span ref={features.ref}>{features.value}</span></div>
-          <div className="landing-stat-label">Built-In Tools</div>
-        </div>
-      </section>
+      </nav>
 
-      {/* ── Interactive Dashboard Preview ──────────────────────────────── */}
-      <DashboardPreviewSection enterDemo={enterDemo} />
+      {/* ── Tab: For Creators ────────────────────────────────────────────── */}
+      {activeContentTab === 'creators' && (
+        <div className="tab-panel">
+          <IntegrationTrustBar />
 
-      {/* ── How It Works — The Value Loop ──────────────────────────────── */}
-      <section id="how-it-works" className="landing-section landing-section--alt">
-        <div className="landing-section-header reveal">
-          <h2>How Spot works</h2>
-          <p>
-            A simple loop where everyone profits. Creators earn money, restaurants earn customers,
-            and Spot earns its fee only when both sides see results.
-          </p>
-        </div>
-
-        <div className="how-it-works-grid reveal-stagger">
-          <div className="how-it-works-step">
-            <div className="how-it-works-number">1</div>
-            <div className="how-it-works-icon how-it-works-icon--orange">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88" />
-                <path d="m9.5 16.5-1-1a1 1 0 0 0-3 3l2 2a1 1 0 0 0 3-3" />
-                <path d="M3 7V5a1 1 0 0 1 1-1h3" /><path d="M21 7V5a1 1 0 0 0-1-1h-3" />
-                <path d="M6 12H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h3" /><path d="M18 12h2a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3" />
-              </svg>
+          <section className="landing-stats reveal">
+            <div className="landing-stat">
+              <div className="landing-stat-value"><span ref={cities.ref}>{cities.value}</span></div>
+              <div className="landing-stat-label">Cities Supported</div>
             </div>
-            <h3>Creator partners with restaurant</h3>
-            <p>A food creator proposes a paid content campaign to a restaurant they love &mdash; or receives an inbound request. They agree on deliverables and a flat fee or per-visit rate.</p>
-          </div>
-
-          <div className="how-it-works-step">
-            <div className="how-it-works-number">2</div>
-            <div className="how-it-works-icon how-it-works-icon--blue">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-                <path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" />
-              </svg>
+            <div className="landing-stat">
+              <div className="landing-stat-value"><span ref={restaurants.ref}>{restaurants.value.toLocaleString()}</span>+</div>
+              <div className="landing-stat-label">Restaurants Open to Partnerships</div>
             </div>
-            <h3>Creator publishes content</h3>
-            <p>The creator visits, eats, creates authentic content, and publishes with a tracked link, QR code, or deal code attached.</p>
-          </div>
-
-          <div className="how-it-works-step">
-            <div className="how-it-works-number">3</div>
-            <div className="how-it-works-icon how-it-works-icon--green">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
-              </svg>
+            <div className="landing-stat">
+              <div className="landing-stat-value"><span ref={features.ref}>{features.value}</span></div>
+              <div className="landing-stat-label">Built-In Tools</div>
             </div>
-            <h3>Spot tracks every customer</h3>
-            <p>When someone scans, clicks, or redeems &mdash; Spot attributes that visit back to the creator. Real customers, real data.</p>
-          </div>
+          </section>
 
-          <div className="how-it-works-step">
-            <div className="how-it-works-number">4</div>
-            <div className="how-it-works-icon how-it-works-icon--gold">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-                <path d="M12 18V6" />
-              </svg>
+          <DashboardPreviewSection enterDemo={enterDemo} />
+
+          <section id="creators" className="landing-section">
+            <div className="landing-section-header reveal">
+              <h2>Creators: turn your food content into a real income</h2>
+              <p>
+                Stop guessing whether your posts drive customers. Spot gives you the
+                attribution data to command higher rates and the pipeline to keep deals flowing.
+              </p>
             </div>
-            <h3>Everyone gets paid</h3>
-            <p>Creators receive their agreed fee &mdash; flat rate, per-visit, or hybrid. Restaurants see exactly what they got for their spend. Spot takes a small platform fee only when both sides see value.</p>
-          </div>
-        </div>
-      </section>
 
-      {/* ── Creator Value: Get Paid for Your Content ───────────────────── */}
-      <section id="creators" className="landing-section">
-        <div className="landing-section-header reveal">
-          <h2>Creators: turn your food content into a real income</h2>
-          <p>
-            Stop guessing whether your posts drive customers. Spot gives you the
-            attribution data to command higher rates and the pipeline to keep deals flowing.
-          </p>
-        </div>
+            <div className="landing-bento reveal-stagger">
+              <BentoCard className="bento-card--large bento-card--hero bento-card--glow-orange">
+                <h3>Your Earnings Pipeline</h3>
+                <p>
+                  Every restaurant deal at a glance &mdash; what&rsquo;s planned, what&rsquo;s
+                  active, and how much you&rsquo;ve earned from each partnership.
+                </p>
+                <MiniPipeline />
+              </BentoCard>
 
-        <div className="landing-bento reveal-stagger">
-          {/* Campaign Pipeline — primary feature card */}
-          <BentoCard className="bento-card--large bento-card--hero bento-card--glow-orange">
-            <h3>Your Earnings Pipeline</h3>
-            <p>
-              Every restaurant deal at a glance &mdash; what&rsquo;s planned, what&rsquo;s
-              active, and how much you&rsquo;ve earned from each partnership.
-            </p>
-            <MiniPipeline />
-          </BentoCard>
+              <BentoCard className="bento-card--medium bento-card--glow-blue">
+                <h3>Prove Your Impact</h3>
+                <p>
+                  One-click reports showing how many customers your content actually
+                  sent to each restaurant &mdash; the data that justifies your rate.
+                </p>
+                <MiniChartSVG />
+              </BentoCard>
 
-          {/* Attribution Reports — SVG chart with gradient fills */}
-          <BentoCard className="bento-card--medium bento-card--glow-blue">
-            <h3>Prove Your Impact</h3>
-            <p>
-              One-click reports showing how many customers your content actually
-              sent to each restaurant &mdash; the data that justifies your rate.
-            </p>
-            <MiniChartSVG />
-          </BentoCard>
+              <BentoCard className="bento-card--third bento-card--glow-purple">
+                <h3>Content Archive</h3>
+                <p>Every post, metric, and performance tier in one searchable library &mdash; your portfolio for landing bigger deals.</p>
+                <MiniPhotos />
+              </BentoCard>
 
-          {/* Content Archive */}
-          <BentoCard className="bento-card--third bento-card--glow-purple">
-            <h3>Content Archive</h3>
-            <p>Every post, metric, and performance tier in one searchable library &mdash; your portfolio for landing bigger deals.</p>
-            <MiniPhotos />
-          </BentoCard>
+              <BentoCard className="bento-card--third bento-card--glow-green">
+                <h3>Editorial Calendar</h3>
+                <p>Plan restaurant visits and content drops on a visual timeline. More consistency means more revenue.</p>
+                <MiniCalendar />
+              </BentoCard>
 
-          {/* Editorial Calendar */}
-          <BentoCard className="bento-card--third bento-card--glow-green">
-            <h3>Editorial Calendar</h3>
-            <p>Plan restaurant visits and content drops on a visual timeline. More consistency means more revenue.</p>
-            <MiniCalendar />
-          </BentoCard>
+              <BentoCard className="bento-card--third bento-card--glow-gold">
+                <h3>QR Codes &amp; Deals</h3>
+                <p>Promo codes and QR links that attribute every scan and redemption back to you &mdash; so you get credit for every customer.</p>
+                <MiniQROffer />
+              </BentoCard>
+            </div>
 
-          {/* Offer Tracking — count-up stats */}
-          <BentoCard className="bento-card--third bento-card--glow-gold">
-            <h3>QR Codes &amp; Deals</h3>
-            <p>Promo codes and QR links that attribute every scan and redemption back to you &mdash; so you get credit for every customer.</p>
-            <MiniQROffer />
-          </BentoCard>
-        </div>
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
+              <button
+                onClick={() => enterDemo('/app/dashboard')}
+                className="btn btn-gradient btn-lg"
+              >
+                See Your Earnings Pipeline
+              </button>
+            </div>
+          </section>
 
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
-          <button
-            onClick={() => enterDemo('/app/dashboard')}
-            className="btn btn-gradient btn-lg"
-          >
-            See Your Earnings Pipeline
-          </button>
-        </div>
-      </section>
+          <section id="pricing" className="landing-section landing-section--alt">
+            <div className="landing-section-header reveal">
+              <h2>Creator plans that pay for themselves</h2>
+              <p>
+                Your plan is for the tools &mdash; analytics, attribution, and the pipeline
+                to land deals. The income comes from the partnerships: you earn a share of
+                every sale your content drives. Most creators cover their plan with a single deal.
+              </p>
+            </div>
 
-      {/* ── Restaurant Value: Measurable New Customers ─────────────────── */}
-      <section id="restaurants" className="landing-section landing-section--alt">
-        <div className="landing-section-header reveal">
-          <h2>Restaurants: free to join, built to prove ROI</h2>
-          <p>
-            Spot is free for restaurants. You only invest in creator partnerships
-            that deliver measurable results &mdash; and you see the data before you spend a dime.
-          </p>
-        </div>
-
-        <div className="landing-bento reveal-stagger">
-          {/* ROI Dashboard — primary feature card */}
-          <BentoCard className="bento-card--large bento-card--hero bento-card--glow-green">
-            <h3>Attribution Dashboard</h3>
-            <p>
-              See exactly how many new customers each creator sent you and how much they spent.
-              Tracked through QR codes, promo codes, and POS integration with Square and Clover.
-            </p>
-            <MiniROIDashboard />
-          </BentoCard>
-
-          {/* Creator Marketplace */}
-          <BentoCard className="bento-card--medium bento-card--glow-coral">
-            <h3>Receive Creator Proposals</h3>
-            <p>
-              Get partnership proposals from food creators whose audiences match your neighborhood and cuisine.
-              Every creator comes with a track record of attributed visits.
-            </p>
-            <div className="mini-restaurant-list">
-              {[
-                { emoji: '\u{1F4F8}', name: 'Sarah K.', area: '45K followers', bg: 'var(--color-accentMuted)' },
-                { emoji: '\u{1F3AC}', name: 'Marcus T.', area: '120K followers', bg: 'var(--color-successMuted)' },
-                { emoji: '\u{2B50}', name: 'Priya D.', area: '28K followers', bg: 'var(--color-warningMuted)' },
-              ].map((r) => (
-                <div key={r.name} className="mini-restaurant-row">
-                  <div className="mini-restaurant-avatar" style={{ background: r.bg }}>
-                    <span role="img" aria-label={r.name}>{r.emoji}</span>
+            <div className="pricing-grid reveal-stagger">
+              {pricingTiers.map((tier) => (
+                <div
+                  key={tier.name}
+                  className={`card pricing-card${tier.highlighted ? ' pricing-card--highlighted' : ''}`}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-xl)', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                      {tier.name}
+                    </h3>
+                    {tier.highlighted && (
+                      <span className="badge badge--gradient">
+                        Most Popular
+                      </span>
+                    )}
                   </div>
-                  <span className="mini-restaurant-name">{r.name}</span>
-                  <span className="mini-restaurant-meta">{r.area}</span>
+                  <div style={{ marginBottom: 'var(--space-4)' }}>
+                    <span className="pricing-card-price" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-4xl)', fontWeight: 800, color: 'var(--color-accent)', letterSpacing: '-0.03em' }}>
+                      {tier.price}
+                    </span>
+                    <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginLeft: 4 }}>/mo</span>
+                  </div>
+                  <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-6)', lineHeight: 1.6 }}>
+                    {tier.description}
+                  </p>
+                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-8)' }}>
+                    {tier.features.map((f) => (
+                      <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
+                        <span style={{ color: 'var(--color-success)', fontSize: 'var(--font-base)' }}>&#x2713;</span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => enterDemo('/app/dashboard')}
+                    className={`btn ${tier.highlighted ? 'btn-gradient' : 'btn-secondary'}`}
+                    style={{ width: '100%', textAlign: 'center', display: 'block', padding: 'var(--space-3) var(--space-5)' }}
+                  >
+                    {tier.highlighted ? 'Get Started' : 'Try Creator Demo'}
+                  </button>
                 </div>
               ))}
             </div>
-          </BentoCard>
 
-          {/* Full-width: Pay for Results */}
-          <BentoCard style={{ gridColumn: '1 / -1' }} className="bento-card--glow-gold">
-            <div className="pay-for-results-inner">
+            <div className="restaurant-pricing-callout reveal" style={{ maxWidth: '1100px', margin: 'var(--space-8) auto 0', padding: 'var(--space-6) var(--space-8)', background: 'var(--color-bgElevated)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', overflow: 'hidden' }}>
               <div>
-                <h3>Pay for Results, Not Promises</h3>
-                <p>You set the partnership terms upfront. Review and approve all content before it publishes. After it goes live, Spot tracks every customer via QR codes, promo codes, and POS integration. You see the full attribution report before deciding to continue.</p>
-              </div>
-              <div className="save-tags">
-                {['Content Approval', 'QR Tracking', 'POS Integration', 'ROI Reports'].map((tag) => (
-                  <span key={tag} className="badge badge--accent">{tag}</span>
-                ))}
-              </div>
-            </div>
-          </BentoCard>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
-          <button
-            onClick={() => enterDemo('/app/partner', 'partner')}
-            className="btn btn-primary btn-lg"
-          >
-            Explore the Restaurant View
-          </button>
-        </div>
-      </section>
-
-      {/* ── Social Proof / Comparison ──────────────────────────────────── */}
-      <SocialProofSection />
-
-      {/* ── Testimonials — Quantified Success Stories ───────────────────── */}
-      <TestimonialsSection />
-
-      {/* ── Partner Restaurant Logo Carousel ────────────────────────────── */}
-      <BrandLogoCarousel />
-
-      {/* ── Spot's Role — Platform Value Proposition ───────────────────── */}
-      <section className="landing-section">
-        <div className="landing-section-header reveal">
-          <h2>Spot only wins when creators and restaurants win</h2>
-          <p>
-            We don&rsquo;t sell ads. We don&rsquo;t sell data. Spot charges a platform fee
-            on successful partnerships &mdash; which means our incentive is to make both sides profitable.
-          </p>
-        </div>
-
-        <div className="value-prop-grid reveal-stagger">
-          <div className="value-prop-card value-prop-card--creator">
-            <div className="value-prop-card-header">
-              <span className="value-prop-card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              </span>
-              <h3>For Creators</h3>
-            </div>
-            <ul className="value-prop-list">
-              <li>Get paid to create content you already love</li>
-              <li>Prove your ROI to command higher rates</li>
-              <li>Build a portfolio of attributed restaurant partnerships</li>
-              <li>Pipeline of deals keeps income consistent</li>
-            </ul>
-          </div>
-
-          <div className="value-prop-card value-prop-card--restaurant">
-            <div className="value-prop-card-header">
-              <span className="value-prop-card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" />
-                  <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-                </svg>
-              </span>
-              <h3>For Restaurants</h3>
-            </div>
-            <ul className="value-prop-list">
-              <li>Get measurable new customers, not just impressions</li>
-              <li>POS integration (Square, Clover) tracks actual transactions</li>
-              <li>Approve content before it goes live</li>
-              <li>Always free to join &mdash; pay only for results</li>
-            </ul>
-          </div>
-
-          <div className="value-prop-card value-prop-card--spot">
-            <div className="value-prop-card-header">
-              <span className="value-prop-card-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-                  <path d="M12 18V6" />
-                </svg>
-              </span>
-              <h3>How Spot Earns</h3>
-            </div>
-            <ul className="value-prop-list">
-              <li>Platform fee on successful partnerships</li>
-              <li>Creator subscriptions for tools &amp; analytics</li>
-              <li>We profit only when both sides profit</li>
-              <li>No ads, no data selling, no hidden fees</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Pricing ─────────────────────────────────────────────────────── */}
-      <section id="pricing" className="landing-section landing-section--alt">
-        <div className="landing-section-header reveal">
-          <h2>Creator plans that pay for themselves</h2>
-          <p>
-            Your plan is for the tools &mdash; analytics, attribution, and the pipeline
-            to land deals. The income comes from the partnerships: you earn a share of
-            every sale your content drives. Most creators cover their plan with a single deal.
-          </p>
-        </div>
-
-        <div className="pricing-grid reveal-stagger">
-          {pricingTiers.map((tier) => (
-            <div
-              key={tier.name}
-              className={`card pricing-card${tier.highlighted ? ' pricing-card--highlighted' : ''}`}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-xl)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-                  {tier.name}
+                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-xl)', fontWeight: 700, color: 'var(--color-success)', marginBottom: 'var(--space-1)' }}>
+                  Restaurants: always free to join
                 </h3>
-                {tier.highlighted && (
-                  <span className="badge badge--gradient">
-                    Most Popular
-                  </span>
-                )}
+                <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.6, maxWidth: '500px' }}>
+                  No subscription. No upfront cost. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.
+                </p>
               </div>
-              <div style={{ marginBottom: 'var(--space-4)' }}>
-                <span className="pricing-card-price" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-4xl)', fontWeight: 800, color: 'var(--color-accent)', letterSpacing: '-0.03em' }}>
-                  {tier.price}
-                </span>
-                <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginLeft: 4 }}>/mo</span>
-              </div>
-              <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-6)', lineHeight: 1.6 }}>
-                {tier.description}
-              </p>
-              <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-8)' }}>
-                {tier.features.map((f) => (
-                  <li key={f} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)' }}>
-                    <span style={{ color: 'var(--color-success)', fontSize: 'var(--font-base)' }}>&#x2713;</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
               <button
-                onClick={() => enterDemo('/app/dashboard')}
-                className={`btn ${tier.highlighted ? 'btn-gradient' : 'btn-secondary'}`}
-                style={{ width: '100%', textAlign: 'center', display: 'block', padding: 'var(--space-3) var(--space-5)' }}
+                onClick={() => enterDemo('/app/partner', 'partner')}
+                className="btn btn-primary"
+                style={{ padding: 'var(--space-3) var(--space-6)', whiteSpace: 'nowrap' }}
               >
-                {tier.highlighted ? 'Get Started' : 'Try Creator Demo'}
+                Get Started Free
               </button>
             </div>
-          ))}
-        </div>
+          </section>
 
-        <div className="restaurant-pricing-callout reveal" style={{ maxWidth: '1100px', margin: 'var(--space-8) auto 0', padding: 'var(--space-6) var(--space-8)', background: 'var(--color-bgElevated)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-4)', overflow: 'hidden' }}>
-          <div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--font-xl)', fontWeight: 700, color: 'var(--color-success)', marginBottom: 'var(--space-1)' }}>
-              Restaurants: always free to join
-            </h3>
-            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.6, maxWidth: '500px' }}>
-              No subscription. No upfront cost. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.
-            </p>
-          </div>
-          <button
-            onClick={() => enterDemo('/app/partner', 'partner')}
-            className="btn btn-primary"
-            style={{ padding: 'var(--space-3) var(--space-6)', whiteSpace: 'nowrap' }}
-          >
-            Get Started Free
-          </button>
+          <TestimonialsSection />
         </div>
-      </section>
+      )}
 
-      {/* ── FAQ ───────────────────────────────────────────────────────── */}
-      <section className="landing-section">
-        <div className="landing-section-header reveal">
-          <h2>Frequently asked questions</h2>
-        </div>
-        <div className="faq-grid reveal-stagger">
-          <div className="faq-item">
-            <h3 className="faq-question">Do I need a minimum follower count?</h3>
-            <p className="faq-answer">No minimum. Spot values engagement and attribution over raw follower counts. If your content drives customers to restaurants, Spot will help you prove it regardless of audience size.</p>
-          </div>
-          <div className="faq-item">
-            <h3 className="faq-question">How do I get my first restaurant deal?</h3>
-            <p className="faq-answer">Browse the restaurant directory, find places you genuinely love, and send a partnership proposal directly through Spot. You set your rate, deliverables, and timeline.</p>
-          </div>
-          <div className="faq-item">
-            <h3 className="faq-question">Is Spot really free for restaurants?</h3>
-            <p className="faq-answer">Yes. Restaurants never pay a subscription or setup fee. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.</p>
-          </div>
-          <div className="faq-item">
-            <h3 className="faq-question">What if I don&rsquo;t like the content a creator makes?</h3>
-            <p className="faq-answer">Restaurants review and approve all content before it goes live. You always have final say over what gets published about your business.</p>
-          </div>
-          <div className="faq-item">
-            <h3 className="faq-question">How does POS integration work?</h3>
-            <p className="faq-answer">Connect your Square, Clover, or Toast account in under 2 minutes. Spot uses read-only access to match customer visits to creator content &mdash; no new hardware, no staff training, no disruption to service.</p>
-          </div>
-          <div className="faq-item">
-            <h3 className="faq-question">Can I use Spot alongside my existing brand deals?</h3>
-            <p className="faq-answer">Absolutely. Spot is specifically for restaurant partnerships. Your existing brand deals, sponsorships, and agency relationships stay exactly as they are.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Book a Demo — Scheduling CTA ────────────────────────────────── */}
-      <section className="landing-section landing-section--alt landing-booking-section">
-        <div className="landing-booking-inner reveal">
-          <div className="landing-booking-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-              <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
-            </svg>
-          </div>
-          <div className="landing-booking-copy">
-            <h2>See Spot in action</h2>
-            <p>
-              Schedule a 20-minute call with the Spot team. We&rsquo;ll walk you through the attribution
-              dashboard, answer your questions, and set up your first creator partnership on the spot.
-            </p>
-            <div className="landing-booking-targets">
-              <span className="landing-booking-target">&#x1F37D;&#xFE0F;&nbsp; Restaurant owners</span>
-              <span className="landing-booking-target">&#x1F4F8;&nbsp; Food creators</span>
-              <span className="landing-booking-target">&#x23F0;&nbsp; 20 minutes</span>
-              <span className="landing-booking-target">&#x2615;&nbsp; Free consultation</span>
+      {/* ── Tab: For Restaurants ─────────────────────────────────────────── */}
+      {activeContentTab === 'restaurants' && (
+        <div className="tab-panel">
+          <section id="restaurants" className="landing-section landing-section--alt">
+            <div className="landing-section-header reveal">
+              <h2>Restaurants: free to join, built to prove ROI</h2>
+              <p>
+                Spot is free for restaurants. You only invest in creator partnerships
+                that deliver measurable results &mdash; and you see the data before you spend a dime.
+              </p>
             </div>
-          </div>
-          <a
-            href={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/spot-platform/demo'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-gradient btn-lg landing-booking-btn"
-          >
-            Book a Free Demo
-          </a>
+
+            <div className="landing-bento reveal-stagger">
+              <BentoCard className="bento-card--large bento-card--hero bento-card--glow-green">
+                <h3>Attribution Dashboard</h3>
+                <p>
+                  See exactly how many new customers each creator sent you and how much they spent.
+                  Tracked through QR codes, promo codes, and POS integration with Square and Clover.
+                </p>
+                <MiniROIDashboard />
+              </BentoCard>
+
+              <BentoCard className="bento-card--medium bento-card--glow-coral">
+                <h3>Receive Creator Proposals</h3>
+                <p>
+                  Get partnership proposals from food creators whose audiences match your neighborhood and cuisine.
+                  Every creator comes with a track record of attributed visits.
+                </p>
+                <div className="mini-restaurant-list">
+                  {[
+                    { emoji: '\u{1F4F8}', name: 'Sarah K.', area: '45K followers', bg: 'var(--color-accentMuted)' },
+                    { emoji: '\u{1F3AC}', name: 'Marcus T.', area: '120K followers', bg: 'var(--color-successMuted)' },
+                    { emoji: '\u{2B50}', name: 'Priya D.', area: '28K followers', bg: 'var(--color-warningMuted)' },
+                  ].map((r) => (
+                    <div key={r.name} className="mini-restaurant-row">
+                      <div className="mini-restaurant-avatar" style={{ background: r.bg }}>
+                        <span role="img" aria-label={r.name}>{r.emoji}</span>
+                      </div>
+                      <span className="mini-restaurant-name">{r.name}</span>
+                      <span className="mini-restaurant-meta">{r.area}</span>
+                    </div>
+                  ))}
+                </div>
+              </BentoCard>
+
+              <BentoCard style={{ gridColumn: '1 / -1' }} className="bento-card--glow-gold">
+                <div className="pay-for-results-inner">
+                  <div>
+                    <h3>Pay for Results, Not Promises</h3>
+                    <p>You set the partnership terms upfront. Review and approve all content before it publishes. After it goes live, Spot tracks every customer via QR codes, promo codes, and POS integration. You see the full attribution report before deciding to continue.</p>
+                  </div>
+                  <div className="save-tags">
+                    {['Content Approval', 'QR Tracking', 'POS Integration', 'ROI Reports'].map((tag) => (
+                      <span key={tag} className="badge badge--accent">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              </BentoCard>
+            </div>
+
+            <div style={{ textAlign: 'center', marginTop: 'var(--space-10)' }} className="reveal">
+              <button
+                onClick={() => enterDemo('/app/partner', 'partner')}
+                className="btn btn-primary btn-lg"
+              >
+                Explore the Restaurant View
+              </button>
+            </div>
+          </section>
+
+          <SocialProofSection />
+
+          <BrandLogoCarousel />
+
+          <section className="landing-section">
+            <div className="landing-section-header reveal">
+              <h2>Spot only wins when creators and restaurants win</h2>
+              <p>
+                We don&rsquo;t sell ads. We don&rsquo;t sell data. Spot charges a platform fee
+                on successful partnerships &mdash; which means our incentive is to make both sides profitable.
+              </p>
+            </div>
+
+            <div className="value-prop-grid reveal-stagger">
+              <div className="value-prop-card value-prop-card--creator">
+                <div className="value-prop-card-header">
+                  <span className="value-prop-card-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                  </span>
+                  <h3>For Creators</h3>
+                </div>
+                <ul className="value-prop-list">
+                  <li>Get paid to create content you already love</li>
+                  <li>Prove your ROI to command higher rates</li>
+                  <li>Build a portfolio of attributed restaurant partnerships</li>
+                  <li>Pipeline of deals keeps income consistent</li>
+                </ul>
+              </div>
+
+              <div className="value-prop-card value-prop-card--restaurant">
+                <div className="value-prop-card-header">
+                  <span className="value-prop-card-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" />
+                      <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+                    </svg>
+                  </span>
+                  <h3>For Restaurants</h3>
+                </div>
+                <ul className="value-prop-list">
+                  <li>Get measurable new customers, not just impressions</li>
+                  <li>POS integration (Square, Clover) tracks actual transactions</li>
+                  <li>Approve content before it goes live</li>
+                  <li>Always free to join &mdash; pay only for results</li>
+                </ul>
+              </div>
+
+              <div className="value-prop-card value-prop-card--spot">
+                <div className="value-prop-card-header">
+                  <span className="value-prop-card-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                      <path d="M12 18V6" />
+                    </svg>
+                  </span>
+                  <h3>How Spot Earns</h3>
+                </div>
+                <ul className="value-prop-list">
+                  <li>Platform fee on successful partnerships</li>
+                  <li>Creator subscriptions for tools &amp; analytics</li>
+                  <li>We profit only when both sides profit</li>
+                  <li>No ads, no data selling, no hidden fees</li>
+                </ul>
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+      )}
+
+      {/* ── Tab: How It Works ────────────────────────────────────────────── */}
+      {activeContentTab === 'how-it-works' && (
+        <div className="tab-panel">
+          <section id="how-it-works" className="landing-section landing-section--alt">
+            <div className="landing-section-header reveal">
+              <h2>How Spot works</h2>
+              <p>
+                A simple loop where everyone profits. Creators earn money, restaurants earn customers,
+                and Spot earns its fee only when both sides see results.
+              </p>
+            </div>
+
+            <div className="how-it-works-grid reveal-stagger">
+              <div className="how-it-works-step">
+                <div className="how-it-works-number">1</div>
+                <div className="how-it-works-icon how-it-works-icon--orange">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88" />
+                    <path d="m9.5 16.5-1-1a1 1 0 0 0-3 3l2 2a1 1 0 0 0 3-3" />
+                    <path d="M3 7V5a1 1 0 0 1 1-1h3" /><path d="M21 7V5a1 1 0 0 0-1-1h-3" />
+                    <path d="M6 12H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h3" /><path d="M18 12h2a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3" />
+                  </svg>
+                </div>
+                <h3>Creator partners with restaurant</h3>
+                <p>A food creator proposes a paid content campaign to a restaurant they love &mdash; or receives an inbound request. They agree on deliverables and a flat fee or per-visit rate.</p>
+              </div>
+
+              <div className="how-it-works-step">
+                <div className="how-it-works-number">2</div>
+                <div className="how-it-works-icon how-it-works-icon--blue">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                    <path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" />
+                  </svg>
+                </div>
+                <h3>Creator publishes content</h3>
+                <p>The creator visits, eats, creates authentic content, and publishes with a tracked link, QR code, or deal code attached.</p>
+              </div>
+
+              <div className="how-it-works-step">
+                <div className="how-it-works-number">3</div>
+                <div className="how-it-works-icon how-it-works-icon--green">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
+                  </svg>
+                </div>
+                <h3>Spot tracks every customer</h3>
+                <p>When someone scans, clicks, or redeems &mdash; Spot attributes that visit back to the creator. Real customers, real data.</p>
+              </div>
+
+              <div className="how-it-works-step">
+                <div className="how-it-works-number">4</div>
+                <div className="how-it-works-icon how-it-works-icon--gold">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+                    <path d="M12 18V6" />
+                  </svg>
+                </div>
+                <h3>Everyone gets paid</h3>
+                <p>Creators receive their agreed fee &mdash; flat rate, per-visit, or hybrid. Restaurants see exactly what they got for their spend. Spot takes a small platform fee only when both sides see value.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="landing-section">
+            <div className="landing-section-header reveal">
+              <h2>Frequently asked questions</h2>
+            </div>
+            <div className="faq-grid reveal-stagger">
+              <div className="faq-item">
+                <h3 className="faq-question">Do I need a minimum follower count?</h3>
+                <p className="faq-answer">No minimum. Spot values engagement and attribution over raw follower counts. If your content drives customers to restaurants, Spot will help you prove it regardless of audience size.</p>
+              </div>
+              <div className="faq-item">
+                <h3 className="faq-question">How do I get my first restaurant deal?</h3>
+                <p className="faq-answer">Browse the restaurant directory, find places you genuinely love, and send a partnership proposal directly through Spot. You set your rate, deliverables, and timeline.</p>
+              </div>
+              <div className="faq-item">
+                <h3 className="faq-question">Is Spot really free for restaurants?</h3>
+                <p className="faq-answer">Yes. Restaurants never pay a subscription or setup fee. Spot takes a small platform fee only on successful creator partnerships that deliver measurable new customers.</p>
+              </div>
+              <div className="faq-item">
+                <h3 className="faq-question">What if I don&rsquo;t like the content a creator makes?</h3>
+                <p className="faq-answer">Restaurants review and approve all content before it goes live. You always have final say over what gets published about your business.</p>
+              </div>
+              <div className="faq-item">
+                <h3 className="faq-question">How does POS integration work?</h3>
+                <p className="faq-answer">Connect your Square, Clover, or Toast account in under 2 minutes. Spot uses read-only access to match customer visits to creator content &mdash; no new hardware, no staff training, no disruption to service.</p>
+              </div>
+              <div className="faq-item">
+                <h3 className="faq-question">Can I use Spot alongside my existing brand deals?</h3>
+                <p className="faq-answer">Absolutely. Spot is specifically for restaurant partnerships. Your existing brand deals, sponsorships, and agency relationships stay exactly as they are.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="landing-section landing-section--alt landing-booking-section">
+            <div className="landing-booking-inner reveal">
+              <div className="landing-booking-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                  <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
+                </svg>
+              </div>
+              <div className="landing-booking-copy">
+                <h2>See Spot in action</h2>
+                <p>
+                  Schedule a 20-minute call with the Spot team. We&rsquo;ll walk you through the attribution
+                  dashboard, answer your questions, and set up your first creator partnership on the spot.
+                </p>
+                <div className="landing-booking-targets">
+                  <span className="landing-booking-target">&#x1F37D;&#xFE0F;&nbsp; Restaurant owners</span>
+                  <span className="landing-booking-target">&#x1F4F8;&nbsp; Food creators</span>
+                  <span className="landing-booking-target">&#x23F0;&nbsp; 20 minutes</span>
+                  <span className="landing-booking-target">&#x2615;&nbsp; Free consultation</span>
+                </div>
+              </div>
+              <a
+                href={import.meta.env.VITE_CALENDLY_URL || 'https://calendly.com/spot-platform/demo'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-gradient btn-lg landing-booking-btn"
+              >
+                Book a Free Demo
+              </a>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="landing-footer">

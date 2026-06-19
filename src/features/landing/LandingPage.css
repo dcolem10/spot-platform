@@ -234,26 +234,26 @@
   overflow: hidden;
 }
 
-/* Split hero: text left, 3D right */
+/* Split hero: stacked — headline + CTAs above, dashboard visual below */
 .landing-hero--split {
-  max-width: 1200px;
-  text-align: left;
+  max-width: 900px;
+  text-align: center;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-8);
   min-height: auto;
 }
 
 .landing-hero-content {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   position: relative;
   z-index: 2;
 }
 
 .landing-hero-3d {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
+  max-width: 700px;
   height: 420px;
   position: relative;
   z-index: 2;
@@ -711,15 +711,15 @@
   100% { background-position: 0% 50%; }
 }
 
-/* In split mode, left-align actions */
+/* In stacked mode, actions remain centered (already the default) */
 .landing-hero--split .landing-hero-actions {
-  justify-content: flex-start;
+  justify-content: center;
 }
 
-/* In split mode, remove centering from desc */
+/* In stacked mode, desc keeps auto margins for centering */
 .landing-hero--split .landing-hero-desc {
-  margin-left: 0;
-  margin-right: 0;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Ambient gradient orb behind hero */
@@ -811,6 +811,16 @@
   gap: var(--space-3);
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* Equal-size CTA pair — same width, height, radius, font come from .btn-lg;
+   flex basis pins both to the same width regardless of label length. */
+.landing-hero-actions > .cta-pulse-wrap,
+.landing-hero-actions > .btn {
+  flex: 0 0 260px;
+}
+.landing-hero-actions > .cta-pulse-wrap > .btn {
+  width: 100%;
 }
 
 /* Low-friction reassurance under the hero CTAs (inherits text-align from the
@@ -2862,27 +2872,13 @@
     padding: var(--space-6);
   }
   .landing-hero--split {
-    /* Stack copy first, dashboard visual second — the value prop (headline,
-       CTAs) must lead; the preview supports it. (Was column-reverse, which
-       pushed the dashboard graphic above the headline on narrow screens.) */
-    flex-direction: column;
-    text-align: center;
-    min-height: auto;
     gap: var(--space-4);
   }
   .landing-hero-3d {
     height: 260px;
-    width: 100%;
   }
   .hero-device-img {
     max-width: 100%;
-  }
-  .landing-hero--split .landing-hero-actions {
-    justify-content: center;
-  }
-  .landing-hero--split .landing-hero-desc {
-    margin-left: auto;
-    margin-right: auto;
   }
   /* Hero social proof — center on tablet */
   .hero-social-proof {
@@ -3175,5 +3171,66 @@
   /* Comparison cards — reduce padding */
   .comparison-card {
     padding: var(--space-5);
+  }
+}
+
+/* ─── Content Tab Nav ─────────────────────────────────────────────────────── */
+
+.content-tab-nav {
+  position: sticky;
+  top: 72px;
+  z-index: 150;
+  background: color-mix(in srgb, var(--color-bgPrimary) 88%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+}
+
+.content-tab-nav-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.content-tab-pill {
+  white-space: nowrap;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-full);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-textSecondary);
+  background: var(--color-bgElevated);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.content-tab-pill:hover {
+  color: var(--color-textPrimary);
+  border-color: var(--color-borderHover);
+}
+
+.content-tab-pill--active {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Bypass scroll-reveal inside tab panels — content mounts on click, not scroll */
+.tab-panel .reveal,
+.tab-panel .reveal-stagger > * {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: none !important;
+}
+
+@media (max-width: 600px) {
+  .content-tab-pill {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-xs);
   }
 }
