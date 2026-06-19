@@ -36,6 +36,10 @@ Parameters:
     Type: String
     Default: 'arn:aws:kms:us-east-1:827235146020:key/48905979-29e4-4546-a52d-c946abd17020'
     Description: KMS key ARN for encrypting POS OAuth tokens at rest
+  CostAlertEmail:
+    Type: String
+    Default: 'networth589@gmail.com'
+    Description: Email address subscribed to AWS billing alarms (must be confirmed via the email link)
 
 Resources:
   # ─── DynamoDB ─────────────────────────────────────────────────────────────
@@ -1001,6 +1005,62 @@ Resources:
           ]
         }
 
+  # ─── Cost guardrails ──────────────────────────────────────────────────────
+  # SNS topic + billing alarms give early warning before an automated job
+  # (attribution, outreach, AI insights) can quietly run up an AWS bill.
+  # NOTE: AWS/Billing EstimatedCharges metrics are only published in us-east-1,
+  # so this stack must be deployed there for the alarms to fire.
+  CostAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub spot-cost-alerts-${Environment}
+      DisplayName: Spot Platform Cost Alerts
+
+  CostAlertsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref CostAlertsTopic
+      Protocol: email
+      Endpoint: !Ref CostAlertEmail
+
+  BillingAlarmEarlyWarning:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub SpotPlatform-EarlyWarning-20-${Environment}
+      AlarmDescription: Spot Platform estimated AWS charges reached $20
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 20
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref CostAlertsTopic
+
+  BillingAlarmBudget:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub SpotPlatform-Alert-50-${Environment}
+      AlarmDescription: Spot Platform estimated AWS charges reached $50 (monthly budget cap)
+      Namespace: AWS/Billing
+      MetricName: EstimatedCharges
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      Statistic: Maximum
+      Period: 86400
+      EvaluationPeriods: 1
+      Threshold: 50
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref CostAlertsTopic
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
@@ -1014,3 +1074,6 @@ Outputs:
   PhotosBucketUrl:
     Description: Public URL prefix for restaurant photos
     Value: !Sub https://${PhotosBucket}.s3.amazonaws.com
+  CostAlertsTopicArn:
+    Description: SNS topic ARN for AWS billing alarms
+    Value: !Ref CostAlertsTopic
