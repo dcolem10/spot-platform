@@ -32,6 +32,7 @@ const creatorNav: { group: string; items: NavItem[] }[] = [
       { to: '/app/content-reviews', label: 'Content Reviews', icon: '📝' },
       { to: '/app/offers', label: 'Deals & QR', icon: '\uD83C\uDF9F' },
       { to: '/app/reports', label: 'Attribution', icon: '\uD83D\uDCCA' },
+      { to: '/app/earnings', label: 'Earnings', icon: '\uD83D\uDCB0' },
       { to: '/app/insights', label: 'AI Insights', icon: '\u2728' },
     ],
   },

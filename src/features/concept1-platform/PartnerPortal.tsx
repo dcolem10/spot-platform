@@ -988,6 +988,21 @@ export default function PartnerPortal() {
                     </div>
                   )}
                 </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-3)' }}>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 'var(--font-sm)', padding: 'var(--space-2) var(--space-4)' }}
+                    disabled={pauseOfferMutation.isPending}
+                    onClick={() => pauseOfferMutation.mutate(offer.offerId)}
+                  >
+                    {pauseOfferMutation.isPending ? 'Pausing…' : 'Pause'}
+                  </button>
+                </div>
+                {pauseOfferMutation.isError && (
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-error)', marginTop: 'var(--space-2)' }}>
+                    Couldn&rsquo;t pause this offer. Please try again.
+                  </p>
+                )}
               </div>
             ))}
           </div>

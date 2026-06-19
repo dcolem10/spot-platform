@@ -49,6 +49,7 @@ const EditorialCalendar = lazy(() => import('./features/concept3-spotops/Editori
 const ROIReporter = lazy(() => import('./features/concept3-spotops/ROIReporter'));
 const SharedReport = lazy(() => import('./features/concept3-spotops/SharedReport'));
 const AIInsights = lazy(() => import('./features/concept3-spotops/AIInsights'));
+const Earnings = lazy(() => import('./features/concept3-spotops/Earnings'));
 const AmbassadorDashboard = lazy(() => import('./features/concept3-spotops/AmbassadorDashboard'));
 
 // Multi-Creator Collaboration
@@ -185,6 +186,9 @@ export default function App() {
 
                 {/* AI */}
                 <Route path="insights" element={<AIInsights />} />
+
+                {/* Earnings & Payouts */}
+                <Route path="earnings" element={<Earnings />} />
 
                 {/* Content */}
                 <Route path="archive" element={<ContentArchive />} />
