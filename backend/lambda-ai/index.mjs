@@ -2,6 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { initLogger, log } from './logger.mjs';
+import { logTokenUsage, extractAnthropicUsage } from './guardrails.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -351,6 +352,8 @@ async function handleRecommendations(event) {
     });
 
     const data = await res.json();
+    const { inputTokens, outputTokens } = extractAnthropicUsage(data);
+    logTokenUsage(inputTokens, outputTokens, 'ai.recommendations', log);
     const text = data.content?.[0]?.text || '[]';
 
     // Parse JSON from response
@@ -492,6 +495,8 @@ async function handleContentIdeas(event) {
     });
 
     const data = await res.json();
+    const { inputTokens, outputTokens } = extractAnthropicUsage(data);
+    logTokenUsage(inputTokens, outputTokens, 'ai.content-ideas', log);
     const text = data.content?.[0]?.text || '[]';
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     const ideas = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
@@ -612,6 +617,8 @@ async function handleCampaignInsights(event) {
     });
 
     const data = await res.json();
+    const { inputTokens, outputTokens } = extractAnthropicUsage(data);
+    logTokenUsage(inputTokens, outputTokens, 'ai.campaign-insights', log);
     const text = data.content?.[0]?.text || '';
     const insights = text.split('\n').filter((l) => l.trim().length > 10);
 

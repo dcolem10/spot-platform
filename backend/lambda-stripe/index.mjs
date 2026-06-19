@@ -20,6 +20,11 @@ const ALLOWED_ORIGINS = new Set(
 );
 if (!ALLOWED_ORIGINS.size) console.warn('No allowed origins configured — CORS will block all cross-origin requests');
 
+// App base URL for Stripe redirect/return URLs (checkout success, portal, Connect
+// onboarding). Defaults to the first configured origin. Previously this constant
+// was referenced but never defined — checkout/portal URLs would have thrown.
+const ORIGIN = process.env.APP_ORIGIN || [...ALLOWED_ORIGINS][0] || '';
+
 function setRequestOrigin(event) {
   const reqOrigin = event?.headers?.origin || event?.headers?.Origin || '';
   headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGINS.has(reqOrigin)
@@ -241,6 +246,14 @@ async function handleWebhook(event) {
         break;
       case 'invoice.payment_failed':
         await handleInvoicePaymentFailed(stripeEvent.data.object);
+        break;
+      // ─── Connect (creator payouts) ──────────────────────────────────────
+      case 'account.updated':
+        await handleConnectAccountUpdated(stripeEvent.data.object);
+        break;
+      case 'transfer.created':
+      case 'transfer.reversed':
+        await handleTransferEvent(stripeEvent.type, stripeEvent.data.object);
         break;
       default:
         console.log(`Unhandled event type: ${stripeEvent.type}`);
@@ -496,6 +509,252 @@ async function createPortalSession(event) {
   }
 }
 
+// ─── Stripe Connect — creator payouts (revenue-split engine) ──────────────────
+//
+// Creators earn a performance share of POS-attributed sales (accrued in lambda-api
+// to CREATOR#{id} / EARNING#{period}). Paying them real money is regulated money
+// movement, so we use Stripe Connect Express: Stripe handles KYC, bank details,
+// and 1099-K tax reporting. We create a connected account, onboard via a hosted
+// link, then `transfer` each creator's pending balance to their account.
+
+/**
+ * POST /api/stripe/connect/onboard
+ * Creates (or reuses) the creator's Express connected account and returns a
+ * hosted onboarding link. Authenticated.
+ */
+async function createConnectOnboarding(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  try {
+    const stripeClient = await getStripe();
+
+    // Reuse an existing connected account if we've already created one.
+    const existing = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'CONNECT_ACCOUNT' },
+    }));
+
+    let accountId = existing.Item?.stripeAccountId;
+    if (!accountId) {
+      const account = await stripeClient.accounts.create({
+        type: 'express',
+        business_type: 'individual',
+        capabilities: { transfers: { requested: true } },
+        metadata: { userId },
+      });
+      accountId = account.id;
+      await ddb.send(new PutCommand({
+        TableName: TABLE,
+        Item: {
+          PK: `CREATOR#${userId}`,
+          SK: 'CONNECT_ACCOUNT',
+          stripeAccountId: accountId,
+          onboardingStatus: 'pending',
+          payoutsEnabled: false,
+          detailsSubmitted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      }));
+    }
+
+    // Hosted onboarding link (single-use, short-lived).
+    const link = await stripeClient.accountLinks.create({
+      account: accountId,
+      refresh_url: `${ORIGIN}/app/earnings?connect=refresh`,
+      return_url: `${ORIGIN}/app/earnings?connect=done`,
+      type: 'account_onboarding',
+    });
+
+    return respond(200, { url: link.url });
+  } catch (err) {
+    console.error('Connect onboarding error:', err.message);
+    return respond(500, { error: 'Failed to start payout onboarding' });
+  }
+}
+
+/**
+ * GET /api/stripe/connect/status
+ * Returns the creator's payout-readiness, refreshed from Stripe. Authenticated.
+ */
+async function getConnectStatus(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  try {
+    const rec = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'CONNECT_ACCOUNT' },
+    }));
+
+    if (!rec.Item) {
+      return respond(200, { connected: false, onboardingStatus: 'not_started', payoutsEnabled: false });
+    }
+
+    // Pull fresh status from Stripe so the UI reflects reality even if a webhook
+    // was missed, and persist it.
+    let payoutsEnabled = !!rec.Item.payoutsEnabled;
+    let detailsSubmitted = !!rec.Item.detailsSubmitted;
+    let onboardingStatus = rec.Item.onboardingStatus || 'pending';
+    try {
+      const stripeClient = await getStripe();
+      const account = await stripeClient.accounts.retrieve(rec.Item.stripeAccountId);
+      payoutsEnabled = !!account.payouts_enabled;
+      detailsSubmitted = !!account.details_submitted;
+      onboardingStatus = payoutsEnabled ? 'complete' : (detailsSubmitted ? 'pending_review' : 'pending');
+      await persistConnectStatus(userId, { payoutsEnabled, detailsSubmitted, onboardingStatus });
+    } catch (refreshErr) {
+      console.warn('Connect status refresh failed (serving cached):', refreshErr.message);
+    }
+
+    return respond(200, { connected: true, onboardingStatus, payoutsEnabled, detailsSubmitted });
+  } catch (err) {
+    console.error('Connect status error:', err.message);
+    return respond(500, { error: 'Failed to load payout status' });
+  }
+}
+
+/**
+ * POST /api/stripe/payouts/run
+ * Pays out the authenticated creator's pending earnings for a billing period.
+ * Body: { period: "YYYY-MM" }. Idempotent via a Stripe idempotency key plus a
+ * conditional ledger write, so a double-submit can never pay twice.
+ */
+async function runPayout(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  let body;
+  try { body = JSON.parse(event.body || '{}'); } catch { return respond(400, { error: 'Invalid JSON body' }); }
+  const period = body.period;
+  if (!/^\d{4}-\d{2}$/.test(period || '')) {
+    return respond(400, { error: 'Invalid or missing period (expected YYYY-MM)' });
+  }
+
+  try {
+    // Must have a payout-enabled Connect account.
+    const acct = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'CONNECT_ACCOUNT' },
+    }));
+    if (!acct.Item?.stripeAccountId || !acct.Item.payoutsEnabled) {
+      return respond(400, { error: 'Payout onboarding incomplete — connect a bank account first' });
+    }
+
+    // Read the pending balance for the period.
+    const earn = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `EARNING#${period}` },
+    }));
+    const pendingCents = earn.Item?.pendingCents || 0;
+    if (pendingCents <= 0) return respond(400, { error: 'No pending earnings for this period' });
+
+    const stripeClient = await getStripe();
+    // Idempotency key ties one transfer to (creator, period): Stripe will return
+    // the original transfer on retry instead of creating a second one.
+    const transfer = await stripeClient.transfers.create(
+      {
+        amount: pendingCents,
+        currency: 'usd',
+        destination: acct.Item.stripeAccountId,
+        metadata: { userId, period },
+      },
+      { idempotencyKey: `payout_${userId}_${period}` }
+    );
+
+    // Record the payout.
+    await ddb.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `CREATOR#${userId}`,
+        SK: `PAYOUT#${transfer.id}`,
+        GSI1PK: 'PAYOUTS',
+        GSI1SK: `PAYOUT#${transfer.id}`,
+        payoutId: transfer.id,
+        creatorId: userId,
+        period,
+        amountCents: pendingCents,
+        stripeTransferId: transfer.id,
+        status: 'paid',
+        createdAt: new Date().toISOString(),
+      },
+    }));
+
+    // Move the period balance from pending → paid. Conditional on the pending
+    // amount being unchanged so concurrent runs can't double-spend.
+    try {
+      await ddb.send(new UpdateCommand({
+        TableName: TABLE,
+        Key: { PK: `CREATOR#${userId}`, SK: `EARNING#${period}` },
+        UpdateExpression: 'SET pendingCents = :zero, paidCents = if_not_exists(paidCents, :zero) + :amt, #st = :paid, stripeTransferId = :tid, paidAt = :now, updatedAt = :now',
+        ConditionExpression: 'pendingCents = :amt',
+        ExpressionAttributeNames: { '#st': 'status' },
+        ExpressionAttributeValues: {
+          ':zero': 0, ':amt': pendingCents, ':paid': 'paid',
+          ':tid': transfer.id, ':now': new Date().toISOString(),
+        },
+      }));
+    } catch (condErr) {
+      if (condErr.name === 'ConditionalCheckFailedException') {
+        // Pending changed between read and write (concurrent accrual/payout).
+        // The transfer is idempotent; report so the caller can refresh.
+        console.warn(`Payout ledger update skipped (pending changed) for ${userId} ${period}`);
+      } else {
+        throw condErr;
+      }
+    }
+
+    return respond(200, { paid: true, period, amount: pendingCents / 100, transferId: transfer.id });
+  } catch (err) {
+    console.error('Payout error:', err.message);
+    return respond(500, { error: 'Failed to process payout' });
+  }
+}
+
+/** Persist Connect account status fields. */
+async function persistConnectStatus(userId, { payoutsEnabled, detailsSubmitted, onboardingStatus }) {
+  await ddb.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: { PK: `CREATOR#${userId}`, SK: 'CONNECT_ACCOUNT' },
+    UpdateExpression: 'SET payoutsEnabled = :pe, detailsSubmitted = :ds, onboardingStatus = :os, updatedAt = :now',
+    ExpressionAttributeValues: {
+      ':pe': !!payoutsEnabled, ':ds': !!detailsSubmitted, ':os': onboardingStatus, ':now': new Date().toISOString(),
+    },
+  }));
+}
+
+/** Webhook: account.updated — sync the creator's payout readiness. */
+async function handleConnectAccountUpdated(account) {
+  const userId = account.metadata?.userId;
+  if (!userId) { console.warn('account.updated missing userId metadata'); return; }
+  const payoutsEnabled = !!account.payouts_enabled;
+  const detailsSubmitted = !!account.details_submitted;
+  const onboardingStatus = payoutsEnabled ? 'complete' : (detailsSubmitted ? 'pending_review' : 'pending');
+  await persistConnectStatus(userId, { payoutsEnabled, detailsSubmitted, onboardingStatus });
+  console.log(`Connect account updated for creator ${userId}: payouts=${payoutsEnabled}`);
+}
+
+/** Webhook: transfer.created / transfer.reversed — update the payout record. */
+async function handleTransferEvent(type, transfer) {
+  const userId = transfer.metadata?.userId;
+  if (!userId) { console.warn(`${type} missing userId metadata`); return; }
+  const status = type === 'transfer.reversed' ? 'reversed' : 'paid';
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: `PAYOUT#${transfer.id}` },
+      UpdateExpression: 'SET #st = :st, updatedAt = :now',
+      ConditionExpression: 'attribute_exists(PK)',
+      ExpressionAttributeNames: { '#st': 'status' },
+      ExpressionAttributeValues: { ':st': status, ':now': new Date().toISOString() },
+    }));
+  } catch (err) {
+    if (err.name !== 'ConditionalCheckFailedException') throw err;
+    console.log(`Transfer ${transfer.id} has no local payout record yet`);
+  }
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const handler = async (event) => {
@@ -525,6 +784,19 @@ export const handler = async (event) => {
 
   if (path === '/api/stripe/create-portal-session' && method === 'POST') {
     return createPortalSession(event);
+  }
+
+  // ─── Connect / creator payouts ─────────────────────────────────────────────
+  if (path === '/api/stripe/connect/onboard' && method === 'POST') {
+    return createConnectOnboarding(event);
+  }
+
+  if (path === '/api/stripe/connect/status' && method === 'GET') {
+    return getConnectStatus(event);
+  }
+
+  if (path === '/api/stripe/payouts/run' && method === 'POST') {
+    return runPayout(event);
   }
 
   return respond(404, { error: 'Not found' });

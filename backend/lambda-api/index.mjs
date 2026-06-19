@@ -14,6 +14,13 @@ import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import { randomUUID, randomInt, createHash, randomBytes } from 'crypto';
 import { sanitize, isValidId, stripDdbKeys, calculateTier, DDB_KEYS, normalizeEmail, hashIp, escapeHtml } from './helpers.mjs';
 import { initLogger, log } from './logger.mjs';
+import {
+  computeCommission,
+  resolveCommissionConfig,
+  dollarsToCents,
+  centsToDollars,
+  billingPeriod,
+} from './commission.mjs';
 
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
@@ -964,7 +971,7 @@ async function trackScan(code, event) {
       new GetCommand({
         TableName: TABLE,
         Key: { PK: lookupRec.restaurantPK, SK: lookupRec.offerSK },
-        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId',
+        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId, creatorId',
       })
     );
     const offer = liveOffer.Item || lookupRec; // fallback to lookup if offer record missing
@@ -1058,7 +1065,7 @@ async function redeemOffer(code, event) {
       new GetCommand({
         TableName: TABLE,
         Key: { PK: lookupRec.restaurantPK, SK: lookupRec.offerSK },
-        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId',
+        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId, creatorId',
       })
     );
     const offer = liveOffer.Item || lookupRec; // fallback to lookup if offer record missing
@@ -1119,6 +1126,32 @@ async function redeemOffer(code, event) {
         return respond(410, { error: 'This offer is no longer active' });
       }
       throw condErr;
+    }
+
+    // Per-restaurant redemption event — carries the creator link so POS sync can
+    // attribute confirmed revenue (and therefore commission) back to the creator
+    // who drove the visit. Keyed by timestamp so REDEMPTION_SYNC's day-range
+    // query (SK BETWEEN REDEEM#{dayStart} AND REDEEM#{dayEnd}) picks it up.
+    // Best-effort: a failure here must not fail the redemption itself.
+    try {
+      const redeemedAt = new Date().toISOString();
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE,
+          Item: {
+            PK: offer.restaurantPK || `RESTAURANT#${offer.restaurantId}`,
+            SK: `REDEEM#${redeemedAt}#${offer.offerId}`,
+            offerId: offer.offerId,
+            restaurantId: offer.restaurantId,
+            creatorId: offer.creatorId || null,
+            source,
+            redeemedAt,
+            ttl: Math.floor(Date.now() / 1000) + 86400 * 90, // 90-day TTL (matches sync retention)
+          },
+        })
+      );
+    } catch (evtErr) {
+      console.warn(`Redemption event write failed (non-fatal): ${evtErr.message}`);
     }
 
     console.log(`Offer redeemed: code=${code}, restaurant=${offer.restaurantId}, source=${source}`);
@@ -2314,6 +2347,21 @@ async function syncRedemptionData(event) {
       },
     }));
 
+    // Accrue commission on the confirmed attributed revenue. This is where the
+    // revenue-split design closes the loop: attributed sales → creator earnings
+    // + restaurant bill. Best-effort — a ledger failure must not fail the sync.
+    let commission = null;
+    try {
+      commission = await accrueCommissions({
+        restaurantId,
+        date: targetDate,
+        totalRevenueCents: dollarsToCents(syncResult.totalRevenue),
+        redemptions,
+      });
+    } catch (accrErr) {
+      console.error(`Commission accrual failed for ${restaurantId} ${targetDate}: ${accrErr.message}`);
+    }
+
     return respond(200, {
       synced: true,
       date: targetDate,
@@ -2323,6 +2371,7 @@ async function syncRedemptionData(event) {
       matchRate: syncResult.matchRate,
       totalRevenue: syncResult.totalRevenue,
       avgTransactionValue: syncResult.avgTransactionValue,
+      commission,
       mode: 'development',
     });
   }
@@ -2330,6 +2379,268 @@ async function syncRedemptionData(event) {
   // Production: Call POS API for transactions
   // (placeholder — requires real credentials and POS SDK integration)
   return respond(501, { error: `Production sync for ${provider} not yet implemented. Connect credentials first.` });
+}
+
+// ─── Commission accrual (revenue-split engine) ────────────────────────────────
+
+/**
+ * Accrue commission on confirmed, POS-attributed revenue for one restaurant/day.
+ *
+ * Splits the day's attributed revenue across the creators who drove it
+ * (proportional to their redemption counts), applies the per-restaurant fee %
+ * and monthly cap (see commission.mjs), and writes ledger entries:
+ *   - CREATOR#{id}   SK: EARNING#{period}              running creator earnings
+ *   - CREATOR#{id}   SK: ACCRUAL#{date}#{restaurantId}  per-day audit line
+ *   - RESTAURANT#{id} SK: COMMISSION#{period}           restaurant bill + cap state
+ *
+ * Idempotent per (restaurant, date) via a COMMISSION_ACCRUAL#{date} marker, so a
+ * re-run of POS sync for the same day never double-charges or double-pays.
+ * Returns a summary, or { skipped, reason } when nothing is accrued.
+ */
+async function accrueCommissions({ restaurantId, date, totalRevenueCents, redemptions = [] }) {
+  if (!totalRevenueCents || totalRevenueCents <= 0) return { skipped: true, reason: 'no_revenue' };
+  const period = billingPeriod(new Date(`${date}T00:00:00.000Z`));
+
+  // Idempotency guard: exactly one accrual per restaurant per day.
+  try {
+    await ddb.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `RESTAURANT#${restaurantId}`,
+        SK: `COMMISSION_ACCRUAL#${date}`,
+        date, period, totalRevenueCents,
+        createdAt: new Date().toISOString(),
+        ttl: Math.floor(Date.now() / 1000) + 86400 * 400, // ~13 months, past any dispute window
+      },
+      ConditionExpression: 'attribute_not_exists(PK)',
+    }));
+  } catch (err) {
+    if (err.name === 'ConditionalCheckFailedException') return { skipped: true, reason: 'already_accrued' };
+    throw err;
+  }
+
+  // Effective config: optional per-restaurant override merged over env defaults.
+  let override = null;
+  try {
+    const cfg = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'COMMISSION_CONFIG' },
+    }));
+    override = cfg.Item || null;
+  } catch { /* fall back to defaults */ }
+  const config = resolveCommissionConfig(override);
+  if (!config.enabled) return { skipped: true, reason: 'commission_disabled' };
+
+  // Attribute revenue to creators by redemption share. If redemption events
+  // carry no creator link (e.g. legacy data), fall back to the restaurant's
+  // owning creator so the loop still resolves.
+  const counts = new Map();
+  for (const r of redemptions) {
+    if (!r.creatorId) continue;
+    counts.set(r.creatorId, (counts.get(r.creatorId) || 0) + 1);
+  }
+  if (counts.size === 0) {
+    const prof = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
+      ProjectionExpression: 'creatorId',
+    }));
+    const owner = prof.Item?.creatorId;
+    if (!owner) return { skipped: true, reason: 'no_creator' };
+    counts.set(owner, 1);
+  }
+  const totalCount = [...counts.values()].reduce((a, b) => a + b, 0);
+
+  // Fee already accrued this month for this restaurant (to honor the cap).
+  const ledger = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `RESTAURANT#${restaurantId}`, SK: `COMMISSION#${period}` },
+    ProjectionExpression: 'feeCents',
+  }));
+  let priorFeeCents = ledger.Item?.feeCents || 0;
+
+  const now = new Date().toISOString();
+  const creatorList = [...counts.entries()];
+  let allocatedRevenue = 0;
+  const entries = [];
+
+  for (let i = 0; i < creatorList.length; i++) {
+    const [creatorId, count] = creatorList[i];
+    // Last creator absorbs the rounding remainder so allocations sum exactly.
+    const grossShare = i === creatorList.length - 1
+      ? totalRevenueCents - allocatedRevenue
+      : Math.round(totalRevenueCents * (count / totalCount));
+    allocatedRevenue += grossShare;
+
+    const c = computeCommission({
+      grossSaleCents: grossShare,
+      feePct: config.feePct,
+      creatorSharePct: config.creatorSharePct,
+      monthlyCapCents: config.monthlyCapCents,
+      priorFeeThisPeriodCents: priorFeeCents,
+    });
+    priorFeeCents += c.feeCents;
+    if (c.feeCents <= 0) continue; // cap exhausted — no charge, no payout
+
+    // Running monthly earning ledger for the creator (ADD initializes at 0).
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${creatorId}`, SK: `EARNING#${period}` },
+      UpdateExpression: 'ADD grossAttributedCents :g, earnedCents :e, pendingCents :e SET creatorId = :cid, period = :p, GSI1PK = :gp, GSI1SK = :gs, #st = if_not_exists(#st, :accruing), createdAt = if_not_exists(createdAt, :now), updatedAt = :now',
+      ExpressionAttributeNames: { '#st': 'status' },
+      ExpressionAttributeValues: {
+        ':g': c.grossSaleCents, ':e': c.creatorCutCents,
+        ':cid': creatorId, ':p': period,
+        ':gp': `EARNINGS#${period}`, ':gs': `CREATOR#${creatorId}`,
+        ':accruing': 'accruing', ':now': now,
+      },
+    }));
+
+    // Immutable audit line for this creator/restaurant/day.
+    await ddb.send(new PutCommand({
+      TableName: TABLE,
+      Item: {
+        PK: `CREATOR#${creatorId}`, SK: `ACCRUAL#${date}#${restaurantId}`,
+        creatorId, restaurantId, date, period,
+        grossAttributedCents: c.grossSaleCents,
+        feeCents: c.feeCents,
+        earnedCents: c.creatorCutCents,
+        platformCents: c.platformCutCents,
+        createdAt: now,
+        ttl: Math.floor(Date.now() / 1000) + 86400 * 400,
+      },
+    }));
+
+    entries.push(c);
+  }
+
+  const feeChargedCents = entries.reduce((s, e) => s + e.feeCents, 0);
+  const creatorPayableCents = entries.reduce((s, e) => s + e.creatorCutCents, 0);
+  const platformRevenueCents = entries.reduce((s, e) => s + e.platformCutCents, 0);
+
+  // Restaurant's running monthly bill + cap state.
+  await ddb.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: { PK: `RESTAURANT#${restaurantId}`, SK: `COMMISSION#${period}` },
+    UpdateExpression: 'ADD grossAttributedCents :g, feeCents :f, creatorPayableCents :cp, platformRevenueCents :pr SET restaurantId = :rid, period = :p, monthlyCapCents = :cap, GSI1PK = :gp, GSI1SK = :gs, #st = if_not_exists(#st, :accruing), createdAt = if_not_exists(createdAt, :now), updatedAt = :now',
+    ExpressionAttributeNames: { '#st': 'status' },
+    ExpressionAttributeValues: {
+      ':g': totalRevenueCents, ':f': feeChargedCents, ':cp': creatorPayableCents, ':pr': platformRevenueCents,
+      ':rid': restaurantId, ':p': period, ':cap': config.monthlyCapCents,
+      ':gp': `COMMISSIONS#${period}`, ':gs': `RESTAURANT#${restaurantId}`,
+      ':accruing': 'accruing', ':now': now,
+    },
+  }));
+
+  return {
+    accrued: true,
+    period,
+    grossAttributedCents: totalRevenueCents,
+    feeChargedCents,
+    creatorPayableCents,
+    platformRevenueCents,
+    creators: entries.length,
+  };
+}
+
+/**
+ * GET /api/earnings — authenticated creator's commission earnings.
+ * Returns per-month earning ledgers plus Stripe Connect payout-readiness so the
+ * frontend can show "you've earned $X; connect a bank account to cash out".
+ */
+async function getCreatorEarnings(event) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+
+  try {
+    const res = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: { ':pk': `CREATOR#${userId}`, ':sk': 'EARNING#' },
+      ScanIndexForward: false, // newest period first
+      Limit: 24,
+    }));
+
+    const periods = (res.Items || []).map((it) => ({
+      period: it.period,
+      grossAttributed: centsToDollars(it.grossAttributedCents || 0),
+      earned: centsToDollars(it.earnedCents || 0),
+      paid: centsToDollars(it.paidCents || 0),
+      pending: centsToDollars(it.pendingCents || 0),
+      status: it.status || 'accruing',
+    }));
+
+    const totalPendingCents = (res.Items || []).reduce((s, it) => s + (it.pendingCents || 0), 0);
+    const totalEarnedCents = (res.Items || []).reduce((s, it) => s + (it.earnedCents || 0), 0);
+
+    // Connect payout readiness (no Stripe IDs leaked to the client).
+    const connect = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `CREATOR#${userId}`, SK: 'CONNECT_ACCOUNT' },
+      ProjectionExpression: 'onboardingStatus, payoutsEnabled, detailsSubmitted',
+    }));
+
+    return respond(200, {
+      periods,
+      totals: {
+        earned: centsToDollars(totalEarnedCents),
+        pending: centsToDollars(totalPendingCents),
+      },
+      payouts: {
+        connected: !!connect.Item,
+        onboardingStatus: connect.Item?.onboardingStatus || 'not_started',
+        payoutsEnabled: !!connect.Item?.payoutsEnabled,
+      },
+    });
+  } catch (err) {
+    console.error(`getCreatorEarnings error: ${err.message}`);
+    return respond(500, { error: 'Failed to load earnings' });
+  }
+}
+
+/**
+ * GET /api/restaurants/:id/commissions — restaurant's commission bill.
+ * Owner-only. Shows what the restaurant owes on attributed sales, by month.
+ */
+async function getRestaurantCommissions(event, restaurantId) {
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant id' });
+
+  try {
+    // Ownership check — only the creator who manages this restaurant may view it.
+    const prof = await ddb.send(new GetCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
+      ProjectionExpression: 'creatorId',
+    }));
+    if (!prof.Item) return respond(404, { error: 'Restaurant not found' });
+    if (prof.Item.creatorId !== userId) return respond(403, { error: 'Forbidden' });
+
+    // begins_with 'COMMISSION#' matches only the monthly ledgers — not
+    // COMMISSION_CONFIG or COMMISSION_ACCRUAL# (those start with 'COMMISSION_').
+    const res = await ddb.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: { ':pk': `RESTAURANT#${restaurantId}`, ':sk': 'COMMISSION#' },
+      ScanIndexForward: false,
+      Limit: 24,
+    }));
+
+    const periods = (res.Items || []).map((it) => ({
+      period: it.period,
+      grossAttributed: centsToDollars(it.grossAttributedCents || 0),
+      feeCharged: centsToDollars(it.feeCents || 0),
+      monthlyCap: centsToDollars(it.monthlyCapCents || 0),
+      capReached: (it.monthlyCapCents || 0) > 0 && (it.feeCents || 0) >= (it.monthlyCapCents || 0),
+      status: it.status || 'accruing',
+    }));
+
+    return respond(200, { restaurantId, periods });
+  } catch (err) {
+    console.error(`getRestaurantCommissions error: ${err.message}`);
+    return respond(500, { error: 'Failed to load commissions' });
+  }
 }
 
 /**
@@ -6861,6 +7172,15 @@ export const handler = async (event) => {
       const restId = pathParts[pathParts.length - 2];
       return createOffer(restId, event);
     }
+
+    // Restaurant commission bill (owner-only) — revenue-split engine
+    if (path.match(/\/api\/restaurants\/[^/]+\/commissions$/) && method === 'GET') {
+      return getRestaurantCommissions(event, pathParts[pathParts.length - 2]);
+    }
+
+    // Creator commission earnings (revenue-split engine)
+    if (path.match(/\/api\/earnings$/) && method === 'GET')
+      return getCreatorEarnings(event);
 
     // Campaigns
     if (path.match(/\/api\/campaigns$/) && method === 'GET')

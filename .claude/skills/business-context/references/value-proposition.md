@@ -49,9 +49,13 @@ Every other advertising channel has solved attribution — Google Ads shows cost
 | LTV target | $99 x 12 months x 60% retention = $713 |
 | LTV:CAC | >7:1 |
 
+### Commission / Creator Payouts (foundation built — see `docs/revenue-split-design.md`)
+- **Transaction fee:** restaurants pay **12%** of POS-*attributed* sales (per-restaurant monthly cap, default $500). Never upfront — only on proven traffic.
+- **Creator payout:** of that fee, the creator who drove the visit earns **60%** (Spot keeps 40%), paid via **Stripe Connect**. This turns attribution into the "recurring revenue" the mission promises.
+- Status: split engine, accrual ledger, and Connect onboarding/payout are implemented; production POS reconciliation, frontend, and legal review remain.
+
 ### Future Revenue Streams (Not Yet Built)
 - Restaurant subscription — Partner portal premium features
-- Transaction fees — Small % on POS-tracked redemptions
 - Data licensing — Aggregated creator-restaurant attribution insights
 - White-label — Platform for other creator verticals (fitness, travel, beauty)
 
