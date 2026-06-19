@@ -25,6 +25,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Python (e.g. .claude skill scripts generate bytecode caches)
+__pycache__/
+*.pyc
+
 # SAM
 samconfig.toml
 
