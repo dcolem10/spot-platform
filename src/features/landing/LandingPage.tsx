@@ -1094,9 +1094,10 @@ export default function LandingPage() {
             </span>
           </h1>
           <p className="landing-hero-desc">
-            Other platforms track impressions. Spot tracks every customer and
-            every dollar through direct POS integration with Square, Clover, and Toast &mdash;
-            so creators get paid what they&rsquo;re worth and restaurants see exactly what they got.
+            Other platforms track impressions. Spot tracks every customer your
+            content sends &mdash; through real POS data from Square, Clover, and Toast.
+            Restaurants see exactly what they got, and you earn a share of every
+            sale you drive.
           </p>
 
           {/* Dual-path CTAs for both audiences */}
@@ -1116,6 +1117,11 @@ export default function LandingPage() {
               I&rsquo;m a Restaurant &mdash; Join Free
             </button>
           </div>
+
+          {/* Low-friction reassurance directly under the CTAs */}
+          <p className="hero-reassurance">
+            Free to explore &middot; No credit card &middot; Restaurants always free
+          </p>
 
           {/* Inline social proof below CTAs */}
           <div className="hero-social-proof">
@@ -1445,8 +1451,9 @@ export default function LandingPage() {
         <div className="landing-section-header reveal">
           <h2>Creator plans that pay for themselves</h2>
           <p>
-            The tools to land restaurant deals, prove your impact, and grow your income.
-            Try the full demo free &mdash; subscribe when you land your first partnership.
+            Your plan is for the tools &mdash; analytics, attribution, and the pipeline
+            to land deals. The income comes from the partnerships: you earn a share of
+            every sale your content drives. Most creators cover their plan with a single deal.
           </p>
         </div>
 
