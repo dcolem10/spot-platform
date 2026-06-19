@@ -23,7 +23,7 @@ jobs:
           done
       - uses: aws-actions/setup-sam@v2
       - name: SAM Validate
-        run: cd backend && sam validate
+        run: cd backend && sam validate --region us-east-1
 
   deploy:
     needs: validate
