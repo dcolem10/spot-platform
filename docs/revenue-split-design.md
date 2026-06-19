@@ -1,10 +1,25 @@
 # Design Doc: Revenue-Split / Creator Payout Engine
 
-**Status:** Proposal — for decision, not yet approved for build
+**Status:** ✅ Decided + foundation implemented (see §8). Production POS
+reconciliation, frontend, and legal review remain (see §9).
 **Author:** drafted via Claude Code
 **Context:** The AI improvement plan proposed a "60/25/15 revenue split engine."
-This doc specifies what that actually requires so the founder can decide
-*before* any code is written. **No payout code has been built.**
+This doc specifies the viable model and records the decisions taken.
+
+## Decisions (locked)
+
+- **Money flow:** Restaurants pay a fee on POS-*attributed* sales; Spot pays
+  the creator a **performance share** of that fee via **Stripe Connect**.
+  Rationale: Spot's mission is to "turn restaurant collaborations into
+  recurring revenue" for creators — a Spot-only fee wouldn't deliver that. A
+  payout strictly on *proven attributed results* (never upfront) is fully
+  consistent with "nobody gets exploited."
+- **Fee structure:** flat **12%** of attributed sales, with a configurable
+  **per-restaurant monthly cap** (default **$500**) to protect scarce early
+  partners from a shock bill on a viral month. Raise/remove the cap as the
+  partner base grows.
+- **Split:** **60% creator / 40% platform** of the fee.
+- All three numbers are configurable (env vars + per-restaurant override).
 
 ---
 
@@ -100,24 +115,74 @@ Paying creators is regulated money movement. Minimum scope:
 - AWS: negligible new infra — reuses DynamoDB (pay-per-request) and existing
   Lambdas. **No RDS required.** Stays within the $50/mo budget.
 
-## 6. Recommendation
+## 6. Recommendation — adopted
 
-1. **Decide the money model first** (Section 3): performance fee on attributed
-   sales + creator share — not a split of the customer's bill.
-2. **Lock the percentages** (fee %, creator share %).
-3. Only then scope the Stripe Connect build as its own milestone, with a legal
-   check on KYC/1099/money-transmission.
+The recommended model (performance fee on attributed sales + creator cash share)
+was adopted. Percentages locked (see Decisions, top). Stripe Connect chosen as
+the payout rail.
 
-Until 1–3 are settled, building a payout engine is premature.
+## 7. Open questions — resolved
 
-## 7. Open questions for the founder
+- [x] **Pay creators cash, or attribution-only?** → **Pay cash** (performance
+      share on proven attribution). Fulfills the mission; not exploitative
+      because it's never upfront.
+- [x] **Fee % / creator share?** → **12% fee, 60% creator / 40% platform**,
+      monthly cap default **$500**. All configurable.
+- [x] **Do venues receive payouts?** → **No.** Restaurants are *billed* only;
+      only creators have Connect accounts. (Revisit if a venue-payout product
+      ever emerges.)
+- [x] **DC-launch or post-PMF?** → Build the **foundation now** (it's a
+      roadmapped revenue stream — see value-proposition.md), but the monthly
+      cap and dev-mode wiring keep it safe for the small DC cohort; flip on
+      production POS reconciliation + frontend when ready.
 
-- [ ] Is the goal genuinely to **pay creators cash**, or to give them
-      **attribution data + portfolio proof** they can monetize via their own
-      brand deals (the current positioning)?
-- [ ] If cash: what fee % do restaurants pay on attributed sales, and what
-      share goes to the creator?
-- [ ] Do **venues** receive payouts, or only get billed? (Affects whether
-      venues also need connected accounts.)
-- [ ] Is this a DC-launch feature, or post-PMF? (Stripe Connect + compliance is
-      heavy for the current phase.)
+## 8. Implementation (this PR)
+
+Backend foundation, wired end-to-end through the existing attribution loop:
+
+- **`backend/lambda-api/commission.mjs`** — pure, unit-tested split engine
+  (integer cents): `computeCommission` (fee + cap + 60/40 split),
+  `resolveCommissionConfig` (env + per-restaurant override), `billingPeriod`,
+  `dollarsToCents`/`centsToDollars`. 15 tests in `commission.test.mjs`.
+- **Attribution event** — `redeemOffer` now writes a per-restaurant
+  `REDEEM#{ts}#{offerId}` event carrying `creatorId`, so POS sync can attribute
+  confirmed revenue back to the creator who drove it.
+- **Accrual** — `accrueCommissions()` runs inside `POST /api/pos/sync`: it
+  splits the day's attributed revenue across creators by redemption share,
+  applies fee % + monthly cap, and writes ledger entries. Idempotent per
+  (restaurant, day).
+- **Read endpoints** — `GET /api/earnings` (creator: earnings by month + payout
+  readiness) and `GET /api/restaurants/:id/commissions` (owner: the bill).
+- **Stripe Connect** (`lambda-stripe`) — `POST /api/stripe/connect/onboard`,
+  `GET /api/stripe/connect/status`, `POST /api/stripe/payouts/run` (idempotent
+  transfer), plus `account.updated` / `transfer.*` webhook handlers.
+- **Config** — `SPOT_COMMISSION_FEE_PCT`, `SPOT_CREATOR_SHARE_PCT`,
+  `SPOT_MONTHLY_CAP_CENTS` as SAM parameters/env vars.
+
+### New DynamoDB access patterns
+
+```
+RESTAURANT#{id}  COMMISSION#{YYYY-MM}        restaurant's monthly bill + cap state
+RESTAURANT#{id}  COMMISSION_ACCRUAL#{date}   idempotency marker (one accrual/day)
+RESTAURANT#{id}  COMMISSION_CONFIG           optional per-restaurant override
+RESTAURANT#{id}  REDEEM#{ts}#{offerId}       attribution event (creator link)
+CREATOR#{id}     EARNING#{YYYY-MM}           creator's running earnings (pending/paid)
+CREATOR#{id}     ACCRUAL#{date}#{restId}     per-day audit line
+CREATOR#{id}     CONNECT_ACCOUNT             Stripe Express account + payout status
+CREATOR#{id}     PAYOUT#{transferId}         payout record
+GSI1: COMMISSIONS#{YYYY-MM} / EARNINGS#{YYYY-MM}   for future batch billing/payout runs
+```
+
+## 9. Remaining work (follow-ups, not in this PR)
+
+- **Production POS reconciliation** — `syncRedemptions()` is still dev-mode
+  synthetic; real Square/Clover order matching (currently a 501 stub) must feed
+  real dollar amounts before charging anyone.
+- **Frontend** — creator earnings + Connect onboarding page (`/app/earnings`)
+  and a restaurant billing view. Backend endpoints are ready.
+- **Restaurant collection** — restaurants are *billed* in the ledger but not yet
+  *charged*; a monthly invoice/charge step (Stripe Invoicing on the platform
+  account) closes that side.
+- **Legal** — KYC/1099/money-transmission review before enabling live payouts.
+- **Connect webhook** — enable `account.*` and `transfer.*` events on the Stripe
+  webhook endpoint (same signing secret).

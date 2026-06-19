@@ -13,6 +13,11 @@ Globals:
         ALLOWED_ORIGIN: !Ref AllowedOrigin
         ALLOWED_ORIGINS: !Sub "${AllowedOrigin},http://localhost:5173,https://spot-platform.com"
         LOG_LEVEL: info
+        # Revenue-split engine (commission on POS-attributed sales). See
+        # commission.mjs — code-level defaults apply if these are unset.
+        SPOT_COMMISSION_FEE_PCT: !Ref CommissionFeePct
+        SPOT_CREATOR_SHARE_PCT: !Ref CreatorSharePct
+        SPOT_MONTHLY_CAP_CENTS: !Ref CommissionMonthlyCapCents
 
 Parameters:
   Environment:
@@ -40,6 +45,18 @@ Parameters:
     Type: String
     Default: 'networth589@gmail.com'
     Description: Email address subscribed to AWS billing alarms (must be confirmed via the email link)
+  CommissionFeePct:
+    Type: String
+    Default: '0.12'
+    Description: Platform fee as a fraction of POS-attributed sales (e.g. 0.12 = 12%)
+  CreatorSharePct:
+    Type: String
+    Default: '0.60'
+    Description: Creator's share of the platform fee (e.g. 0.60 = creator 60% / platform 40%)
+  CommissionMonthlyCapCents:
+    Type: String
+    Default: '50000'
+    Description: Per-restaurant monthly fee ceiling in cents (50000 = $500; 0 = uncapped)
 
 Resources:
   # ─── DynamoDB ─────────────────────────────────────────────────────────────

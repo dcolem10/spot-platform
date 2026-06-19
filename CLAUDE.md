@@ -22,7 +22,7 @@ Backend (AWS SAM + Node.js 20 Lambda)
   → DynamoDB (single-table: spot-data-dev)
   → Secrets Manager, KMS, SES, S3
 
-Payments: Stripe (3 tiers: $49, $99, $149/mo)
+Payments: Stripe — creator subscriptions (3 tiers: $49, $99, $149/mo) + Stripe Connect payouts (12% commission on POS-attributed sales, 60% to the creator; see docs/revenue-split-design.md)
 POS: Square (live), Clover (live), Toast (pending partner approval)
 AI: Anthropic Claude API for insights/recommendations
 ```

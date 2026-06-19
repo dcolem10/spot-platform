@@ -46,9 +46,13 @@ This is non-negotiable and shapes every feature:
 | Pro | $99/mo | Growing creators (10K–100K) | Full analytics, ROI reporting, calendar, AI insights, unlimited campaigns |
 | Scale | $149/mo | Established creators (100K+) | Multi-creator collabs, ambassador program, API access, priority support |
 
-**Restaurants join FREE.** They only invest in partnerships that deliver measurable results. Spot takes a small platform fee on successful partnerships.
+**Restaurants join FREE.** They only invest in partnerships that deliver measurable results. Spot takes a small platform fee (**12%**, with a per-restaurant monthly cap) on POS-**attributed** sales — never upfront, only on proven traffic.
 
-**Unit economics:** ~95% gross margin, breakeven at ~5 paying creators, LTV:CAC target >7:1
+**Creators earn a performance share.** Of that fee, the creator who drove the visit receives **60%** (Spot keeps 40%), paid out via **Stripe Connect**. This is how Spot delivers its mission to "turn restaurant collaborations into recurring revenue."
+
+> This is NOT the Mustard model. Mustard pays creators *upfront to post* (exploitative — value unproven). Spot pays creators *only on POS-proven results* — the purest expression of "value flows from proven results," not a violation of it. Design + status: `docs/revenue-split-design.md`.
+
+**Unit economics:** subscription tiers remain ~95% gross margin. The commission stream is a near-pass-through (Spot keeps 40% of the fee, ~4.8% of attributed sales, minus Stripe fees); model it separately from SaaS margin. Breakeven at ~5 paying creators, LTV:CAC target >7:1.
 
 ## Competitive Positioning
 

@@ -156,7 +156,15 @@ function stripDdbKeys(item) {
 - `POST /api/pos/connect/square|clover` — initiate OAuth
 - `GET /api/pos/callback/square|clover` — OAuth callback
 - `GET /api/pos/status` — connection status
-- `POST /api/pos/sync` — sync redemption data (dev mode only currently)
+- `POST /api/pos/sync` — sync redemption data (dev mode only currently); accrues commission on attributed revenue
+
+### Commission / Payouts (revenue-split engine — see `docs/revenue-split-design.md`)
+- `GET /api/earnings` — creator's commission earnings by month + Stripe Connect payout readiness
+- `GET /api/restaurants/:id/commissions` — restaurant's commission bill (owner-only)
+- `POST /api/stripe/connect/onboard` — create/resume creator's Stripe Connect (Express) onboarding
+- `GET /api/stripe/connect/status` — creator's payout readiness (refreshed from Stripe)
+- `POST /api/stripe/payouts/run` — pay out a creator's pending earnings for a period (idempotent transfer)
+- Commission logic lives in `lambda-api/commission.mjs` (pure, unit-tested). Config: `SPOT_COMMISSION_FEE_PCT` (0.12), `SPOT_CREATOR_SHARE_PCT` (0.60), `SPOT_MONTHLY_CAP_CENTS` (50000). Per-restaurant override via `RESTAURANT#{id} / COMMISSION_CONFIG`.
 
 ### SpotOps (Creator Tools)
 - `GET /api/spotops/pipeline` — partnership pipeline
