@@ -942,6 +942,61 @@ function HeroVisual() {
   );
 }
 
+/* ─── Section Jump Nav — sticky in-page navigation ──────────────────────── */
+
+const jumpSections = [
+  { id: 'creators', label: 'For Creators' },
+  { id: 'restaurants', label: 'For Restaurants' },
+  { id: 'how-it-works', label: 'How It Works' },
+  { id: 'pricing', label: 'Pricing' },
+];
+
+function SectionJumpNav() {
+  const [active, setActive] = useState<string>(jumpSections[0].id);
+
+  const handleJump = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const y = el.getBoundingClientRect().top + window.scrollY - 96; // clear the sticky bars
+    window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+  }, []);
+
+  // Scroll-spy: highlight whichever section is currently in view.
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) setActive(e.target.id);
+        });
+      },
+      { rootMargin: '-45% 0px -50% 0px', threshold: 0 }
+    );
+    jumpSections.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (el) io.observe(el);
+    });
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <nav className="section-jump-nav" aria-label="Page sections">
+      <div className="section-jump-nav-inner">
+        {jumpSections.map((s) => (
+          <button
+            key={s.id}
+            className={`section-jump-pill${active === s.id ? ' section-jump-pill--active' : ''}`}
+            onClick={() => handleJump(s.id)}
+            aria-current={active === s.id ? 'true' : undefined}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 /* ─── Landing Page ───────────────────────────────────────────────────────── */
 
 export default function LandingPage() {
@@ -1085,6 +1140,9 @@ export default function LandingPage() {
         <HeroVisual />
       </section>
 
+      {/* ── Sticky in-page section nav (jump links, nothing hidden) ──────── */}
+      <SectionJumpNav />
+
       {/* ── Integration Trust Bar ───────────────────────────────────────── */}
       <IntegrationTrustBar />
 
@@ -1108,7 +1166,7 @@ export default function LandingPage() {
       <DashboardPreviewSection enterDemo={enterDemo} />
 
       {/* ── How It Works — The Value Loop ──────────────────────────────── */}
-      <section className="landing-section landing-section--alt">
+      <section id="how-it-works" className="landing-section landing-section--alt">
         <div className="landing-section-header reveal">
           <h2>How Spot works</h2>
           <p>
@@ -1171,7 +1229,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Creator Value: Get Paid for Your Content ───────────────────── */}
-      <section className="landing-section">
+      <section id="creators" className="landing-section">
         <div className="landing-section-header reveal">
           <h2>Creators: turn your food content into a real income</h2>
           <p>
