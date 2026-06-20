@@ -661,7 +661,7 @@ async function createOffer(restaurantId, event) {
     new GetCommand({
       TableName: TABLE,
       Key: { PK: `RESTAURANT#${restaurantId}`, SK: 'PROFILE' },
-      ProjectionExpression: 'restaurantId',
+      ProjectionExpression: 'restaurantId, creatorId',
     })
   );
   if (!restExistsCheck.Item) {
@@ -670,6 +670,16 @@ async function createOffer(restaurantId, event) {
 
   const body = parseBody(event);
   if (!body) return respond(400, { error: 'Invalid JSON body' });
+
+  // Marketplace: a restaurant can PUBLISH a deal as a template that creators
+  // adopt. Only the restaurant's managing owner may publish; the template is
+  // intentionally NOT redeemable (no OFFER_CODE# lookup, creatorId=null) — a
+  // redeemable, creator-owned code is only minted on adoption (see adoptOffer).
+  const isPublishedTemplate = body.origin === 'restaurant';
+  if (isPublishedTemplate && restExistsCheck.Item.creatorId !== userId) {
+    return respond(403, { error: 'Only the restaurant owner can publish a deal' });
+  }
+
   const id = randomUUID();
   const code = `SPOT-${id.slice(0, 8).toUpperCase()}`;
 
@@ -718,10 +728,14 @@ async function createOffer(restaurantId, event) {
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
     SK: `OFFER#${id}`,
-    GSI1PK: `CREATOR#${userId}#OFFERS`,
-    GSI1SK: `OFFER#${id}`,
+    // Published templates are owned by no creator (creatorId=null) so they
+    // don't show up in any creator's "My Offers" and can't route a payout.
+    ...(isPublishedTemplate
+      ? {}
+      : { GSI1PK: `CREATOR#${userId}#OFFERS`, GSI1SK: `OFFER#${id}` }),
     offerId: id,
-    creatorId: userId,
+    creatorId: isPublishedTemplate ? null : userId,
+    origin: isPublishedTemplate ? 'restaurant' : 'creator',
     restaurantId,
     restaurantName: sanitize(body.restaurantName || '', 200),
     linkedCampaignId: validatedCampaignId,
@@ -734,10 +748,18 @@ async function createOffer(restaurantId, event) {
     scansBySource: {},
     expiresAt,
     isActive: true,
-    approvalStatus: 'creator_only',
+    approvalStatus: isPublishedTemplate ? 'published' : 'creator_only',
     mutuallyApproved: false,
+    ...(isPublishedTemplate ? { adoptedCount: 0 } : {}),
     createdAt: new Date().toISOString(),
   };
+
+  // Published templates are NOT redeemable — skip the OFFER_CODE# lookup so a
+  // scan/redeem can never resolve to a template (only adopted instances are).
+  if (isPublishedTemplate) {
+    await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
+    return respond(201, stripDdbKeys(item));
+  }
 
   // Atomic write: offer + lookup record together — prevents orphaned records on partial failure
   await ddb.send(
@@ -767,6 +789,121 @@ async function createOffer(restaurantId, event) {
       ],
     })
   );
+
+  return respond(201, stripDdbKeys(item));
+}
+
+/**
+ * POST /api/offers/:templateOfferId/adopt — a creator adopts a restaurant's
+ * published deal. Mints a NEW offer row owned by the adopting creator with its
+ * own redeemable code, so all attribution/payout routes to the adopter via the
+ * existing redeem/accrual path. The template itself is never reused.
+ */
+async function adoptOffer(templateOfferId, event) {
+  if (!isValidId(templateOfferId)) return respond(400, { error: 'Invalid offer ID' });
+  const userId = getUserId(event);
+  if (!userId) return respond(401, { error: 'Unauthorized' });
+  if (!(await checkUserMutationRate(userId, 'ADOPT_OFFER', 30))) {
+    return respond(429, { error: 'Too many adoptions. Please try again later.' });
+  }
+
+  const body = parseBody(event) || {};
+  const restaurantId = sanitize(body.restaurantId || '', 64);
+  if (!isValidId(restaurantId)) return respond(400, { error: 'restaurantId is required' });
+
+  // Load the template and verify it is an open, restaurant-published deal.
+  const tpl = await ddb.send(new GetCommand({
+    TableName: TABLE,
+    Key: { PK: `RESTAURANT#${restaurantId}`, SK: `OFFER#${templateOfferId}` },
+  }));
+  if (!tpl.Item) return respond(404, { error: 'Deal not found' });
+  if (tpl.Item.origin !== 'restaurant' || tpl.Item.approvalStatus !== 'published') {
+    return respond(400, { error: 'This deal is not open for adoption' });
+  }
+
+  const id = randomUUID();
+  const code = `SPOT-${id.slice(0, 8).toUpperCase()}`;
+  const now = new Date().toISOString();
+
+  const item = {
+    PK: `RESTAURANT#${restaurantId}`,
+    SK: `OFFER#${id}`,
+    GSI1PK: `CREATOR#${userId}#OFFERS`,
+    GSI1SK: `OFFER#${id}`,
+    offerId: id,
+    creatorId: userId,             // ← attribution + payout route to the adopter
+    origin: 'restaurant_adopted',
+    parentOfferId: templateOfferId,
+    restaurantId,
+    restaurantName: tpl.Item.restaurantName || '',
+    linkedCampaignId: '',
+    code,
+    type: tpl.Item.type || 'qr',
+    description: tpl.Item.description || '',
+    landingPageUrl: tpl.Item.landingPageUrl || `/r/${restaurantId}`,
+    scans: 0,
+    redemptions: 0,
+    scansBySource: {},
+    expiresAt: tpl.Item.expiresAt || null,
+    isActive: true,
+    approvalStatus: 'approved',    // publishing IS pre-approval — no second sign-off
+    mutuallyApproved: true,
+    approvedAt: now,
+    createdAt: now,
+  };
+
+  try {
+    // Atomic: idempotency guard + offer row + redeemable code lookup.
+    await ddb.send(new TransactWriteCommand({
+      TransactItems: [
+        {
+          Put: {
+            TableName: TABLE,
+            Item: { PK: `CREATOR#${userId}`, SK: `ADOPTED#${templateOfferId}`, offerId: id, createdAt: now },
+            ConditionExpression: 'attribute_not_exists(PK)', // one adoption per (creator, template)
+          },
+        },
+        { Put: { TableName: TABLE, Item: item } },
+        {
+          Put: {
+            TableName: TABLE,
+            Item: {
+              PK: `OFFER_CODE#${code}`,
+              SK: 'LOOKUP',
+              restaurantPK: `RESTAURANT#${restaurantId}`,
+              offerSK: `OFFER#${id}`,
+              offerId: id,
+              restaurantId,
+              code,
+              description: item.description,
+              landingPageUrl: item.landingPageUrl,
+              isActive: item.isActive,
+              expiresAt: item.expiresAt,
+              createdAt: now,
+            },
+            ConditionExpression: 'attribute_not_exists(PK)',
+          },
+        },
+      ],
+    }));
+  } catch (err) {
+    if (err.name === 'TransactionCanceledException') {
+      return respond(409, { error: 'You have already adopted this deal' });
+    }
+    throw err;
+  }
+
+  // Best-effort rollup so the restaurant sees how many creators picked it up.
+  try {
+    await ddb.send(new UpdateCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${restaurantId}`, SK: `OFFER#${templateOfferId}` },
+      UpdateExpression: 'SET adoptedCount = if_not_exists(adoptedCount, :z) + :one',
+      ExpressionAttributeValues: { ':z': 0, ':one': 1 },
+    }));
+  } catch (err) {
+    console.warn(`adoptOffer rollup failed: ${err.message}`);
+  }
 
   return respond(201, stripDdbKeys(item));
 }
@@ -1307,10 +1444,13 @@ async function listRestaurantOffers(restaurantId, event) {
       })
     );
 
-    // Public endpoint: only return active + approved offers (hide draft/paused/unapproved from public)
+    // Public endpoint: return active + approved offers, plus restaurant-published
+    // templates (approvalStatus='published') that creators can adopt. Templates
+    // are intentionally non-redeemable (no OFFER_CODE# lookup), so exposing them
+    // is safe; the frontend shows the "Adopt" CTA only to creators.
     const activeOffers = (result.Items || [])
       .filter((o) => o.isActive !== false)
-      .filter((o) => !o.approvalStatus || o.approvalStatus === 'approved')
+      .filter((o) => !o.approvalStatus || o.approvalStatus === 'approved' || o.approvalStatus === 'published')
       .filter((o) => !o.expiresAt || new Date(o.expiresAt) > new Date()) // hide expired
       .map((o) => stripDdbKeys(o));
 
@@ -7197,6 +7337,10 @@ export const handler = async (event) => {
     // Offer update (authenticated — creator toggles active/inactive)
     if (path.match(/\/api\/offers\/[^/]+$/) && method === 'PUT')
       return updateOffer(pathParts[pathParts.length - 1], event);
+
+    // Offer adoption (creator adopts a restaurant-published deal → mints own code)
+    if (path.match(/\/api\/offers\/[^/]+\/adopt$/) && method === 'POST')
+      return adoptOffer(pathParts[pathParts.length - 2], event);
 
     // Offer mutual approval endpoints
     if (path.match(/\/api\/offers\/[^/]+\/submit-for-approval$/) && method === 'PUT')
