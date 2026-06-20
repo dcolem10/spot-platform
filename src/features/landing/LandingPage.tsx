@@ -954,11 +954,13 @@ export default function LandingPage() {
   const navScrolled = useScrolledNav();
   const [activeContentTab, setActiveContentTab] = useState<'creators' | 'restaurants' | 'how-it-works'>('creators');
   const tabNavRef = useRef<HTMLElement>(null);
+  const tabSentinelRef = useRef<HTMLDivElement>(null);
 
   const switchTab = useCallback((tab: 'creators' | 'restaurants' | 'how-it-works') => {
     setActiveContentTab(tab);
-    // Scroll so the tab nav sits just below the sticky main nav (72px)
-    const el = tabNavRef.current;
+    // Use a non-sticky sentinel div — sticky nav's getBoundingClientRect().top
+    // always returns its stuck position (72px), making the scroll a no-op.
+    const el = tabSentinelRef.current;
     if (!el) return;
     const y = el.getBoundingClientRect().top + window.scrollY - 72;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1105,6 +1107,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Tab Navigation ───────────────────────────────────────────────── */}
+      <div ref={tabSentinelRef} style={{ height: 0, overflow: 'hidden' }} aria-hidden="true" />
       <nav className="content-tab-nav" aria-label="Content sections" ref={tabNavRef}>
         <div className="content-tab-nav-inner">
           {(['creators', 'restaurants', 'how-it-works'] as const).map((tab) => (
