@@ -1564,7 +1564,14 @@ export default function LandingPage() {
               className="landing-footer-link"
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              Try Demo
+              Creator Demo
+            </button>
+            <button
+              onClick={() => enterDemo('/app/partner', 'partner')}
+              className="landing-footer-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Restaurant Demo
             </button>
             <a href="/privacy" className="landing-footer-link">Privacy</a>
             <a href="/terms" className="landing-footer-link">Terms</a>
