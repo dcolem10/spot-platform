@@ -46,6 +46,13 @@ const CUISINES = [
   'Peruvian', 'Caribbean', 'Soul Food', 'Seafood', 'BBQ', 'Pizza', 'Brunch', 'Other'
 ];
 
+const CUISINE_EMOJI: Record<string, string> = {
+  American: '🍔', Italian: '🍝', Ethiopian: '🍲', Mexican: '🌮', Japanese: '🍣',
+  Chinese: '🥡', Korean: '🍚', Thai: '🍜', Indian: '🍛', Mediterranean: '🫒',
+  French: '🥐', Vietnamese: '🍲', Peruvian: '🐟', Caribbean: '🏝️', 'Soul Food': '🍗',
+  Seafood: '🦞', BBQ: '🍖', Pizza: '🍕', Brunch: '🥞', Other: '🍴',
+};
+
 const OFFER_TYPES = [
   { label: 'Percentage Off', value: 'percentage', icon: '％' },
   { label: 'Free Item', value: 'free_item', icon: '🎁' },
@@ -356,26 +363,6 @@ export default function PartnerOnboarding() {
     }
   };
 
-  const containerStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'var(--color-bgPrimary)',
-    backgroundImage: 'radial-gradient(900px circle at 50% -10%, rgba(249,115,22,0.10), transparent 55%)',
-    padding: '24px',
-  };
-
-  const wrapperStyle: React.CSSProperties = {
-    width: '100%',
-    maxWidth: '560px',
-    backgroundColor: 'var(--color-bgSecondary, #111119)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-xl, 24px)',
-    boxShadow: 'var(--shadow-xl)',
-    padding: '40px',
-  };
-
   const stepperStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'flex-start',
@@ -440,12 +427,13 @@ export default function PartnerOnboarding() {
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: '28px',
+    fontSize: '30px',
     fontWeight: 800,
-    letterSpacing: '-0.02em',
+    letterSpacing: '-0.025em',
     fontFamily: 'var(--font-display)',
     color: 'var(--color-textPrimary)',
     margin: 0,
+    lineHeight: 1.1,
   };
 
   const subtitleStyle: React.CSSProperties = {
@@ -537,10 +525,12 @@ export default function PartnerOnboarding() {
   };
 
   const chipStyle = (selected: boolean): React.CSSProperties => ({
-    padding: '8px 16px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '9px 15px',
     borderRadius: 'var(--radius-full, 9999px)',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '13.5px',
     fontWeight: 600,
     border: selected ? '1px solid transparent' : '1px solid var(--color-border)',
     background: selected ? 'var(--gradient-warm)' : 'var(--color-bgElevated)',
@@ -704,8 +694,74 @@ export default function PartnerOnboarding() {
   };
 
   return (
-    <div style={containerStyle}>
+    <div className="onb-page">
       <style>{`
+        .onb-page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          background: var(--color-bgPrimary);
+          background-image:
+            radial-gradient(1000px circle at 12% -10%, rgba(249,115,22,0.16), transparent 55%),
+            radial-gradient(900px circle at 105% 110%, rgba(236,72,153,0.10), transparent 50%);
+        }
+        .onb-card {
+          width: 100%;
+          max-width: 1000px;
+          display: grid;
+          grid-template-columns: 0.82fr 1fr;
+          background: var(--color-bgSecondary, #111119);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-2xl, 32px);
+          box-shadow: var(--shadow-xl);
+          overflow: hidden;
+          animation: onbRise 0.5s cubic-bezier(0.16,1,0.3,1);
+        }
+        .onb-brand {
+          position: relative;
+          isolation: isolate;
+          overflow: hidden;
+          padding: 40px 36px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 28px;
+          color: #fff;
+          background: linear-gradient(160deg, #f97316 0%, #ec4899 55%, #8b5cf6 125%);
+        }
+        .onb-brand::after {
+          content: '';
+          position: absolute; inset: 0; z-index: -1;
+          background: radial-gradient(440px circle at 82% 0%, rgba(255,255,255,0.20), transparent 60%);
+        }
+        .onb-logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
+        .onb-logo-mark { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: rgba(255,255,255,0.20); border: 1px solid rgba(255,255,255,0.32); font-size: 15px; font-weight: 900; }
+        .onb-brand-headline { font-family: var(--font-display); font-size: 30px; line-height: 1.12; font-weight: 800; letter-spacing: -0.025em; margin: 16px 0 12px; text-wrap: balance; }
+        .onb-brand-sub { font-size: 14.5px; line-height: 1.55; color: rgba(255,255,255,0.92); margin: 0; }
+        .onb-brand-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+        .onb-brand-list li { display: flex; align-items: flex-start; gap: 11px; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.97); }
+        .onb-check { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.22); display: grid; place-items: center; font-size: 11px; font-weight: 900; margin-top: 1px; }
+        .onb-proof-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+        .onb-badge { font-size: 11.5px; font-weight: 700; padding: 6px 11px; border-radius: 999px; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.26); }
+        .onb-form { padding: 40px; min-width: 0; }
+        .onb-chip:hover:not(:disabled) { border-color: var(--color-borderHover) !important; }
+        @keyframes onbRise {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 860px) {
+          .onb-page { padding: 0; align-items: stretch; }
+          .onb-card { grid-template-columns: 1fr; max-width: 560px; border: none; border-radius: 0; min-height: 100vh; }
+          .onb-brand { padding: 26px 24px 22px; gap: 16px; }
+          .onb-brand-headline { font-size: 22px; margin: 8px 0 6px; }
+          .onb-brand-list { display: none; }
+          .onb-form { padding: 28px 22px 36px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .onb-card, [style*="fadeIn"] { animation: none !important; }
+        }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
@@ -761,7 +817,34 @@ export default function PartnerOnboarding() {
         }
       `}</style>
 
-      <div style={wrapperStyle}>
+      <div className="onb-card">
+        <aside className="onb-brand">
+          <div className="onb-logo">
+            <span className="onb-logo-mark">S</span>
+            <span>Spot</span>
+          </div>
+
+          <div>
+            <h2 className="onb-brand-headline">Get discovered by the creators your city already follows.</h2>
+            <p className="onb-brand-sub">
+              List your spot, drop one deal, and let DC&rsquo;s food creators send tracked, paying
+              customers through your door.
+            </p>
+            <ul className="onb-brand-list" style={{ marginTop: '22px' }}>
+              <li><span className="onb-check">✓</span> Free to join — no setup fees, ever</li>
+              <li><span className="onb-check">✓</span> Pay 12% only on sales we directly attribute</li>
+              <li><span className="onb-check">✓</span> Go live in under 2 minutes</li>
+            </ul>
+          </div>
+
+          <div className="onb-proof-badges">
+            <span className="onb-badge">No upfront cost</span>
+            <span className="onb-badge">Cancel anytime</span>
+            <span className="onb-badge">Real-time ROI</span>
+          </div>
+        </aside>
+
+        <main className="onb-form">
         <div style={stepperStyle}>
           {STEPS.map((s, i) => (
             <div
@@ -871,10 +954,12 @@ export default function PartnerOnboarding() {
                   {CUISINES.map((cuisine) => (
                     <button
                       key={cuisine}
+                      className="onb-chip"
                       style={chipStyle(formData.cuisines.includes(cuisine))}
                       onClick={() => toggleCuisine(cuisine)}
                       type="button"
                     >
+                      <span aria-hidden="true" style={{ marginRight: '6px' }}>{CUISINE_EMOJI[cuisine]}</span>
                       {cuisine}
                     </button>
                   ))}
@@ -1091,6 +1176,7 @@ export default function PartnerOnboarding() {
             </button>
           )}
         </div>
+        </main>
       </div>
     </div>
   );
