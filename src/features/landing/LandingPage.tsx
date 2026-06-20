@@ -1429,8 +1429,8 @@ export default function LandingPage() {
             <div className="landing-section-header reveal">
               <h2>How Spot works</h2>
               <p>
-                A simple loop where everyone profits. Creators earn money, restaurants earn customers,
-                and Spot earns its fee only when both sides see results.
+                A simple loop where everyone profits. Creators earn a share of the sales they drive,
+                restaurants earn customers, and Spot earns its fee only when both sides see results.
               </p>
             </div>
 
@@ -1446,7 +1446,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <h3>Creator partners with restaurant</h3>
-                <p>A food creator proposes a paid content campaign to a restaurant they love &mdash; or receives an inbound request. They agree on deliverables and a flat fee or per-visit rate.</p>
+                <p>A food creator partners with a restaurant they love &mdash; or receives an inbound request. Restaurants join free and set up an exclusive offer to promote. Nobody pays upfront for unproven results.</p>
               </div>
 
               <div className="how-it-works-step">
@@ -1469,7 +1469,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <h3>Spot tracks every customer</h3>
-                <p>When someone scans, clicks, or redeems &mdash; Spot attributes that visit back to the creator. Real customers, real data.</p>
+                <p>When someone scans, clicks, or redeems &mdash; Spot matches it against real POS data to attribute that visit and sale back to the creator. Real customers, real revenue.</p>
               </div>
 
               <div className="how-it-works-step">
@@ -1482,7 +1482,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <h3>Everyone gets paid</h3>
-                <p>Creators receive their agreed fee &mdash; flat rate, per-visit, or hybrid. Restaurants see exactly what they got for their spend. Spot takes a small platform fee only when both sides see value.</p>
+                <p>Restaurants pay a small fee only on the sales Spot proves their partnership drove. The creator who drove the visit earns a share of that fee, paid out automatically via Stripe Connect. No proven results, no fee.</p>
               </div>
             </div>
           </section>
@@ -1498,7 +1498,7 @@ export default function LandingPage() {
               </div>
               <div className="faq-item">
                 <h3 className="faq-question">How do I get my first restaurant deal?</h3>
-                <p className="faq-answer">Browse the restaurant directory, find places you genuinely love, and send a partnership proposal directly through Spot. You set your rate, deliverables, and timeline.</p>
+                <p className="faq-answer">Browse the restaurant directory, find places you genuinely love, and send a partnership proposal directly through Spot. You set the offer, deliverables, and timeline &mdash; then earn a share of every sale your content drives.</p>
               </div>
               <div className="faq-item">
                 <h3 className="faq-question">Is Spot really free for restaurants?</h3>
