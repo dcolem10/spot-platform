@@ -992,7 +992,7 @@ export default function LandingPage() {
   const heroPhrases = [
     'drives real sales',
     'sends paying customers',
-    'earns you higher rates',
+    'earns you recurring revenue',
     'proves your ROI',
   ];
   const rotatingText = useRotatingText(heroPhrases, 3200);
@@ -1167,7 +1167,7 @@ export default function LandingPage() {
                 <h3>Prove Your Impact</h3>
                 <p>
                   One-click reports showing how many customers your content actually
-                  sent to each restaurant &mdash; the data that justifies your rate.
+                  sent to each restaurant &mdash; the data that grows your earnings.
                 </p>
                 <MiniChartSVG />
               </BentoCard>
