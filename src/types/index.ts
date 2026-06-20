@@ -95,7 +95,15 @@ export interface Deliverable {
 
 export type SocialPlatform = 'instagram' | 'tiktok' | 'youtube' | 'twitter';
 
-export type OfferApprovalStatus = 'creator_only' | 'pending_restaurant' | 'approved' | 'paused_by_creator' | 'paused_by_restaurant' | 'rejected';
+export type OfferApprovalStatus = 'creator_only' | 'pending_restaurant' | 'approved' | 'paused_by_creator' | 'paused_by_restaurant' | 'rejected' | 'published';
+
+/**
+ * How an offer came to exist:
+ * - 'creator'           — a creator built it (legacy default; absent ⇒ this)
+ * - 'restaurant'        — a restaurant published a template open for creators to adopt
+ * - 'restaurant_adopted'— a creator adopted a restaurant template (their own tracked code)
+ */
+export type OfferOrigin = 'creator' | 'restaurant' | 'restaurant_adopted';
 
 export interface OfferTerms {
   discountType: 'percent' | 'fixed' | 'freeItem';
@@ -132,6 +140,28 @@ export interface Offer {
   pausedBy?: 'creator' | 'restaurant';
   pausedAt?: string;
   pauseReason?: string;
+  // Marketplace fields
+  /** Provenance of the offer. Absent ⇒ legacy creator-created. */
+  origin?: OfferOrigin;
+  /** For adopted offers: the restaurant-published template this was minted from. */
+  parentOfferId?: string;
+  /** For restaurant-published templates: how many creators have adopted it. */
+  adoptedCount?: number;
+}
+
+// ─── Restaurant commission bill (mirrors GET /api/restaurants/:id/commissions) ──
+export interface CommissionPeriod {
+  period: string;           // 'YYYY-MM'
+  grossAttributed: number;  // attributed sales (dollars)
+  feeCharged: number;       // 12% fee charged (dollars)
+  monthlyCap: number;       // per-restaurant monthly cap (dollars)
+  capReached: boolean;
+  status: string;           // 'accruing' | 'billed' | 'paid' | ...
+}
+
+export interface CommissionBill {
+  restaurantId: string;
+  periods: CommissionPeriod[];
 }
 
 export interface CampaignReport {

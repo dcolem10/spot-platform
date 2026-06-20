@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/ApiService';
+import { useAuth } from '../../hooks/useAuth';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY, DEMO_CAMPAIGNS, DEMO_OFFERS } from '../../data/demoData';
 import { Breadcrumb } from '../../components/Breadcrumb';
 import type { Restaurant, Campaign, Offer } from '../../types';
@@ -38,6 +39,9 @@ function getGradient(id: string): string {
 export default function RestaurantDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { effectiveRole } = useAuth();
+  const isCreatorView = effectiveRole === 'creator';
 
   const { data: restaurant, isLoading } = useQuery({
     queryKey: ['restaurant', id],
@@ -80,6 +84,28 @@ export default function RestaurantDetail() {
     },
     enabled: Boolean(id),
   });
+
+  // Creator adopts a restaurant-published deal → mints their own tracked code.
+  const adoptMutation = useMutation({
+    mutationFn: async (templateOfferId: string) => {
+      const res = await api.post<Offer>(`/api/offers/${templateOfferId}/adopt`, { restaurantId: id });
+      if (res.status !== 'success') throw new Error(res.error ?? 'Could not adopt this deal');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['restaurantOffers', id] });
+      navigate('/app/offers');
+    },
+  });
+
+  const publishedDeals = useMemo(
+    () => (offers ?? []).filter((o) => o.approvalStatus === 'published' || o.origin === 'restaurant'),
+    [offers],
+  );
+  const redeemableOffers = useMemo(
+    () => (offers ?? []).filter((o) => o.isActive && o.approvalStatus !== 'published' && o.origin !== 'restaurant'),
+    [offers],
+  );
 
   // Fetch Google reviews (only for non-demo, when restaurant has a googlePlaceId)
   const { data: googleData, isLoading: reviewsLoading } = useQuery({
@@ -361,14 +387,67 @@ export default function RestaurantDetail() {
         </div>
       )}
 
+      {/* Deals you can promote (restaurant-published, open for adoption) */}
+      {publishedDeals.length > 0 && (
+        <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
+          <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-1)' }}>
+            Deals you can promote
+          </h2>
+          <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 'var(--space-4)' }}>
+            {isCreatorView
+              ? 'Adopt a deal to get your own tracked code — promote it and earn a share of every visit you drive.'
+              : 'This restaurant has published deals open for food creators to promote.'}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 'var(--space-3)' }}>
+            {publishedDeals.map((deal) => (
+              <div
+                key={deal.offerId}
+                style={{
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-bgSecondary)',
+                  border: '1px solid var(--color-accent)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-2)',
+                }}
+              >
+                <span className="badge badge--accent" style={{ alignSelf: 'flex-start', textTransform: 'uppercase' }}>Open Deal</span>
+                <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)' }}>{deal.description}</div>
+                {deal.expiresAt && (
+                  <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                    Expires {new Date(deal.expiresAt).toLocaleDateString()}
+                  </div>
+                )}
+                {isCreatorView && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ marginTop: 'auto', fontSize: 'var(--font-sm)' }}
+                    disabled={adoptMutation.isPending}
+                    onClick={() => adoptMutation.mutate(deal.offerId)}
+                  >
+                    {adoptMutation.isPending && adoptMutation.variables === deal.offerId ? 'Adopting…' : 'Adopt this deal'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {adoptMutation.isError && (
+            <p style={{ color: 'var(--color-error)', fontSize: 'var(--font-sm)', marginTop: 'var(--space-3)' }}>
+              {(adoptMutation.error as Error).message}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Offers section */}
-      {offers && offers.length > 0 && (
+      {redeemableOffers.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-6)' }}>
           <h2 style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-textPrimary)', marginBottom: 'var(--space-4)' }}>
             Active Offers
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-3)' }}>
-            {offers.filter((o) => o.isActive).map((offer) => (
+            {redeemableOffers.map((offer) => (
               <div
                 key={offer.offerId}
                 style={{

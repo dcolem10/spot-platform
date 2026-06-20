@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { UserRole } from '../types';
+import type { Perspective } from '../lib/roleRoutes';
 
 export interface DemoProfile {
   displayName: string;
@@ -30,6 +31,14 @@ interface AuthState {
   isDemoMode: boolean;
   demoOnboarded: boolean;
   demoProfile: DemoProfile | null;
+  /**
+   * Admin/demo perspective lens. When set (and the user is admin or in demo
+   * mode), the app renders nav + enforces route guards as if the user had this
+   * role. null ⇒ fall back to the real `role`. Client-side view-state only —
+   * mutations still run as the signed-in identity.
+   */
+  activePerspective: Perspective | null;
+  setActivePerspective: (perspective: Perspective | null) => void;
   setAuth: (payload: {
     userId: string;
     email: string;
@@ -59,6 +68,14 @@ const initialState = {
   isDemoMode: false,
   demoOnboarded: false,
   demoProfile: null as DemoProfile | null,
+  activePerspective: (() => {
+    try {
+      const v = sessionStorage.getItem('spot.activePerspective');
+      return v === 'creator' || v === 'partner' || v === 'audience' ? v : null;
+    } catch {
+      return null;
+    }
+  })() as Perspective | null,
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -75,6 +92,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: true,
       isLoading: false,
     }),
+  setActivePerspective: (perspective) => {
+    try {
+      if (perspective) sessionStorage.setItem('spot.activePerspective', perspective);
+      else sessionStorage.removeItem('spot.activePerspective');
+    } catch {
+      // sessionStorage unavailable (e.g. SSR/private mode) — in-memory only
+    }
+    set({ activePerspective: perspective });
+  },
   setDemoMode: (demo) => set({ isDemoMode: demo }),
   setDemoOnboarded: (onboarded) => set({ demoOnboarded: onboarded }),
   setDemoProfile: (profile) => set({ demoProfile: profile }),
@@ -84,6 +110,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     import('aws-amplify/auth')
       .then(({ signOut }) => signOut({ global: true }))
       .catch(() => {}); // Ignore errors (e.g. demo mode, already signed out)
-    set(initialState);
+    try {
+      sessionStorage.removeItem('spot.activePerspective');
+    } catch {
+      // ignore
+    }
+    set({ ...initialState, activePerspective: null });
   },
 }));

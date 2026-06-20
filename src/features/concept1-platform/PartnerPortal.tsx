@@ -273,6 +273,34 @@ export default function PartnerPortal() {
     },
   });
 
+  // ─── Publish a deal (marketplace template creators can adopt) ───────────────
+  const [showPublishForm, setShowPublishForm] = useState(false);
+  const [publishDraft, setPublishDraft] = useState({ description: '', discountType: 'percent', discountValue: 15, expiresAt: '' });
+  const publishOfferMutation = useMutation({
+    mutationFn: async () => {
+      if (!orgId) throw new Error('No restaurant linked to this account');
+      const description = publishDraft.description.trim();
+      if (!description) throw new Error('Add a short description of the deal');
+      const res = await api.post(`/api/restaurants/${orgId}/offers`, {
+        origin: 'restaurant',
+        type: 'qr',
+        description,
+        expiresAt: publishDraft.expiresAt || undefined,
+        creatorTerms: {
+          discountType: publishDraft.discountType,
+          discountValue: Number(publishDraft.discountValue) || 0,
+        },
+      });
+      if (res.status !== 'success') throw new Error(res.error ?? 'Failed to publish deal');
+      return res.data;
+    },
+    onSuccess: () => {
+      setShowPublishForm(false);
+      setPublishDraft({ description: '', discountType: 'percent', discountValue: 15, expiresAt: '' });
+      queryClient.invalidateQueries({ queryKey: ['partner-dashboard', orgId] });
+    },
+  });
+
   const dashboard = data ?? (isDemoMode()
     ? { campaigns: DEMO_CAMPAIGNS, offers: DEMO_OFFERS, reports: DEMO_CAMPAIGN_REPORTS }
     : { campaigns: [], offers: [], reports: [] });
@@ -293,6 +321,11 @@ export default function PartnerPortal() {
 
   const activeOffers = useMemo(
     () => dashboard.offers.filter((o) => o.isActive && o.approvalStatus === 'approved'),
+    [dashboard.offers],
+  );
+
+  const publishedOffers = useMemo(
+    () => dashboard.offers.filter((o) => o.approvalStatus === 'published' || o.origin === 'restaurant'),
     [dashboard.offers],
   );
 
@@ -944,6 +977,106 @@ export default function PartnerPortal() {
           </div>
         </section>
       )}
+
+      {/* ─── Published Deals (open for creators to adopt) ─── */}
+      <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
+        <div className="section-card-header">
+          <h2 className="section-card-title">Published Deals ({publishedOffers.length})</h2>
+          <button className="btn btn-primary" style={{ fontSize: 'var(--font-sm)' }} onClick={() => setShowPublishForm((v) => !v)}>
+            {showPublishForm ? 'Cancel' : '+ Publish a Deal'}
+          </button>
+        </div>
+        <p style={{ color: 'var(--color-textMuted)', fontSize: 'var(--font-sm)', margin: '0 0 var(--space-3)' }}>
+          Publish a deal and food creators can adopt it to promote on their channels. Each creator gets their own
+          tracked code, so you only pay our fee on the visits they provably drive.
+        </p>
+
+        {showPublishForm && (
+          <div className="card" style={{ marginBottom: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 4 }}>What followers get</label>
+              <input
+                type="text"
+                value={publishDraft.description}
+                maxLength={200}
+                placeholder="e.g. 15% off your table when you mention us"
+                onChange={(e) => setPublishDraft((d) => ({ ...d, description: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bgElevated)', color: 'var(--color-textPrimary)' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 4 }}>Discount type</label>
+                <select
+                  value={publishDraft.discountType}
+                  onChange={(e) => setPublishDraft((d) => ({ ...d, discountType: e.target.value }))}
+                  style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bgElevated)', color: 'var(--color-textPrimary)' }}
+                >
+                  <option value="percent">% off</option>
+                  <option value="fixed">$ off</option>
+                  <option value="freeItem">Free item</option>
+                </select>
+              </div>
+              {publishDraft.discountType !== 'freeItem' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 4 }}>Value</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={publishDraft.discountValue}
+                    onChange={(e) => setPublishDraft((d) => ({ ...d, discountValue: Number(e.target.value) }))}
+                    style={{ width: 100, padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bgElevated)', color: 'var(--color-textPrimary)' }}
+                  />
+                </div>
+              )}
+              <div>
+                <label style={{ display: 'block', fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', marginBottom: 4 }}>Expires (optional)</label>
+                <input
+                  type="date"
+                  value={publishDraft.expiresAt}
+                  onChange={(e) => setPublishDraft((d) => ({ ...d, expiresAt: e.target.value }))}
+                  style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bgElevated)', color: 'var(--color-textPrimary)' }}
+                />
+              </div>
+            </div>
+            {publishOfferMutation.isError && (
+              <p style={{ color: 'var(--color-error)', fontSize: 'var(--font-sm)', margin: 0 }}>{(publishOfferMutation.error as Error).message}</p>
+            )}
+            <div>
+              <button className="btn btn-primary" disabled={publishOfferMutation.isPending} onClick={() => publishOfferMutation.mutate()}>
+                {publishOfferMutation.isPending ? 'Publishing…' : 'Publish Deal'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {publishedOffers.length === 0 ? (
+          !showPublishForm && (
+            <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-textMuted)' }}>
+              No published deals yet. Publish one to let creators promote your restaurant.
+            </div>
+          )
+        ) : (
+          <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', marginTop: 'var(--space-3)' }}>
+            {publishedOffers.map((offer) => (
+              <div key={offer.offerId} className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-2)' }}>
+                  <span className="badge badge--accent" style={{ textTransform: 'uppercase' }}>Published</span>
+                  <span style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>
+                    {(offer.adoptedCount ?? 0)} adopted
+                  </span>
+                </div>
+                <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.5, margin: 0 }}>{offer.description}</p>
+                {offer.expiresAt && (
+                  <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-2)' }}>
+                    Expires {new Date(offer.expiresAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* ─── Active Offers ─── */}
       <section className="section-card" style={{ marginBottom: 'var(--space-8)' }}>
