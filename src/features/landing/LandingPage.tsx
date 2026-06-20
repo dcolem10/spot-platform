@@ -1023,7 +1023,7 @@ export default function LandingPage() {
           <button onClick={() => switchTab('creators')} className="landing-nav-link landing-nav-link--pricing">Pricing</button>
           <Link to="/auth" className="landing-nav-link">Sign In</Link>
           <button
-            onClick={() => enterDemo('/app/dashboard')}
+            onClick={() => setShowDemoChooser(true)}
             className="landing-nav-link landing-nav-link--demo"
             style={{ color: 'var(--color-textMuted)' }}
           >
