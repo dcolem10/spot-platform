@@ -953,8 +953,16 @@ export default function LandingPage() {
   const setDemoOnboarded = useAuthStore((s) => s.setDemoOnboarded);
   const navScrolled = useScrolledNav();
   const [activeContentTab, setActiveContentTab] = useState<'creators' | 'restaurants' | 'how-it-works'>('creators');
+  const [showDemoChooser, setShowDemoChooser] = useState(false);
   const tabNavRef = useRef<HTMLElement>(null);
   const tabSentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showDemoChooser) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowDemoChooser(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showDemoChooser]);
 
   const switchTab = useCallback((tab: 'creators' | 'restaurants' | 'how-it-works') => {
     setActiveContentTab(tab);
@@ -1560,24 +1568,98 @@ export default function LandingPage() {
           <div className="landing-footer-links">
             <a href="#pricing" className="landing-footer-link">Pricing</a>
             <button
-              onClick={() => enterDemo('/app/dashboard')}
+              onClick={() => setShowDemoChooser(true)}
               className="landing-footer-link"
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
             >
-              Creator Demo
-            </button>
-            <button
-              onClick={() => enterDemo('/app/partner', 'partner')}
-              className="landing-footer-link"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              Restaurant Demo
+              Try Demo
             </button>
             <a href="/privacy" className="landing-footer-link">Privacy</a>
             <a href="/terms" className="landing-footer-link">Terms</a>
           </div>
         </div>
       </footer>
+
+      {/* ── Demo role chooser ───────────────────────────────────────────── */}
+      {showDemoChooser && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a demo experience"
+          onClick={() => setShowDemoChooser(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1.5rem',
+            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 520,
+              background: 'var(--color-bgElevated, #16181d)',
+              border: '1px solid var(--color-border, #2a2d34)',
+              borderRadius: 'var(--radius-md, 16px)',
+              padding: '2rem',
+              boxShadow: 'var(--shadow-lg, 0 24px 64px rgba(0,0,0,0.5))',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'var(--color-textPrimary, #fff)' }}>
+                Try the demo as…
+              </h3>
+              <button
+                onClick={() => setShowDemoChooser(false)}
+                aria-label="Close"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '1.5rem', lineHeight: 1, color: 'var(--color-textMuted, #8b909a)',
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <p style={{ margin: '0 0 1.5rem', color: 'var(--color-textSecondary, #b6bcc6)' }}>
+              Explore Spot from either side of the marketplace — no signup required.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <button
+                onClick={() => { setShowDemoChooser(false); enterDemo('/app/dashboard'); }}
+                style={{
+                  textAlign: 'left', cursor: 'pointer',
+                  background: 'var(--color-bgSecondary, #1c1f26)',
+                  border: '1px solid var(--color-border, #2a2d34)',
+                  borderRadius: 'var(--radius-md, 12px)', padding: '1.25rem',
+                  color: 'var(--color-textPrimary, #fff)', fontFamily: 'inherit',
+                }}
+              >
+                <div style={{ fontSize: '1.6rem', marginBottom: '0.5rem' }}>🎬</div>
+                <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>I'm a Creator</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-textSecondary, #b6bcc6)' }}>
+                  Run campaigns, track redemptions, and measure ROI.
+                </div>
+              </button>
+              <button
+                onClick={() => { setShowDemoChooser(false); enterDemo('/app/partner', 'partner'); }}
+                style={{
+                  textAlign: 'left', cursor: 'pointer',
+                  background: 'var(--color-bgSecondary, #1c1f26)',
+                  border: '1px solid var(--color-border, #2a2d34)',
+                  borderRadius: 'var(--radius-md, 12px)', padding: '1.25rem',
+                  color: 'var(--color-textPrimary, #fff)', fontFamily: 'inherit',
+                }}
+              >
+                <div style={{ fontSize: '1.6rem', marginBottom: '0.5rem' }}>🍽️</div>
+                <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>I'm a Restaurant</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-textSecondary, #b6bcc6)' }}>
+                  Review proposals, approve content, and track attribution.
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
