@@ -2,58 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { useAuthStore } from '../../store/authStore';
-
-const CITY_OPTIONS = [
-  'Washington, DC',
-  'Baltimore, MD',
-  'Arlington, VA',
-  'Alexandria, VA',
-  'New York, NY',
-  'Atlanta, GA',
-  'Chicago, IL',
-  'Los Angeles, CA',
-  'Miami, FL',
-];
-
-const NEIGHBORHOODS_BY_CITY: Record<string, string[]> = {
-  'Washington, DC': [
-    'Shaw', 'Adams Morgan', 'Capitol Hill', 'Georgetown', 'Dupont Circle',
-    'H Street', '14th Street', 'U Street', 'Navy Yard', 'Columbia Heights',
-    'Petworth', 'Brookland'
-  ],
-  'Baltimore, MD': [
-    'Fells Point', 'Federal Hill', 'Inner Harbor', 'Canton', 'Mount Vernon',
-    'Hampden', 'Station North', 'Locust Point'
-  ],
-  'Arlington, VA': [
-    'Clarendon', 'Ballston', 'Rosslyn', 'Crystal City', 'Pentagon City',
-    'Shirlington', 'Columbia Pike', 'Courthouse'
-  ],
-  'Alexandria, VA': [
-    'Old Town', 'Del Ray', 'Carlyle', 'Eisenhower', 'Potomac Yard',
-    'Seminary Hill', 'Rosemont'
-  ],
-  'New York, NY': [
-    'Manhattan', 'Brooklyn', 'Queens', 'Williamsburg', 'SoHo',
-    'East Village', 'West Village', 'Harlem', 'Chelsea', 'Lower East Side'
-  ],
-  'Atlanta, GA': [
-    'Midtown', 'Buckhead', 'Old Fourth Ward', 'Inman Park', 'Decatur',
-    'West Midtown', 'Poncey-Highland', 'Virginia-Highland'
-  ],
-  'Chicago, IL': [
-    'River North', 'Wicker Park', 'Logan Square', 'West Loop', 'Lincoln Park',
-    'Pilsen', 'Chinatown', 'Andersonville'
-  ],
-  'Los Angeles, CA': [
-    'Silver Lake', 'West Hollywood', 'Santa Monica', 'Downtown', 'Koreatown',
-    'Echo Park', 'Venice', 'Highland Park'
-  ],
-  'Miami, FL': [
-    'Wynwood', 'Brickell', 'Little Havana', 'Coconut Grove', 'Design District',
-    'South Beach', 'Coral Gables'
-  ],
-};
+import { CITY_OPTIONS, NEIGHBORHOODS_BY_CITY } from '../../lib/locations';
 
 const CUISINES = [
   'American', 'Italian', 'Mexican', 'Japanese', 'Chinese', 'Thai',

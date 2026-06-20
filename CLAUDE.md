@@ -81,6 +81,7 @@ Push to `main` branch → Amplify auto-deploys.
 5. **Lambda env vars.** When updating via `update-function-configuration`, you must pass ALL existing env vars — it replaces the entire block.
 6. **Commit after every change.** Use conventional commit messages. Push to trigger Amplify deploy.
 7. **Test on production URL.** After any backend change, verify at https://main.dc04hhpr1ng78.amplifyapp.com — not just localhost.
+8. **Check `docs/PENDING-OPS.md`.** It tracks deferred manual steps that need AWS/service credentials (Lambda deploys, data seeds). At the start/end of a session, read it; if the user has credentials available, proactively offer to run the open items, then check them off. When you defer a credentialed step, ADD an entry there — never rely on chat history or memory to remember it.
 
 ## Project Structure
 

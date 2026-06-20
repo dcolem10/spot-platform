@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/ApiService';
 import { isDemoMode } from '../../data/demoData';
 import { useAuthStore } from '../../store/authStore';
+import { StyledSelect } from '../../components/FormControls';
+import { getStateOptions, getCitiesForState, getNeighborhoods } from '../../lib/locations';
 
 interface PlaceResult {
   placeId: string;
@@ -21,24 +23,6 @@ interface PlaceDetails {
   regularOpeningHours?: { weekdayDescriptions?: string[] };
   photos?: Array<{ name: string }>;
 }
-
-const DC_NEIGHBORHOODS = [
-  'Adams Morgan',
-  'Capitol Hill',
-  'Chinatown/Penn Quarter',
-  'Columbia Heights',
-  'Dupont Circle',
-  'Foggy Bottom',
-  'Georgetown',
-  'H Street NE',
-  'Logan Circle',
-  'Navy Yard',
-  'NoMa',
-  'Petworth',
-  'Shaw',
-  'U Street',
-  'Brookland',
-];
 
 const CUISINES = [
   'American', 'Italian', 'Ethiopian', 'Mexican', 'Japanese', 'Chinese',
@@ -74,6 +58,8 @@ const STEP_META: Record<number, { icon: string; title: string }> = {
 interface FormData {
   restaurantName: string;
   cuisines: string[];
+  state: string;
+  city: string;
   neighborhood: string;
   phone: string;
   website: string;
@@ -115,6 +101,8 @@ export default function PartnerOnboarding() {
   const [formData, setFormData] = useState<FormData>({
     restaurantName: '',
     cuisines: [],
+    state: '',
+    city: '',
     neighborhood: '',
     phone: '',
     website: '',
@@ -225,8 +213,18 @@ export default function PartnerOnboarding() {
     }));
   };
 
-  const handleNeighborhoodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormData(prev => ({ ...prev, neighborhood: e.target.value }));
+  const handleStateChange = (stateCode: string) => {
+    // Changing state invalidates the dependent city + neighborhood selections.
+    setFormData(prev => ({ ...prev, state: stateCode, city: '', neighborhood: '' }));
+  };
+
+  const handleCityChange = (cityLabel: string) => {
+    // Changing city invalidates the dependent neighborhood selection.
+    setFormData(prev => ({ ...prev, city: cityLabel, neighborhood: '' }));
+  };
+
+  const handleNeighborhoodChange = (neighborhood: string) => {
+    setFormData(prev => ({ ...prev, neighborhood }));
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,6 +260,14 @@ export default function PartnerOnboarding() {
       }
       if (formData.cuisines.length === 0) {
         setError('Please select at least one cuisine type');
+        return false;
+      }
+      if (!formData.state) {
+        setError('State is required');
+        return false;
+      }
+      if (!formData.city) {
+        setError('City is required');
         return false;
       }
       if (!formData.neighborhood) {
@@ -304,6 +310,8 @@ export default function PartnerOnboarding() {
         const restaurantRes = await api.post('/api/restaurants', {
           name: formData.restaurantName,
           cuisine: formData.cuisines,
+          city: formData.city,
+          state: formData.state,
           neighborhood: formData.neighborhood,
           phone: formData.phone,
           website: formData.website || undefined,
@@ -342,7 +350,7 @@ export default function PartnerOnboarding() {
         await api.post('/api/profile', {
           displayName: formData.restaurantName,
           bio: '',
-          city: 'Washington, DC',
+          city: formData.city,
           neighborhoods: [formData.neighborhood],
           cuisinePreferences: formData.cuisines,
           socialLinks: { instagram: '', tiktok: '', youtube: '', website: formData.website || '' },
@@ -490,18 +498,6 @@ export default function PartnerOnboarding() {
     textAlign: 'right',
   };
 
-  const selectStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '12px',
-    border: '1px solid var(--color-border, #333)',
-    borderRadius: 'var(--radius-md, 12px)',
-    fontSize: '14px',
-    fontFamily: 'inherit',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    backgroundColor: 'var(--color-bgElevated, #252540)',
-    color: 'var(--color-textPrimary, #fff)',
-  };
 
   const sliderContainerStyle: React.CSSProperties = {
     display: 'flex',
@@ -966,20 +962,40 @@ export default function PartnerOnboarding() {
                 </div>
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '24px' }}>
+                <div>
+                  <label style={labelStyle}>State *</label>
+                  <StyledSelect
+                    aria-label="State"
+                    placeholder="Select a state"
+                    value={formData.state}
+                    onChange={handleStateChange}
+                    options={getStateOptions()}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>City *</label>
+                  <StyledSelect
+                    aria-label="City"
+                    placeholder={formData.state ? 'Select a city' : 'Choose a state first'}
+                    value={formData.city}
+                    onChange={handleCityChange}
+                    disabled={!formData.state}
+                    options={getCitiesForState(formData.state)}
+                  />
+                </div>
+              </div>
+
               <div style={formGroupStyle}>
                 <label style={labelStyle}>Neighborhood *</label>
-                <select
-                  style={selectStyle}
+                <StyledSelect
+                  aria-label="Neighborhood"
+                  placeholder={formData.city ? 'Select a neighborhood' : 'Choose a city first'}
                   value={formData.neighborhood}
                   onChange={handleNeighborhoodChange}
-                >
-                  <option value="">Select a neighborhood</option>
-                  {DC_NEIGHBORHOODS.map((neighborhood) => (
-                    <option key={neighborhood} value={neighborhood}>
-                      {neighborhood}
-                    </option>
-                  ))}
-                </select>
+                  disabled={!formData.city}
+                  options={getNeighborhoods(formData.city).map((n) => ({ value: n, label: n }))}
+                />
               </div>
 
               <div style={formGroupStyle}>
@@ -1097,6 +1113,10 @@ export default function PartnerOnboarding() {
                     <span style={reviewValueStyle}>{formData.address}</span>
                   </div>
                 )}
+                <div style={reviewRowStyle}>
+                  <span style={reviewLabelStyle}>City</span>
+                  <span style={reviewValueStyle}>{formData.city}</span>
+                </div>
                 <div style={reviewRowStyle}>
                   <span style={reviewLabelStyle}>Neighborhood</span>
                   <span style={reviewValueStyle}>{formData.neighborhood}</span>
