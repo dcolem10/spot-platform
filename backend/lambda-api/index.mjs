@@ -269,6 +269,8 @@ async function createRestaurant(event) {
     creatorId: userId,
     name: sanitize(body.name, 200),
     address: sanitize(body.address, 500),
+    city: sanitize(body.city, 100),
+    state: sanitize(body.state, 40),
     neighborhood: sanitize(body.neighborhood, 100),
     coords: body.coords && typeof body.coords === 'object' ? {
       lat: Math.max(-90, Math.min(90, Number(body.coords.lat) || 0)),
@@ -338,6 +340,8 @@ async function updateRestaurant(restaurantId, event) {
   const sanitizers = {
     name:           (v) => sanitize(v, 200),
     address:        (v) => sanitize(v, 300),
+    city:           (v) => sanitize(v, 100),
+    state:          (v) => sanitize(v, 40),
     neighborhood:   (v) => sanitize(v, 100),
     cuisine:        (v) => Array.isArray(v) ? v.slice(0, 10).map((c) => sanitize(c, 50)) : undefined,
     vibes:          (v) => Array.isArray(v) ? v.slice(0, 10).map((c) => sanitize(c, 50)) : undefined,

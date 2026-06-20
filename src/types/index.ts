@@ -27,6 +27,10 @@ export interface Restaurant {
   name: string;
   address: string;
   neighborhood: string;
+  /** City label, e.g. "Arlington, VA". Optional for legacy/demo records. */
+  city?: string;
+  /** USPS state code, e.g. "VA". */
+  state?: string;
   coords: { lat: number; lng: number };
   cuisine: string[];
   vibes: string[];

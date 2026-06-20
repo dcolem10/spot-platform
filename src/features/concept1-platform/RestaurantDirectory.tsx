@@ -6,18 +6,7 @@ import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY } from '../../data/demoData';
 import { useAuthStore } from '../../store/authStore';
 import type { Restaurant, RestaurantFilters, CreatorProfile } from '../../types';
-
-const CITY_OPTIONS = [
-  'Washington, DC',
-  'Baltimore, MD',
-  'Arlington, VA',
-  'Alexandria, VA',
-  'New York, NY',
-  'Atlanta, GA',
-  'Chicago, IL',
-  'Los Angeles, CA',
-  'Miami, FL',
-];
+import { CITY_OPTIONS } from '../../lib/locations';
 
 const PRICE_LABELS: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
 
