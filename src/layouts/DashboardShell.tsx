@@ -2,6 +2,7 @@ import { Suspense, useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
+import { homeFor, type Perspective } from '../lib/roleRoutes';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { ScrollToTop } from '../components/ScrollToTop';
 import { WelcomeModal } from '../components/WelcomeModal';
@@ -69,6 +70,12 @@ const partnerNav: { group: string; items: NavItem[] }[] = [
       { to: '/app/partner/offers', label: 'My Offers', icon: '\uD83C\uDF9F' },
     ],
   },
+  {
+    group: 'Billing',
+    items: [
+      { to: '/app/partner/billing', label: 'Commission Bill', icon: '\uD83E\uDDFE' },
+    ],
+  },
 ];
 
 const audienceNav: { group: string; items: NavItem[] }[] = [
@@ -103,14 +110,13 @@ const audienceMobileNavItems: NavItem[] = [
   { to: '/app/saved', label: 'Saved', icon: '\uD83D\uDD16' },
 ];
 
-const CONSUMER_PATHS = ['/app/discover', '/app/deals', '/app/saved'];
-
 export default function DashboardShell() {
-  const { name, role, email } = useAuth();
+  const { name, email, effectiveRole, canSwitchPerspective, isAdmin } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const resetAuth = useAuthStore((s) => s.reset);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
+  const setActivePerspective = useAuthStore((s) => s.setActivePerspective);
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
 
   const handleSignOut = useCallback(async () => {
@@ -124,19 +130,26 @@ export default function DashboardShell() {
     navigate('/', { replace: true });
   }, [resetAuth, navigate]);
 
-  // Explicit view mode — only switches via the toggle link, not on navigation
-  const initialMode = CONSUMER_PATHS.some((p) => location.pathname.startsWith(p)) ? 'audience' : 'creator';
-  const [viewMode, setViewMode] = useState<'creator' | 'audience'>(initialMode);
-
   // Scroll to top on page navigation
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  const effectiveRole = viewMode === 'audience' ? 'audience' : (role || (isDemoMode ? 'creator' : 'viewer'));
-  const nav = effectiveRole === 'partner' ? partnerNav : effectiveRole === 'audience' ? audienceNav : creatorNav;
-  const displayName = name || (isDemoMode ? (viewMode === 'audience' ? 'Foodie' : 'Demo Creator') : null);
-  const displayRole = effectiveRole;
+  // Active perspective lens (admins/demo can switch; everyone else is locked).
+  const lens: Perspective = effectiveRole === 'partner' ? 'partner' : effectiveRole === 'audience' ? 'audience' : 'creator';
+  const nav = lens === 'partner' ? partnerNav : lens === 'audience' ? audienceNav : creatorNav;
+
+  const switchPerspective = useCallback((p: Perspective) => {
+    setActivePerspective(p);
+    navigate(homeFor(p));
+  }, [setActivePerspective, navigate]);
+
+  const perspectiveOptions: { value: Perspective; label: string }[] = isAdmin
+    ? [{ value: 'creator', label: 'Creator' }, { value: 'partner', label: 'Restaurant' }, { value: 'audience', label: 'Foodie' }]
+    : [{ value: 'creator', label: 'Creator' }, { value: 'audience', label: 'Foodie' }];
+
+  const displayName = name || (isDemoMode ? (lens === 'audience' ? 'Foodie' : 'Demo Creator') : null);
+  const displayRole = lens === 'partner' ? 'restaurant' : lens;
   const initials = displayName ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '?';
 
   return (
@@ -174,17 +187,32 @@ export default function DashboardShell() {
           ))}
         </nav>
 
-        {isDemoMode && (
-          <div style={{ padding: '0 var(--space-3) var(--space-3)' }}>
-            <NavLink
-              to={viewMode === 'audience' ? '/app/dashboard' : '/app/discover'}
-              className="sidebar-link"
-              style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}
-              onClick={() => setViewMode(viewMode === 'audience' ? 'creator' : 'audience')}
-            >
-              <span className="sidebar-link-icon">{viewMode === 'audience' ? '\u{1F4BC}' : '\uD83D\uDD0D'}</span>
-              {viewMode === 'audience' ? 'Switch to Creator' : 'Switch to Foodie'}
-            </NavLink>
+        {canSwitchPerspective && (
+          <div className="sidebar-group" style={{ padding: '0 var(--space-3) var(--space-3)' }}>
+            <div className="sidebar-group-label">{isAdmin ? 'Admin \u00B7 View as' : 'View as'}</div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {perspectiveOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => switchPerspective(opt.value)}
+                  aria-pressed={lens === opt.value}
+                  style={{
+                    flex: '1 1 auto',
+                    padding: '6px 8px',
+                    fontSize: 'var(--font-xs)',
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    border: '1px solid var(--color-border)',
+                    background: lens === opt.value ? 'var(--color-accent)' : 'transparent',
+                    color: lens === opt.value ? '#fff' : 'var(--color-textMuted)',
+                    fontWeight: lens === opt.value ? 600 : 400,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -222,12 +250,12 @@ export default function DashboardShell() {
           <div className="demo-banner">
             <span>
               <strong>Demo Mode</strong> &mdash; You&rsquo;re viewing example data.{' '}
-              {viewMode === 'audience' ? (
-                <Link to="/app/dashboard" style={{ color: 'inherit', fontWeight: 600 }} onClick={() => setViewMode('creator')}>
+              {lens === 'audience' ? (
+                <Link to="/app/dashboard" style={{ color: 'inherit', fontWeight: 600 }} onClick={() => switchPerspective('creator')}>
                   Switch to Creator View &rarr;
                 </Link>
               ) : (
-                <Link to="/app/discover" style={{ color: 'inherit', fontWeight: 600 }} onClick={() => setViewMode('audience')}>
+                <Link to="/app/discover" style={{ color: 'inherit', fontWeight: 600 }} onClick={() => switchPerspective('audience')}>
                   Switch to Foodie View &rarr;
                 </Link>
               )}
@@ -266,7 +294,7 @@ export default function DashboardShell() {
 
       <nav className="mobile-nav">
         <div className="mobile-nav-items">
-          {(viewMode === 'audience' ? audienceMobileNavItems : effectiveRole === 'partner' ? partnerMobileNavItems : creatorMobileNavItems).map((item) => (
+          {(lens === 'audience' ? audienceMobileNavItems : lens === 'partner' ? partnerMobileNavItems : creatorMobileNavItems).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

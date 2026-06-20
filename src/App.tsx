@@ -9,6 +9,8 @@ import { useAuthStore } from './store/authStore';
 import { FeatureGate } from './components/FeatureGate';
 import { useAuthInit } from './hooks/useAuthInit';
 import { api } from './services/ApiService';
+import { homeFor } from './lib/roleRoutes';
+import type { UserRole } from './types';
 import './styles/print.css';
 
 // Layouts
@@ -33,6 +35,7 @@ const RestaurantDirectory = lazy(() => import('./features/concept1-platform/Rest
 const RestaurantDetail = lazy(() => import('./features/concept1-platform/RestaurantDetail'));
 const CampaignManager = lazy(() => import('./features/concept1-platform/CampaignManager'));
 const PartnerPortal = lazy(() => import('./features/concept1-platform/PartnerPortal'));
+const PartnerBilling = lazy(() => import('./features/concept1-platform/PartnerBilling'));
 const OfferManager = lazy(() => import('./features/concept1-platform/OfferManager'));
 const CampaignReport = lazy(() => import('./features/concept1-platform/CampaignReport'));
 
@@ -111,11 +114,32 @@ function OnboardingGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * Role-based route guard. Renders children only if the user's effective role
+ * (which follows the admin/demo perspective lens) is allowed. Otherwise
+ * redirects to that role's home route. Admins are never hard-blocked because
+ * their effectiveRole tracks whatever perspective they've switched into.
+ */
+function RequireRole({ roles, children }: { roles: UserRole[]; children: ReactNode }) {
+  const { effectiveRole } = useAuth();
+
+  // Role not resolved yet (still loading) — don't redirect, avoid flicker/loops.
+  if (!effectiveRole) return <>{children}</>;
+  if (roles.includes(effectiveRole)) return <>{children}</>;
+  return <Navigate to={homeFor(effectiveRole)} replace />;
+}
+
 /* Route to the correct onboarding based on user role/group */
 function OnboardingRouter() {
   const { isPartner } = useAuth();
   if (isPartner) return <PartnerOnboarding />;
   return <CreatorOnboarding />;
+}
+
+/* Send /app to the right home for the current role/perspective. */
+function AppIndexRedirect() {
+  const { effectiveRole } = useAuth();
+  return <Navigate to={homeFor(effectiveRole)} replace />;
 }
 
 function AppFallback() {
@@ -149,55 +173,58 @@ export default function App() {
 
               {/* Dashboard routes */}
               <Route path="/app" element={<RequireAuth><OnboardingGuard><DashboardShell /></OnboardingGuard></RequireAuth>}>
-                {/* Dashboard */}
-                <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<CreatorDashboard />} />
+                {/* Dashboard — index redirects to the role/perspective home */}
+                <Route index element={<AppIndexRedirect />} />
+                <Route path="dashboard" element={<RequireRole roles={['creator']}><CreatorDashboard /></RequireRole>} />
 
-                {/* Partnerships & Restaurants */}
+                {/* Restaurants — cross-role browse (creators adopt, audience discovers) */}
                 <Route path="restaurants" element={<FeatureGate flag="restaurantPortal"><RestaurantDirectory /></FeatureGate>} />
                 <Route path="restaurants/:id" element={<FeatureGate flag="restaurantPortal"><RestaurantDetail /></FeatureGate>} />
-                <Route path="campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
-                <Route path="offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
-                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><ROIReporter /></FeatureGate>} />
-                <Route path="reports/:campaignId" element={<FeatureGate flag="restaurantPortal"><CampaignReport /></FeatureGate>} />
-                <Route path="crm" element={<FeatureGate flag="restaurantPortal"><PartnershipCRM /></FeatureGate>} />
 
-                {/* Partner Portal */}
-                <Route path="partner" element={<FeatureGate flag="restaurantPortal"><PartnerPortal /></FeatureGate>} />
-                <Route path="partner/campaigns" element={<FeatureGate flag="restaurantPortal"><CampaignManager /></FeatureGate>} />
-                <Route path="partner/offers" element={<FeatureGate flag="restaurantPortal"><OfferManager /></FeatureGate>} />
-                <Route path="partner/proposals" element={<FeatureGate flag="restaurantPortal"><ProposalInbox role="restaurant" /></FeatureGate>} />
+                {/* Creator-only tools */}
+                <Route path="campaigns" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['creator']}><CampaignManager /></RequireRole></FeatureGate>} />
+                <Route path="offers" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['creator']}><OfferManager /></RequireRole></FeatureGate>} />
+                <Route path="reports" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['creator']}><ROIReporter /></RequireRole></FeatureGate>} />
+                <Route path="reports/:campaignId" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['creator']}><CampaignReport /></RequireRole></FeatureGate>} />
+                <Route path="crm" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['creator']}><PartnershipCRM /></RequireRole></FeatureGate>} />
 
-                {/* Proposal Inbox */}
-                <Route path="proposals" element={<ProposalInbox role="creator" />} />
+                {/* Partner Portal — partner-only */}
+                <Route path="partner" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['partner']}><PartnerPortal /></RequireRole></FeatureGate>} />
+                <Route path="partner/campaigns" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['partner']}><CampaignManager /></RequireRole></FeatureGate>} />
+                <Route path="partner/offers" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['partner']}><OfferManager /></RequireRole></FeatureGate>} />
+                <Route path="partner/proposals" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['partner']}><ProposalInbox role="restaurant" /></RequireRole></FeatureGate>} />
+                <Route path="partner/billing" element={<FeatureGate flag="restaurantPortal"><RequireRole roles={['partner']}><PartnerBilling /></RequireRole></FeatureGate>} />
 
-                {/* Raffles */}
-                <Route path="raffles" element={<RaffleManager />} />
+                {/* Proposal Inbox — creator-only */}
+                <Route path="proposals" element={<RequireRole roles={['creator']}><ProposalInbox role="creator" /></RequireRole>} />
 
-                {/* Content Reviews */}
-                <Route path="content-reviews" element={<ContentReviewManager />} />
+                {/* Raffles — creator-only */}
+                <Route path="raffles" element={<RequireRole roles={['creator']}><RaffleManager /></RequireRole>} />
 
-                {/* Social Connections */}
-                <Route path="social" element={<SocialConnectionsPanel />} />
-                <Route path="social/callback/:platform" element={<SocialOAuthCallback />} />
+                {/* Content Reviews — creator-only */}
+                <Route path="content-reviews" element={<RequireRole roles={['creator']}><ContentReviewManager /></RequireRole>} />
 
-                {/* Multi-Creator Collaborations */}
-                <Route path="collaborations" element={<FeatureGate flag="multiCreator"><CollaborationPanel /></FeatureGate>} />
+                {/* Social Connections — creator-only */}
+                <Route path="social" element={<RequireRole roles={['creator']}><SocialConnectionsPanel /></RequireRole>} />
+                <Route path="social/callback/:platform" element={<RequireRole roles={['creator']}><SocialOAuthCallback /></RequireRole>} />
 
-                {/* AI */}
-                <Route path="insights" element={<AIInsights />} />
+                {/* Multi-Creator Collaborations — creator-only */}
+                <Route path="collaborations" element={<FeatureGate flag="multiCreator"><RequireRole roles={['creator']}><CollaborationPanel /></RequireRole></FeatureGate>} />
 
-                {/* Earnings & Payouts */}
-                <Route path="earnings" element={<Earnings />} />
+                {/* AI — creator-only */}
+                <Route path="insights" element={<RequireRole roles={['creator']}><AIInsights /></RequireRole>} />
 
-                {/* Content */}
-                <Route path="archive" element={<ContentArchive />} />
-                <Route path="calendar" element={<EditorialCalendar />} />
+                {/* Earnings & Payouts — creator-only */}
+                <Route path="earnings" element={<RequireRole roles={['creator']}><Earnings /></RequireRole>} />
 
-                {/* Ambassador Program */}
-                <Route path="ambassador" element={<FeatureGate flag="ambassador"><AmbassadorDashboard /></FeatureGate>} />
+                {/* Content — creator-only */}
+                <Route path="archive" element={<RequireRole roles={['creator']}><ContentArchive /></RequireRole>} />
+                <Route path="calendar" element={<RequireRole roles={['creator']}><EditorialCalendar /></RequireRole>} />
 
-                {/* Audience & Discovery */}
+                {/* Ambassador Program — creator-only */}
+                <Route path="ambassador" element={<FeatureGate flag="ambassador"><RequireRole roles={['creator']}><AmbassadorDashboard /></RequireRole></FeatureGate>} />
+
+                {/* Audience & Discovery — cross-role */}
                 <Route path="discover" element={<DiscoverApp />} />
                 <Route path="saved" element={<FeatureGate flag="membership"><SavedList /></FeatureGate>} />
                 <Route path="deals" element={<FeatureGate flag="membership"><DealsHub /></FeatureGate>} />

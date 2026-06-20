@@ -77,6 +77,13 @@ const APPROVAL_BADGE: Record<OfferApprovalStatus, { bg: string; color: string; l
   paused_by_creator: { bg: 'var(--color-errorMuted)', color: 'var(--color-error)', label: 'Paused by Creator' },
   paused_by_restaurant: { bg: 'var(--color-errorMuted)', color: 'var(--color-error)', label: 'Paused by Restaurant' },
   rejected: { bg: 'var(--color-errorMuted)', color: 'var(--color-error)', label: 'Rejected' },
+  published: { bg: 'var(--color-accentMuted)', color: 'var(--color-accent)', label: 'Open for Creators' },
+};
+
+/* Provenance badge — shows where an offer came from (marketplace). */
+const ORIGIN_BADGE: Record<string, { bg: string; color: string; label: string }> = {
+  restaurant_adopted: { bg: 'var(--color-successMuted)', color: 'var(--color-success)', label: 'Adopted from Restaurant' },
+  restaurant: { bg: 'var(--color-accentMuted)', color: 'var(--color-accent)', label: 'Restaurant Deal' },
 };
 
 /**
@@ -828,6 +835,19 @@ const OfferRow = memo(function OfferRow({
                 color: APPROVAL_BADGE[offer.approvalStatus]?.color || 'inherit',
               }}>
                 {APPROVAL_BADGE[offer.approvalStatus]?.label || offer.approvalStatus}
+              </span>
+            )}
+            {offer.origin && ORIGIN_BADGE[offer.origin] && (
+              <span style={{
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--font-xs)',
+                fontWeight: 600,
+                background: ORIGIN_BADGE[offer.origin].bg,
+                color: ORIGIN_BADGE[offer.origin].color,
+              }}>
+                {ORIGIN_BADGE[offer.origin].label}
               </span>
             )}
           </div>
