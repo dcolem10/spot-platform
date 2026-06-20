@@ -953,6 +953,17 @@ export default function LandingPage() {
   const setDemoOnboarded = useAuthStore((s) => s.setDemoOnboarded);
   const navScrolled = useScrolledNav();
   const [activeContentTab, setActiveContentTab] = useState<'creators' | 'restaurants' | 'how-it-works'>('creators');
+  const tabNavRef = useRef<HTMLElement>(null);
+
+  const switchTab = useCallback((tab: 'creators' | 'restaurants' | 'how-it-works') => {
+    setActiveContentTab(tab);
+    // Scroll so the tab nav sits just below the sticky main nav (72px)
+    const el = tabNavRef.current;
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - 72;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' });
+  }, []);
 
   const enterDemo = useCallback(async (path: string, role: 'creator' | 'partner' = 'creator') => {
     // Clear any stale Cognito session so demo mode doesn't conflict
@@ -998,8 +1009,8 @@ export default function LandingPage() {
           <span className="landing-nav-logo-text">Spot</span>
         </div>
         <div className="landing-nav-actions">
-          <button onClick={() => setActiveContentTab('restaurants')} className="landing-nav-link landing-nav-link--restaurants">For Restaurants</button>
-          <button onClick={() => setActiveContentTab('creators')} className="landing-nav-link landing-nav-link--pricing">Pricing</button>
+          <button onClick={() => switchTab('restaurants')} className="landing-nav-link landing-nav-link--restaurants">For Restaurants</button>
+          <button onClick={() => switchTab('creators')} className="landing-nav-link landing-nav-link--pricing">Pricing</button>
           <Link to="/auth" className="landing-nav-link">Sign In</Link>
           <button
             onClick={() => enterDemo('/app/dashboard')}
@@ -1094,13 +1105,13 @@ export default function LandingPage() {
       </section>
 
       {/* ── Tab Navigation ───────────────────────────────────────────────── */}
-      <nav className="content-tab-nav" aria-label="Content sections">
+      <nav className="content-tab-nav" aria-label="Content sections" ref={tabNavRef}>
         <div className="content-tab-nav-inner">
           {(['creators', 'restaurants', 'how-it-works'] as const).map((tab) => (
             <button
               key={tab}
               className={`content-tab-pill${activeContentTab === tab ? ' content-tab-pill--active' : ''}`}
-              onClick={() => setActiveContentTab(tab)}
+              onClick={() => switchTab(tab)}
             >
               {tab === 'creators' ? 'For Creators' : tab === 'restaurants' ? 'For Restaurants' : 'How It Works'}
             </button>

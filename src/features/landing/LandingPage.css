@@ -2966,6 +2966,13 @@
     flex-direction: column;
     align-items: stretch;
   }
+  /* Reset desktop fixed-width flex basis — in column direction flex-basis
+     becomes height, which made buttons 260px tall. Full-width is handled
+     by align-items:stretch + width:100% on the children instead. */
+  .landing-hero-actions > .cta-pulse-wrap,
+  .landing-hero-actions > .btn {
+    flex: none;
+  }
   /* Both hero CTAs read as a matched, full-width pair on mobile. The primary
      button is wrapped in .cta-pulse-wrap (inline-flex), so the wrapper must
      stretch too or it — and its button — won't fill the column the way the
