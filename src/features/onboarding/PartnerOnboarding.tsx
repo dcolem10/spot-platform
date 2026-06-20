@@ -47,10 +47,22 @@ const CUISINES = [
 ];
 
 const OFFER_TYPES = [
-  { label: 'Percentage Off', value: 'percentage' },
-  { label: 'Free Item', value: 'free_item' },
-  { label: 'Buy One Get One', value: 'bogo' }
+  { label: 'Percentage Off', value: 'percentage', icon: '％' },
+  { label: 'Free Item', value: 'free_item', icon: '🎁' },
+  { label: 'Buy One Get One', value: 'bogo', icon: '🍔' }
 ];
+
+const STEPS = [
+  { n: 1, label: 'Restaurant' },
+  { n: 2, label: 'Offer' },
+  { n: 3, label: 'Launch' },
+];
+
+const STEP_META: Record<number, { icon: string; title: string }> = {
+  1: { icon: '🍽️', title: 'Restaurant Information' },
+  2: { icon: '🎟️', title: 'Create Your First Offer' },
+  3: { icon: '🚀', title: 'Review & Launch' },
+};
 
 interface FormData {
   restaurantName: string;
@@ -344,46 +356,96 @@ export default function PartnerOnboarding() {
     }
   };
 
-  const progressPercent = (step / 3) * 100;
-
   const containerStyle: React.CSSProperties = {
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'var(--color-bgSurface)',
-    padding: '20px',
+    backgroundColor: 'var(--color-bgPrimary)',
+    backgroundImage: 'radial-gradient(900px circle at 50% -10%, rgba(249,115,22,0.10), transparent 55%)',
+    padding: '24px',
   };
 
   const wrapperStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: '560px',
-    backgroundColor: 'var(--color-bgCard, #1a1a2e)',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+    backgroundColor: 'var(--color-bgSecondary, #111119)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-xl, 24px)',
+    boxShadow: 'var(--shadow-xl)',
     padding: '40px',
   };
 
-  const progressBarStyle: React.CSSProperties = {
-    height: '4px',
-    backgroundColor: 'var(--color-bgElevated)',
-    borderRadius: '2px',
-    marginBottom: '40px',
-    overflow: 'hidden',
+  const stepperStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    marginBottom: '36px',
   };
 
-  const progressFillStyle: React.CSSProperties = {
-    height: '100%',
-    backgroundColor: 'var(--color-accent)',
-    width: `${progressPercent}%`,
-    transition: 'width 0.3s ease',
+  const stepCircleStyle = (active: boolean, done: boolean): React.CSSProperties => ({
+    width: '34px',
+    height: '34px',
+    flexShrink: 0,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '14px',
+    fontWeight: 700,
+    fontFamily: 'var(--font-display)',
+    background: active || done ? 'var(--gradient-warm)' : 'var(--color-bgElevated)',
+    color: active || done ? '#fff' : 'var(--color-textMuted)',
+    boxShadow: active ? 'var(--shadow-glow)' : 'none',
+    transition: 'all 0.3s ease',
+  });
+
+  const stepLabelStyle = (on: boolean): React.CSSProperties => ({
+    fontSize: '12px',
+    fontWeight: 600,
+    fontFamily: 'var(--font-display)',
+    color: on ? 'var(--color-textPrimary)' : 'var(--color-textMuted)',
+    transition: 'color 0.3s ease',
+  });
+
+  const stepConnectorStyle = (done: boolean): React.CSSProperties => ({
+    flex: 1,
+    height: '2px',
+    marginTop: '16px',
+    borderRadius: '2px',
+    background: done ? 'var(--gradient-warm)' : 'var(--color-border)',
+    transition: 'all 0.3s ease',
+  });
+
+  const headerBadgeStyle: React.CSSProperties = {
+    width: '48px',
+    height: '48px',
+    flexShrink: 0,
+    borderRadius: 'var(--radius-md, 12px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '24px',
+    background: 'var(--color-accentMuted)',
+    border: '1px solid var(--color-border)',
+  };
+
+  const eyebrowStyle: React.CSSProperties = {
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '1.5px',
+    textTransform: 'uppercase',
+    color: 'var(--color-accent)',
+    marginBottom: '4px',
+    fontFamily: 'var(--font-display)',
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: '24px',
-    fontWeight: '600',
+    fontSize: '28px',
+    fontWeight: 800,
+    letterSpacing: '-0.02em',
+    fontFamily: 'var(--font-display)',
     color: 'var(--color-textPrimary)',
-    marginBottom: '12px',
+    margin: 0,
   };
 
   const subtitleStyle: React.CSSProperties = {
@@ -407,13 +469,13 @@ export default function PartnerOnboarding() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '12px',
+    padding: '13px 14px',
     border: '1px solid var(--color-border, #333)',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-md, 12px)',
     fontSize: '14px',
     fontFamily: 'inherit',
     boxSizing: 'border-box',
-    transition: 'border-color 0.2s',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
     backgroundColor: 'var(--color-bgElevated, #252540)',
     color: 'var(--color-textPrimary, #fff)',
   };
@@ -428,6 +490,7 @@ export default function PartnerOnboarding() {
     boxSizing: 'border-box',
     minHeight: '80px',
     resize: 'vertical',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
     backgroundColor: 'var(--color-bgElevated, #252540)',
     color: 'var(--color-textPrimary, #fff)',
   };
@@ -443,10 +506,11 @@ export default function PartnerOnboarding() {
     width: '100%',
     padding: '12px',
     border: '1px solid var(--color-border, #333)',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-md, 12px)',
     fontSize: '14px',
     fontFamily: 'inherit',
     boxSizing: 'border-box',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
     backgroundColor: 'var(--color-bgElevated, #252540)',
     color: 'var(--color-textPrimary, #fff)',
   };
@@ -474,13 +538,14 @@ export default function PartnerOnboarding() {
 
   const chipStyle = (selected: boolean): React.CSSProperties => ({
     padding: '8px 16px',
-    borderRadius: '20px',
+    borderRadius: 'var(--radius-full, 9999px)',
     cursor: 'pointer',
     fontSize: '13px',
-    fontWeight: '500',
-    border: 'none',
-    backgroundColor: selected ? 'var(--color-accent)' : 'var(--color-bgElevated)',
-    color: selected ? 'white' : 'var(--color-textPrimary)',
+    fontWeight: 600,
+    border: selected ? '1px solid transparent' : '1px solid var(--color-border)',
+    background: selected ? 'var(--gradient-warm)' : 'var(--color-bgElevated)',
+    color: selected ? '#fff' : 'var(--color-textSecondary)',
+    boxShadow: selected ? 'var(--shadow-glow)' : 'none',
     transition: 'all 0.2s',
   });
 
@@ -491,14 +556,21 @@ export default function PartnerOnboarding() {
   };
 
   const radioOptionStyle = (selected: boolean): React.CSSProperties => ({
-    padding: '12px',
-    border: selected ? '2px solid var(--color-accent)' : '2px solid var(--color-border)',
-    borderRadius: '8px',
+    padding: '16px 12px',
+    border: selected ? '1.5px solid var(--color-accent)' : '1.5px solid var(--color-border)',
+    borderRadius: 'var(--radius-md, 12px)',
     cursor: 'pointer',
     textAlign: 'center',
-    backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgSurface)',
+    backgroundColor: selected ? 'var(--color-accentMuted)' : 'var(--color-bgElevated)',
+    boxShadow: selected ? 'var(--shadow-glow)' : 'none',
     transition: 'all 0.2s',
   });
+
+  const radioIconStyle: React.CSSProperties = {
+    fontSize: '22px',
+    marginBottom: '8px',
+    lineHeight: 1,
+  };
 
   const radioLabelStyle: React.CSSProperties = {
     display: 'block',
@@ -575,40 +647,45 @@ export default function PartnerOnboarding() {
 
   const backButtonStyle: React.CSSProperties = {
     flex: 1,
-    padding: '12px 24px',
-    border: '2px solid var(--color-border, #333)',
+    padding: '13px 24px',
+    border: '1px solid var(--color-border, #333)',
     backgroundColor: 'var(--color-bgElevated, #252540)',
-    color: 'var(--color-textPrimary)',
-    borderRadius: '8px',
+    color: 'var(--color-textSecondary)',
+    borderRadius: 'var(--radius-md, 12px)',
     fontSize: '14px',
-    fontWeight: '500',
+    fontWeight: 600,
+    fontFamily: 'var(--font-display)',
     cursor: 'pointer',
     transition: 'all 0.2s',
   };
 
   const nextButtonStyle: React.CSSProperties = {
     flex: 1,
-    padding: '12px 24px',
-    backgroundColor: 'var(--color-accent)',
+    padding: '13px 24px',
+    background: 'var(--gradient-warm)',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-md, 12px)',
     fontSize: '14px',
-    fontWeight: '500',
+    fontWeight: 700,
+    fontFamily: 'var(--font-display)',
     cursor: 'pointer',
+    boxShadow: 'var(--shadow-glow)',
     transition: 'all 0.2s',
   };
 
   const launchButtonStyle: React.CSSProperties = {
     width: '100%',
-    padding: '12px 24px',
-    backgroundColor: 'var(--color-accent)',
+    padding: '14px 24px',
+    background: 'var(--gradient-warm)',
     color: 'white',
     border: 'none',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '500',
+    borderRadius: 'var(--radius-md, 12px)',
+    fontSize: '15px',
+    fontWeight: 700,
+    fontFamily: 'var(--font-display)',
     cursor: 'pointer',
+    boxShadow: 'var(--shadow-glow)',
     transition: 'all 0.2s',
   };
 
@@ -636,10 +713,11 @@ export default function PartnerOnboarding() {
         input:focus, textarea:focus, select:focus {
           outline: none;
           border-color: var(--color-accent) !important;
+          box-shadow: 0 0 0 3px var(--color-accentMuted);
         }
         button:hover:not(:disabled) {
-          opacity: 0.9;
           transform: translateY(-1px);
+          filter: brightness(1.05);
         }
         button:disabled {
           opacity: 0.6;
@@ -684,15 +762,34 @@ export default function PartnerOnboarding() {
       `}</style>
 
       <div style={wrapperStyle}>
-        <div style={progressBarStyle}>
-          <div style={progressFillStyle} />
+        <div style={stepperStyle}>
+          {STEPS.map((s, i) => (
+            <div
+              key={s.n}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                flex: i < STEPS.length - 1 ? 1 : 'none',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div style={stepCircleStyle(step === s.n, step > s.n)}>
+                  {step > s.n ? '✓' : s.n}
+                </div>
+                <span style={stepLabelStyle(step >= s.n)}>{s.label}</span>
+              </div>
+              {i < STEPS.length - 1 && <div style={stepConnectorStyle(step > s.n)} />}
+            </div>
+          ))}
         </div>
 
-        <h1 style={titleStyle}>
-          {step === 1 && 'Restaurant Information'}
-          {step === 2 && 'Create Your First Offer'}
-          {step === 3 && 'Review & Launch'}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
+          <div style={headerBadgeStyle}>{STEP_META[step].icon}</div>
+          <div>
+            <div style={eyebrowStyle}>Step {step} of 3</div>
+            <h1 style={titleStyle}>{STEP_META[step].title}</h1>
+          </div>
+        </div>
 
         <p style={subtitleStyle}>
           {step === 1 && "Let's get your restaurant on Spot — it's free. Creators will find you and drive measurable new customers to your door."}
@@ -836,6 +933,7 @@ export default function PartnerOnboarding() {
                       style={radioOptionStyle(formData.offerType === offerType.value)}
                       onClick={() => handleOfferTypeChange(offerType.value)}
                     >
+                      <div style={radioIconStyle}>{offerType.icon}</div>
                       <label style={radioLabelStyle}>
                         {offerType.label}
                       </label>
