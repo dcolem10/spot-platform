@@ -2951,6 +2951,11 @@
   .landing-hero {
     padding: calc(var(--space-10) + 40px) var(--space-4) var(--space-6);
   }
+  /* Floating badges use absolute negative offsets (right:-8%, left:-6%) that
+     bleed outside the viewport on narrow screens — hide them on mobile. */
+  .hbf {
+    display: none;
+  }
   .landing-hero-3d {
     height: 180px;
   }
