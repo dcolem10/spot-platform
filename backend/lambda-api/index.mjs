@@ -648,6 +648,76 @@ async function updateCampaign(campaignId, event) {
 
 // ─── Offer CRUD ───────────────────────────────────────────────────────────────
 
+/**
+ * Sanitize structured deal-value terms — the concrete benefit a diner gets for
+ * using the code (e.g. 15% off, $10 off, free dessert). This is the audience
+ * incentive that makes a promo code worth redeeming, so it is stored on the
+ * offer row itself (not only in the approval handshake) and surfaced on every
+ * viewer-facing card. Returns null when no valid terms are provided.
+ */
+function sanitizeOfferTerms(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const VALID_DISCOUNT_TYPES = ['percent', 'fixed', 'freeItem'];
+  if (!VALID_DISCOUNT_TYPES.includes(raw.discountType)) return null;
+  const maxValue = raw.discountType === 'percent' ? 100 : 1000;
+  const terms = {
+    discountType: raw.discountType,
+    discountValue: Math.max(0, Math.min(Number(raw.discountValue) || 0, maxValue)),
+  };
+  if (raw.freeItemDescription) terms.freeItemDescription = sanitize(raw.freeItemDescription, 200);
+  if (raw.maxRedemptions) terms.maxRedemptions = Math.max(1, Math.min(Number(raw.maxRedemptions) || 1, 100000));
+  if (raw.minSpend != null && Number(raw.minSpend) > 0) terms.minSpend = Math.min(Number(raw.minSpend), 10000);
+  if (raw.notes) terms.notes = sanitize(raw.notes, 500);
+  return terms;
+}
+
+/** Short human label for structured terms, e.g. "15% Off" / "$10 Off" / "Free Dessert". */
+function offerValueLabel(terms) {
+  if (!terms) return null;
+  if (terms.discountType === 'percent' && terms.discountValue > 0) return `${terms.discountValue}% Off`;
+  if (terms.discountType === 'fixed' && terms.discountValue > 0) return `$${terms.discountValue} Off`;
+  if (terms.discountType === 'freeItem') {
+    return terms.freeItemDescription ? `Free ${terms.freeItemDescription}` : 'Free Item';
+  }
+  return null;
+}
+
+/**
+ * Project a restaurant-blessed offer into the public audience deals feed
+ * (GSI1PK='DEALS') so diners can discover the code in the Deals hub — the
+ * demand side of the attribution loop. Best-effort: callers must not fail
+ * their main mutation if this write fails. The redeem path always
+ * re-validates the LIVE offer, so a stale card can show but can never mint
+ * a redemption on a paused or expired offer.
+ */
+async function projectOfferToDealsFeed(offer) {
+  const terms = offer.terms || null;
+  await ddb.send(new PutCommand({
+    TableName: TABLE,
+    Item: {
+      PK: `RESTAURANT#${offer.restaurantId}`,
+      SK: `DEAL#${offer.offerId}`,
+      GSI1PK: 'DEALS',
+      GSI1SK: `DEAL#${offer.offerId}`,
+      dealId: offer.offerId,
+      restaurantId: offer.restaurantId,
+      restaurantName: offer.restaurantName || '',
+      title: offerValueLabel(terms) || (offer.description ? offer.description.slice(0, 80) : 'Creator deal'),
+      description: offer.description || '',
+      insiderOnly: false,
+      code: offer.code,
+      ...(terms ? { terms } : {}),
+      source: 'offer',
+      expiresAt: offer.expiresAt || null,
+      createdAt: new Date().toISOString(),
+      // Expired deals age out of the feed automatically (7-day grace)
+      ...(offer.expiresAt
+        ? { ttl: Math.floor(new Date(offer.expiresAt).getTime() / 1000) + 86400 * 7 }
+        : {}),
+    },
+  }));
+}
+
 async function createOffer(restaurantId, event) {
   if (!isValidId(restaurantId)) return respond(400, { error: 'Invalid restaurant ID' });
   const userId = getUserId(event);
@@ -725,6 +795,10 @@ async function createOffer(restaurantId, event) {
     if (!isNaN(parsed.getTime())) expiresAt = parsed.toISOString();
   }
 
+  // Structured deal value (the diner's incentive). Accepts `terms` or the
+  // legacy `creatorTerms` field the Partner publish UI already sends.
+  const terms = sanitizeOfferTerms(body.terms || body.creatorTerms);
+
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
     SK: `OFFER#${id}`,
@@ -742,6 +816,7 @@ async function createOffer(restaurantId, event) {
     code,
     type: offerType,
     description: sanitize(body.description, 500),
+    ...(terms ? { terms } : {}),
     landingPageUrl: `/r/${sanitize(body.slug || restaurantId, 100)}`,
     scans: 0,
     redemptions: 0,
@@ -778,6 +853,8 @@ async function createOffer(restaurantId, event) {
               restaurantId,
               code,
               description: item.description,
+              restaurantName: item.restaurantName,
+              ...(terms ? { terms } : {}),
               landingPageUrl: item.landingPageUrl,
               isActive: item.isActive,
               expiresAt: item.expiresAt,
@@ -825,6 +902,10 @@ async function adoptOffer(templateOfferId, event) {
   const code = `SPOT-${id.slice(0, 8).toUpperCase()}`;
   const now = new Date().toISOString();
 
+  // Inherit the restaurant's structured deal value — the adopted code must
+  // carry the same diner incentive the restaurant funded on the template.
+  const terms = sanitizeOfferTerms(tpl.Item.terms || tpl.Item.creatorTerms);
+
   const item = {
     PK: `RESTAURANT#${restaurantId}`,
     SK: `OFFER#${id}`,
@@ -840,6 +921,7 @@ async function adoptOffer(templateOfferId, event) {
     code,
     type: tpl.Item.type || 'qr',
     description: tpl.Item.description || '',
+    ...(terms ? { terms } : {}),
     landingPageUrl: tpl.Item.landingPageUrl || `/r/${restaurantId}`,
     scans: 0,
     redemptions: 0,
@@ -876,6 +958,8 @@ async function adoptOffer(templateOfferId, event) {
               restaurantId,
               code,
               description: item.description,
+              restaurantName: item.restaurantName,
+              ...(terms ? { terms } : {}),
               landingPageUrl: item.landingPageUrl,
               isActive: item.isActive,
               expiresAt: item.expiresAt,
@@ -903,6 +987,14 @@ async function adoptOffer(templateOfferId, event) {
     }));
   } catch (err) {
     console.warn(`adoptOffer rollup failed: ${err.message}`);
+  }
+
+  // Audience bridge: adopted codes are live immediately, so surface them to
+  // diners in the Deals hub right away.
+  try {
+    await projectOfferToDealsFeed(item);
+  } catch (err) {
+    console.warn(`adoptOffer deal-feed projection failed (non-fatal): ${err.message}`);
   }
 
   return respond(201, stripDdbKeys(item));
@@ -1202,7 +1294,8 @@ async function redeemOffer(code, event) {
       new GetCommand({
         TableName: TABLE,
         Key: { PK: lookupRec.restaurantPK, SK: lookupRec.offerSK },
-        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId, creatorId',
+        ProjectionExpression: 'isActive, expiresAt, offerId, restaurantId, creatorId, description, restaurantName, #t',
+        ExpressionAttributeNames: { '#t': 'terms' },
       })
     );
     const offer = liveOffer.Item || lookupRec; // fallback to lookup if offer record missing
@@ -1210,6 +1303,15 @@ async function redeemOffer(code, event) {
     // Validate offer is active and not expired
     const check = validateOffer(offer);
     if (!check.valid) return respond(410, { error: check.error });
+
+    // What the diner gets for using this code — echoed back so redemption UIs
+    // can show the benefit alongside the code (the incentive to actually use it).
+    const benefit = {
+      code,
+      description: offer.description ?? lookupRec.description ?? '',
+      terms: offer.terms ?? lookupRec.terms ?? null,
+      restaurantName: offer.restaurantName ?? lookupRec.restaurantName ?? '',
+    };
 
     // Extract source from body or query params
     const body = parseBody(event) || {};
@@ -1239,9 +1341,10 @@ async function redeemOffer(code, event) {
       );
     } catch (err) {
       if (err.name === 'ConditionalCheckFailedException') {
-        // Already redeemed today from this IP — still return success but don't double-count
+        // Already redeemed today from this IP — still return success but don't
+        // double-count. Echo the benefit so the diner can still see their code.
         console.log(`Duplicate redemption skipped: code=${code}, ip=${ip}`);
-        return respond(200, { message: 'Already redeemed', offerId: offer.offerId });
+        return respond(200, { message: 'Already redeemed', offerId: offer.offerId, ...benefit });
       }
       throw err;
     }
@@ -1292,7 +1395,7 @@ async function redeemOffer(code, event) {
     }
 
     console.log(`Offer redeemed: code=${code}, restaurant=${offer.restaurantId}, source=${source}`);
-    return respond(200, { message: 'Redeemed', offerId: offer.offerId, source });
+    return respond(200, { message: 'Redeemed', offerId: offer.offerId, source, ...benefit });
   } catch (err) {
     console.error(`redeemOffer error: code=${code}, error=${err.message}`);
     return respond(500, { error: 'Internal server error' });
@@ -6154,17 +6257,23 @@ async function approveOffer(offerId, event) {
     notes: body.restaurantTerms.notes ? sanitize(body.restaurantTerms.notes, 500) : undefined,
   } : offer.creatorTerms;
 
+  // The restaurant-approved terms become the single viewer-facing `terms`
+  // field — the diner incentive shown on every deal card and code reveal.
+  const finalTerms = sanitizeOfferTerms(restaurantTerms) || sanitizeOfferTerms(offer.terms) || null;
+
   // Conditional update prevents duplicate approvals from concurrent requests
   try {
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE,
         Key: { PK: offer.PK, SK: offer.SK },
-        UpdateExpression: 'SET approvalStatus = :status, restaurantTerms = :terms, mutuallyApproved = :approved, approvedAt = :now, updatedAt = :now',
+        UpdateExpression: 'SET approvalStatus = :status, restaurantTerms = :terms, #ft = :finalTerms, mutuallyApproved = :approved, approvedAt = :now, updatedAt = :now',
         ConditionExpression: 'approvalStatus = :pending',
+        ExpressionAttributeNames: { '#ft': 'terms' },
         ExpressionAttributeValues: {
           ':status': 'approved',
           ':terms': restaurantTerms,
+          ':finalTerms': finalTerms,
           ':approved': true,
           ':now': nowISO,
           ':pending': 'pending_restaurant',
@@ -6194,6 +6303,13 @@ async function approveOffer(offerId, event) {
     'Deal Approved!',
     `Great news! ${offer.restaurantName} has approved your deal "${offer.description}". The QR code is now live and ready to share.`
   );
+
+  // Approval makes the code live — surface it to diners in the Deals hub.
+  try {
+    await projectOfferToDealsFeed({ ...offer, terms: finalTerms });
+  } catch (err) {
+    console.warn(`approveOffer deal-feed projection failed (non-fatal): ${err.message}`);
+  }
 
   return respond(200, { message: 'Offer approved', offerId, approvalStatus: 'approved' });
 }
@@ -6368,6 +6484,15 @@ async function pauseOffer(offerId, event) {
     } catch (e) { console.warn(`Lookup update failed: ${e.message}`); }
   }
 
+  // Pull the deal card from the audience feed while the offer is paused
+  // (best-effort — redeem re-validates the live offer regardless).
+  try {
+    await ddb.send(new DeleteCommand({
+      TableName: TABLE,
+      Key: { PK: `RESTAURANT#${offer.restaurantId}`, SK: `DEAL#${offerId}` },
+    }));
+  } catch (e) { console.warn(`Deal-feed removal failed (non-fatal): ${e.message}`); }
+
   // Notify the other party
   const notifyTarget = pausedBy === 'creator' ? offer.restaurantId : offer.creatorId;
   const notifyType = 'offer_paused';
@@ -6470,6 +6595,13 @@ async function resumeOffer(offerId, event) {
         })
       );
     } catch (e) { console.warn(`Lookup update failed: ${e.message}`); }
+  }
+
+  // Restore the deal card to the audience feed if the code is publicly live again
+  if (previousStatus === 'approved') {
+    try {
+      await projectOfferToDealsFeed({ ...offer, isActive: true });
+    } catch (e) { console.warn(`Deal-feed restore failed (non-fatal): ${e.message}`); }
   }
 
   return respond(200, { message: 'Offer resumed', offerId, approvalStatus: previousStatus });
