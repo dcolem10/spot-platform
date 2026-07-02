@@ -220,6 +220,14 @@
 
 ---
 
+## AUDIENCE INCENTIVE (Items 36–38) — Follow-ups from demo feedback (see docs/audience-incentive-design.md)
+
+- [ ] **36. Redemption-linked raffle entry** — Add "redeem a code to enter" as a raffle entry method so raffles amplify (not bypass) the redemption incentive — Source: Audience Incentive Design §5.2
+- [ ] **37. Insider membership value ladder** — insiderOnly deals carry visibly better structured terms than public ones; wire alongside Stripe price IDs (#18) — Source: Audience Incentive Design §5.3
+- [ ] **38. Claimed-code redemption nudges** — SES reminder for claimed-but-unused codes nearing expiry — Source: Audience Incentive Design §5.5
+
+---
+
 ## Change Log
 
 | Date | Item | Status | Notes |

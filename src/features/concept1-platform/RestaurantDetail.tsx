@@ -5,6 +5,7 @@ import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { isDemoMode, DEMO_RESTAURANTS_BY_CITY, DEMO_CAMPAIGNS, DEMO_OFFERS } from '../../data/demoData';
 import { Breadcrumb } from '../../components/Breadcrumb';
+import { formatOfferValue } from '../../lib/offerValue';
 import type { Restaurant, Campaign, Offer } from '../../types';
 
 interface GoogleReview {
@@ -412,7 +413,14 @@ export default function RestaurantDetail() {
                   gap: 'var(--space-2)',
                 }}
               >
-                <span className="badge badge--accent" style={{ alignSelf: 'flex-start', textTransform: 'uppercase' }}>Open Deal</span>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                  <span className="badge badge--accent" style={{ textTransform: 'uppercase' }}>Open Deal</span>
+                  {formatOfferValue(deal.terms) && (
+                    <span className="badge badge--success" style={{ fontWeight: 700 }}>
+                      {formatOfferValue(deal.terms)}
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontWeight: 600, fontSize: 'var(--font-sm)', color: 'var(--color-textPrimary)' }}>{deal.description}</div>
                 {deal.expiresAt && (
                   <div style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)' }}>

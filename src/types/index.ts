@@ -124,6 +124,8 @@ export interface Offer {
   code: string;
   type: 'qr' | 'promo' | 'link';
   description: string;
+  /** Structured deal value — the diner's incentive to actually use the code. */
+  terms?: OfferTerms;
   landingPageUrl: string;
   scans: number;
   redemptions: number;
@@ -216,6 +218,12 @@ export interface DealOffer {
   description: string;
   insiderOnly: boolean;
   expiresAt?: string;
+  /** Redeemable promo code — present when this deal is backed by a tracked offer. */
+  code?: string;
+  /** Structured deal value — the diner's incentive to actually use the code. */
+  terms?: OfferTerms;
+  /** 'offer' when projected from the attributed offer system. */
+  source?: 'offer' | 'insider';
 }
 
 export interface RecommendationRequest {

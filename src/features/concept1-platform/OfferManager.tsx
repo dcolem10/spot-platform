@@ -8,7 +8,8 @@ import { EmptyState } from '../../components/EmptyState';
 import { StyledSelect } from '../../components/FormControls';
 import { CalendarDatePicker } from '../../components/CalendarDatePicker';
 import { isDemoMode, DEMO_OFFERS, DEMO_CAMPAIGNS } from '../../data/demoData';
-import type { Offer, Campaign, OfferApprovalStatus } from '../../types';
+import { formatOfferValue } from '../../lib/offerValue';
+import type { Offer, Campaign, OfferApprovalStatus, OfferTerms } from '../../types';
 
 const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string) || '').replace(/\/$/, '');
 
@@ -30,6 +31,9 @@ interface CreateOfferForm {
   restaurantName: string;
   linkedCampaignId: string;
   expiresAt: string;
+  discountType: OfferTerms['discountType'];
+  discountValue: number;
+  freeItemDescription: string;
 }
 
 const emptyForm: CreateOfferForm = {
@@ -39,7 +43,25 @@ const emptyForm: CreateOfferForm = {
   restaurantName: '',
   linkedCampaignId: '',
   expiresAt: '',
+  discountType: 'percent',
+  discountValue: 15,
+  freeItemDescription: '',
 };
+
+/** Build structured terms from the form — the diner's incentive to redeem. */
+function formTerms(form: CreateOfferForm): OfferTerms | undefined {
+  if (form.discountType === 'freeItem') {
+    return {
+      discountType: 'freeItem',
+      discountValue: 0,
+      freeItemDescription: form.freeItemDescription.trim() || undefined,
+    };
+  }
+  if (form.discountValue > 0) {
+    return { discountType: form.discountType, discountValue: form.discountValue };
+  }
+  return undefined;
+}
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -276,7 +298,7 @@ export default function OfferManager() {
       .map((c) => ({ id: c.restaurantId, name: c.restaurantName }));
   }, [campaigns]);
 
-  const handleFormChange = useCallback((field: keyof CreateOfferForm, value: string) => {
+  const handleFormChange = useCallback((field: keyof CreateOfferForm, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   }, []);
 
@@ -294,6 +316,7 @@ export default function OfferManager() {
     createMutation.mutate({
       type: form.type,
       description: form.description.trim(),
+      terms: formTerms(form),
       restaurantName: form.restaurantName,
       linkedCampaignId: form.linkedCampaignId || undefined,
       expiresAt: form.expiresAt || undefined,
@@ -597,6 +620,65 @@ export default function OfferManager() {
             </label>
           </div>
 
+          {/* Diner incentive (full width) — a code without a concrete benefit never gets used */}
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <span style={labelStyle}>What diners get for using this code</span>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap', marginTop: 'var(--space-1)' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                {([
+                  { value: 'percent', label: '% Off' },
+                  { value: 'fixed', label: '$ Off' },
+                  { value: 'freeItem', label: 'Free Item' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`badge ${form.discountType === opt.value ? 'badge--accent' : ''}`}
+                    style={{
+                      cursor: 'pointer',
+                      background: form.discountType === opt.value ? undefined : 'var(--color-bgElevated)',
+                      color: form.discountType === opt.value ? undefined : 'var(--color-textSecondary)',
+                      border: 'none',
+                      padding: 'var(--space-2) var(--space-3)',
+                      fontSize: 'var(--font-sm)',
+                    }}
+                    onClick={() => handleFormChange('discountType', opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {form.discountType !== 'freeItem' ? (
+                <input
+                  type="number"
+                  min={0}
+                  max={form.discountType === 'percent' ? 100 : 1000}
+                  value={form.discountValue}
+                  onChange={(e) => handleFormChange('discountValue', Number(e.target.value))}
+                  style={{ ...inputStyle, width: '90px' }}
+                  aria-label="Discount value"
+                />
+              ) : (
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={form.freeItemDescription}
+                  placeholder="e.g. dessert with any entrée"
+                  onChange={(e) => handleFormChange('freeItemDescription', e.target.value)}
+                  style={{ ...inputStyle, minWidth: '220px', flex: 1 }}
+                  aria-label="Free item description"
+                />
+              )}
+              {formatOfferValue(formTerms(form)) && (
+                <span className="badge badge--success" style={{ fontWeight: 700 }}>
+                  {formatOfferValue(formTerms(form))}
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-1)' }}>
+              This is shown to your followers everywhere the code appears — deals with a clear benefit get redeemed.
+            </p>
+          </div>
+
           {/* Description (full width) */}
           <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', marginTop: 'var(--space-4)' }}>
             <span style={labelStyle}>
@@ -823,6 +905,11 @@ const OfferRow = memo(function OfferRow({
             >
               {offer.code}
             </span>
+            {formatOfferValue(offer.terms) && (
+              <span className="badge badge--success" style={{ fontWeight: 700 }}>
+                {formatOfferValue(offer.terms)}
+              </span>
+            )}
             {expired && <span className="badge badge--error">Expired</span>}
             {offer.approvalStatus && offer.approvalStatus !== 'creator_only' && (
               <span style={{
@@ -970,11 +1057,11 @@ const OfferRow = memo(function OfferRow({
               style={{ fontSize: 'var(--font-xs)' }}
               onClick={() => onSubmitForApproval.mutate({
                 offerId: offer.offerId,
-                creatorTerms: {
-                  discountType: 'percent',
-                  discountValue: 15,
-                  notes: offer.description,
-                },
+                // Submit the offer's real structured value — only fall back to a
+                // generic 15% when the offer predates structured terms.
+                creatorTerms: offer.terms
+                  ? { ...offer.terms, notes: offer.terms.notes || offer.description }
+                  : { discountType: 'percent', discountValue: 15, notes: offer.description },
               })}
               disabled={onSubmitForApproval.isPending}
               title="Submit this deal for restaurant approval"

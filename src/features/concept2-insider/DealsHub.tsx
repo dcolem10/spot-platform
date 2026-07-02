@@ -5,6 +5,7 @@ import { api } from '../../services/ApiService';
 import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_DEALS } from '../../data/demoData';
+import { formatOfferValue, formatOfferQualifier } from '../../lib/offerValue';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ function formatExpiration(expiresAt?: string): string | null {
 interface DealCardProps {
   deal: DealOffer;
   membershipTier: MembershipTier;
-  onRedeem: (dealId: string) => void;
+  onRedeem: (deal: DealOffer) => Promise<void>;
 }
 
 function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
@@ -39,13 +40,15 @@ function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
   const isLocked = deal.insiderOnly && membershipTier === 'free';
   const expirationText = formatExpiration(deal.expiresAt);
   const isExpired = expirationText === 'Expired';
+  const valueLabel = formatOfferValue(deal.terms);
+  const qualifier = formatOfferQualifier(deal.terms);
 
   const handleRedeem = useCallback(async () => {
     if (isLocked || isExpired) return;
     setIsRedeeming(true);
-    await onRedeem(deal.dealId);
+    await onRedeem(deal);
     setIsRedeeming(false);
-  }, [deal.dealId, isLocked, isExpired, onRedeem]);
+  }, [deal, isLocked, isExpired, onRedeem]);
 
   return (
     <article
@@ -128,9 +131,24 @@ function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
           >
             {deal.restaurantName}
           </span>
+          {/* The value IS the incentive — lead with it, big and unmissable */}
+          {valueLabel && (
+            <p
+              style={{
+                fontSize: 'var(--font-2xl)',
+                fontWeight: 800,
+                color: 'var(--color-success)',
+                lineHeight: 1.1,
+                marginTop: 'var(--space-1)',
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {valueLabel}
+            </p>
+          )}
           <h3
             style={{
-              fontSize: 'var(--font-lg)',
+              fontSize: valueLabel ? 'var(--font-base)' : 'var(--font-lg)',
               fontWeight: 600,
               color: 'var(--color-textPrimary)',
               marginTop: 'var(--space-1)',
@@ -138,6 +156,11 @@ function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
           >
             {deal.title}
           </h3>
+          {qualifier && (
+            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: '2px' }}>
+              {qualifier}
+            </p>
+          )}
         </div>
         {deal.insiderOnly && (
           <span className="badge badge--accent" style={{ flexShrink: 0 }}>
@@ -215,7 +238,7 @@ function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
                 }}
               />
             ) : (
-              'Redeem'
+              deal.code ? 'Get Code' : 'Redeem'
             )}
           </button>
         )}
@@ -230,6 +253,136 @@ function DealCard({ deal, membershipTier, onRedeem }: DealCardProps) {
         )}
       </div>
     </article>
+  );
+}
+
+// ─── Code Reveal Modal ────────────────────────────────────────────────────────
+// The payoff moment: the viewer claimed a deal and gets a real code worth real
+// money. Showing the benefit next to the code is what makes them actually use
+// it at the restaurant — which is the event the whole attribution loop needs.
+
+interface RevealedDeal {
+  deal: DealOffer;
+  code?: string;
+  alreadyClaimed: boolean;
+}
+
+function CodeRevealModal({ revealed, onClose }: { revealed: RevealedDeal; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const { deal, code, alreadyClaimed } = revealed;
+  const valueLabel = formatOfferValue(deal.terms);
+
+  const handleCopy = useCallback(() => {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  }, [code]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Your deal code"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(10, 12, 16, 0.7)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        padding: 'var(--space-4)',
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="card"
+        style={{
+          maxWidth: '420px',
+          width: '100%',
+          textAlign: 'center',
+          padding: 'var(--space-8) var(--space-6)',
+          position: 'relative',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          aria-label="Close"
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: 'var(--space-3)',
+            right: 'var(--space-3)',
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-textMuted)',
+            fontSize: 'var(--font-lg)',
+            cursor: 'pointer',
+            lineHeight: 1,
+          }}
+        >
+          ✕
+        </button>
+
+        <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textMuted)', fontWeight: 500 }}>
+          {deal.restaurantName}
+        </p>
+        {valueLabel && (
+          <p
+            style={{
+              fontSize: '2rem',
+              fontWeight: 800,
+              color: 'var(--color-success)',
+              lineHeight: 1.1,
+              margin: 'var(--space-2) 0',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {valueLabel}
+          </p>
+        )}
+        <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', marginBottom: 'var(--space-5)' }}>
+          {deal.description}
+        </p>
+
+        {code ? (
+          <>
+            <div
+              style={{
+                fontFamily: 'monospace',
+                fontSize: 'var(--font-xl)',
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                color: 'var(--color-textPrimary)',
+                background: 'var(--color-bgElevated)',
+                border: '1px dashed var(--color-accent)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                marginBottom: 'var(--space-3)',
+                userSelect: 'all',
+              }}
+            >
+              {code}
+            </div>
+            <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleCopy}>
+              {copied ? 'Copied!' : 'Copy Code'}
+            </button>
+            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-4)', lineHeight: 1.5 }}>
+              {alreadyClaimed ? 'You already claimed this today — same code, still good. ' : ''}
+              Show this code to your server or enter it at checkout to get the deal.
+              Using it also credits the creator who shared it — at no extra cost to you.
+            </p>
+          </>
+        ) : (
+          <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.6 }}>
+            You're in! Show this screen at {deal.restaurantName} to claim the deal.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -339,17 +492,47 @@ export function DealsHub() {
   );
 
   const navigate = useNavigate();
+  const [revealed, setRevealed] = useState<RevealedDeal | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
 
-  const handleRedeem = useCallback(async (dealId: string) => {
+  const handleRedeem = useCallback(async (deal: DealOffer) => {
+    setRedeemError(null);
+
+    // Code-backed deals ride the public attributed-offer redemption path — no
+    // account needed to claim, which is the whole point: zero friction between
+    // "saw the deal" and "has a code worth money".
+    if (deal.code) {
+      if (isDemoMode()) {
+        setRevealed({ deal, code: deal.code, alreadyClaimed: false });
+        return;
+      }
+      const result = await api.post<{ code?: string; message?: string }>(
+        `/api/offers/${deal.code}/redeem`,
+        { source: 'web' },
+        { public: true }
+      );
+      if (result.status === 'success') {
+        setRevealed({
+          deal,
+          code: result.data?.code || deal.code,
+          alreadyClaimed: result.data?.message === 'Already redeemed',
+        });
+      } else {
+        setRedeemError(result.error || 'This deal is no longer available.');
+      }
+      return;
+    }
+
+    // Legacy insider-only deals (no tracked code) still require an account.
     if (!isAuthenticated) {
       navigate('/');
       return;
     }
-
-    const result = await api.post(`/api/insider/deals/${dealId}/redeem`);
-
+    const result = await api.post(`/api/insider/deals/${deal.dealId}/redeem`);
     if (result.status === 'success') {
-      // Could show a toast/modal with the redemption code here
+      setRevealed({ deal, alreadyClaimed: false });
+    } else {
+      setRedeemError(result.error || 'Could not redeem this deal right now.');
     }
   }, [isAuthenticated, navigate]);
 
@@ -358,9 +541,40 @@ export function DealsHub() {
       <header className="page-header">
         <h1 className="page-title">Deals</h1>
         <p className="page-subtitle">
-          Exclusive offers from restaurants we love.
+          Real discounts from restaurants your favorite creators vouch for.
         </p>
       </header>
+
+      {/* Code reveal — the payoff for claiming a deal */}
+      {revealed && <CodeRevealModal revealed={revealed} onClose={() => setRevealed(null)} />}
+
+      {/* Redeem error */}
+      {redeemError && (
+        <div
+          role="alert"
+          style={{
+            background: 'var(--color-errorMuted, rgba(239,68,68,0.1))',
+            border: '1px solid var(--color-error)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--space-3) var(--space-4)',
+            marginBottom: 'var(--space-5)',
+            color: 'var(--color-error)',
+            fontSize: 'var(--font-sm)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 'var(--space-3)',
+          }}
+        >
+          <span>{redeemError}</span>
+          <button
+            onClick={() => setRedeemError(null)}
+            style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 700 }}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Upgrade banner for free users */}
       {membershipTier === 'free' && (

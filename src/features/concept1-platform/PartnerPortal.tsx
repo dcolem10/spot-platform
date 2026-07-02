@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { LoadingSkeleton } from '../../components/LoadingSkeleton';
 import { isDemoMode, DEMO_CAMPAIGNS, DEMO_OFFERS, DEMO_CAMPAIGN_REPORTS } from '../../data/demoData';
 import PartnerOnboarding from '../onboarding/PartnerOnboarding';
+import { formatOfferValue } from '../../lib/offerValue';
 import type { Campaign, Offer, CampaignReport, PosConnectionStatus, PosProvider, RedemptionSyncResult } from '../../types';
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
@@ -286,7 +287,9 @@ export default function PartnerPortal() {
         type: 'qr',
         description,
         expiresAt: publishDraft.expiresAt || undefined,
-        creatorTerms: {
+        // Structured diner incentive — persisted on the template and inherited
+        // by every creator who adopts it, so the benefit follows the code.
+        terms: {
           discountType: publishDraft.discountType,
           discountValue: Number(publishDraft.discountValue) || 0,
         },
@@ -1066,6 +1069,11 @@ export default function PartnerPortal() {
                     {(offer.adoptedCount ?? 0)} adopted
                   </span>
                 </div>
+                {formatOfferValue(offer.terms) && (
+                  <span className="badge badge--success" style={{ fontWeight: 700, marginBottom: 'var(--space-2)', alignSelf: 'flex-start' }}>
+                    {formatOfferValue(offer.terms)}
+                  </span>
+                )}
                 <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-textSecondary)', lineHeight: 1.5, margin: 0 }}>{offer.description}</p>
                 {offer.expiresAt && (
                   <p style={{ fontSize: 'var(--font-xs)', color: 'var(--color-textMuted)', marginTop: 'var(--space-2)' }}>
